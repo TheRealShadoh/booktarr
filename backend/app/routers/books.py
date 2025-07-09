@@ -14,38 +14,23 @@ logger = logging.getLogger(__name__)
 
 @router.get("/books", response_model=BooksResponse)
 async def get_books():
-    """Get all books grouped by series"""
+    """Get all books grouped by series - returns test data by default"""
     # Check cache first
     cached_result = cache_service.get_api_response("all_books")
     if cached_result:
         return BooksResponse(**cached_result)
     
     try:
-        # Get settings to get Skoolib URL
-        settings = await settings_service.get_settings()
+        logger.info("Loading books - using test data (Skoolib sync moved to manual trigger)")
         
-        if not settings.skoolib_url:
-            raise HTTPException(status_code=400, detail="Skoolib URL not configured")
-        
-        # Parse ISBNs from Skoolib using Playwright
-        try:
-            async with SkoolibPlaywrightParser() as parser:
-                isbns = await parser.get_all_book_isbns(settings.skoolib_url)
-                logger.info(f"Successfully extracted {len(isbns)} ISBNs from Skoolib using Playwright")
-        except Exception as e:
-            logger.error(f"Failed to parse Skoolib with Playwright: {e}")
-            isbns = []
-        
-        # If no ISBNs found, use test data for demonstration
-        if not isbns:
-            logger.info("No ISBNs found from Skoolib SPA, using test data for demonstration")
-            isbns = [
-                "9780143127741",  # The Hobbit
-                "9780547928227",  # The Lord of the Rings
-                "9780553103540",  # A Game of Thrones
-                "9780553108033",  # A Clash of Kings
-                "9780553106633",  # A Storm of Swords
-            ]
+        # Use test data by default - Skoolib sync is now manual via settings
+        isbns = [
+            "9780143127741",  # The Body Keeps the Score
+            "9780547928227",  # The Hobbit
+            "9780553103540",  # A Game of Thrones
+            "9780553108033",  # A Clash of Kings
+            "9780553106633",  # A Storm of Swords
+        ]
         
         # Enrich with metadata
         enriched_books = []

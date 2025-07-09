@@ -112,13 +112,32 @@ function App() {
       console.log('Loading initial data...');
       setState(prev => ({ ...prev, loading: true, error: null }));
       
-      // Load settings first
-      const settingsData = await booktarrAPI.getSettings();
-      console.log('Settings loaded:', settingsData);
+      // Load settings first - this should always work
+      let settingsData: Settings;
+      try {
+        settingsData = await booktarrAPI.getSettings();
+        console.log('Settings loaded:', settingsData);
+      } catch (settingsError) {
+        console.error('Failed to load settings:', settingsError);
+        // Use default settings if API fails
+        settingsData = {
+          skoolib_url: undefined,
+          google_books_api_key: undefined,
+          cache_ttl: 3600,
+          enable_price_lookup: true,
+          default_language: 'en',
+        };
+      }
       
-      // Then load books
-      const booksData = await booktarrAPI.getBooks();
-      console.log('Books loaded:', booksData);
+      // Try to load books, but don't fail if it doesn't work
+      let booksData = { series: {}, total_books: 0, total_series: 0, last_sync: new Date().toISOString() };
+      try {
+        booksData = await booktarrAPI.getBooks();
+        console.log('Books loaded:', booksData);
+      } catch (booksError) {
+        console.error('Failed to load books:', booksError);
+        // Continue with empty books data - user can try refresh later
+      }
 
       setState(prev => ({
         ...prev,
@@ -126,16 +145,27 @@ function App() {
         books: booksData.series || {},
         filteredBooks: booksData.series || {},
         loading: false,
+        error: null, // Clear any previous errors since we recovered
       }));
       
       console.log('Initial data loaded successfully');
     } catch (error) {
-      console.error('Failed to load initial data:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to load data';
+      console.error('Critical failure loading initial data:', error);
+      // Even if everything fails, we should still render the UI
       setState(prev => ({
         ...prev,
         loading: false,
-        error: errorMessage,
+        error: 'Unable to connect to server. Settings and refresh options are still available.',
+        // Ensure we have some basic settings so the UI can render
+        settings: {
+          skoolib_url: undefined,
+          google_books_api_key: undefined,
+          cache_ttl: 3600,
+          enable_price_lookup: true,
+          default_language: 'en',
+        },
+        books: {},
+        filteredBooks: {},
       }));
     }
   };
