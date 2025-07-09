@@ -6,7 +6,7 @@ import traceback
 from ..services import google_books_service, open_library_service
 from ..services.cache_service import cache_service
 from ..services.settings_service import settings_service
-from ..services.skoolib_parser import SkoolibParser
+from ..services.skoolib_spa_parser import SkoolibSPAParser
 from ..models import Book, SeriesGroup, BooksResponse, MetadataSource
 
 router = APIRouter()
@@ -27,13 +27,18 @@ async def get_books():
         if not settings.skoolib_url:
             raise HTTPException(status_code=400, detail="Skoolib URL not configured")
         
-        # Parse ISBNs from Skoolib
-        async with SkoolibParser() as parser:
-            isbns = await parser.get_isbns_from_url(settings.skoolib_url)
+        # Parse ISBNs from Skoolib SPA
+        try:
+            async with SkoolibSPAParser() as parser:
+                isbns = await parser.get_all_book_isbns(settings.skoolib_url)
+                logger.info(f"Successfully extracted {len(isbns)} ISBNs from Skoolib SPA")
+        except Exception as e:
+            logger.error(f"Failed to parse Skoolib SPA: {e}")
+            isbns = []
         
         # If no ISBNs found, use test data for demonstration
         if not isbns:
-            logger.info("No ISBNs found from Skoolib, using test data for demonstration")
+            logger.info("No ISBNs found from Skoolib SPA, using test data for demonstration")
             isbns = [
                 "9780143127741",  # The Hobbit
                 "9780547928227",  # The Lord of the Rings

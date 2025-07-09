@@ -52,24 +52,39 @@ function App() {
   useEffect(() => {
     loadInitialData();
   }, []);
+  
+  // Debug useEffect to track state changes
+  useEffect(() => {
+    console.log('App state changed:', {
+      loading: state.loading,
+      error: state.error,
+      booksCount: Object.keys(state.books).length,
+      currentPage: state.currentPage
+    });
+  }, [state.loading, state.error, state.books, state.currentPage]);
 
   const loadInitialData = async () => {
     try {
+      console.log('Loading initial data...');
       setState(prev => ({ ...prev, loading: true, error: null }));
       
-      // Load settings and books in parallel
-      const [settingsData, booksData] = await Promise.all([
-        booktarrAPI.getSettings(),
-        booktarrAPI.getBooks()
-      ]);
+      // Load settings first
+      const settingsData = await booktarrAPI.getSettings();
+      console.log('Settings loaded:', settingsData);
+      
+      // Then load books
+      const booksData = await booktarrAPI.getBooks();
+      console.log('Books loaded:', booksData);
 
       setState(prev => ({
         ...prev,
         settings: settingsData,
-        books: booksData.series,
-        filteredBooks: booksData.series,
+        books: booksData.series || {},
+        filteredBooks: booksData.series || {},
         loading: false,
       }));
+      
+      console.log('Initial data loaded successfully');
     } catch (error) {
       console.error('Failed to load initial data:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to load data';
