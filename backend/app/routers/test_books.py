@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from typing import List, Dict
 from datetime import datetime
 from ..models import Book, BooksResponse, MetadataSource
+from ..services.metadata_service import MetadataService
 
 router = APIRouter()
 
@@ -76,3 +77,25 @@ async def get_test_books():
         total_series=len(series_dict),
         last_sync=current_time
     )
+
+@router.get("/books/enrich/{isbn}")
+async def test_metadata_enrichment(isbn: str):
+    """Test metadata enrichment for a specific ISBN"""
+    try:
+        async with MetadataService() as service:
+            metadata = await service.enrich_book(isbn)
+            
+            if metadata:
+                return {
+                    "isbn": isbn,
+                    "status": "success",
+                    "metadata": metadata
+                }
+            else:
+                return {
+                    "isbn": isbn,
+                    "status": "not_found",
+                    "message": "No metadata found for this ISBN"
+                }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error enriching metadata: {str(e)}")
