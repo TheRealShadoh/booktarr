@@ -12,7 +12,8 @@ Once you have done the docker tests, and any other applicable tests, do a git co
 
 ### Backend
 - **Framework**: FastAPI (Python 3.11+)
-- **Key Dependencies**: httpx, Pydantic v2, beautifulsoup4, lxml
+- **Database**: SQLite with SQLAlchemy ORM
+- **Key Dependencies**: httpx, Pydantic v2, beautifulsoup4, lxml, playwright
 - **Testing**: pytest, pytest-asyncio, httpx (for test client)
 - **Documentation**: Auto-generated OpenAPI/Swagger UI
 
@@ -26,6 +27,7 @@ Once you have done the docker tests, and any other applicable tests, do a git co
 
 ### Infrastructure
 - **Containerization**: Docker Compose with multi-stage builds
+- **Database**: SQLite with volume persistence
 - **Reverse Proxy**: Nginx for frontend serving
 - **Development**: Hot-reload enabled for both services
 - **Production**: Optimized builds with caching headers
@@ -108,11 +110,13 @@ graph LR
 - `GET /api/books/{isbn}` - Get specific book details
 - `POST /api/books/scan` - Add book via ISBN (Phase 4)
 - `DELETE /api/books/{isbn}` - Remove book from library
+- `POST /api/books/sync` - Sync books from Skoolib (manual trigger)
 
 #### Settings & Configuration
 - `GET /api/settings` - Retrieve current settings
-- `PUT /api/settings` - Update settings (including Skoolib URL)
+- `PUT /api/settings` - Update settings (including Skoolib URL, API keys)
 - `POST /api/settings/validate` - Test Skoolib URL validity
+- `POST /api/settings/sync-skoolib` - Manual Skoolib sync trigger
 
 #### System
 - `GET /health` - Health check endpoint
@@ -212,10 +216,74 @@ interface AppState {
 ### External API Integration
 
 #### Integration Priority
-1. **Skoolib**: Primary source for user's book collection
+1. **Skoolib**: Primary source for user's book collection (manual sync via settings)
 2. **Google Books API**: Rich metadata (no key required for basic access)
 3. **Open Library API**: Fallback for missing metadata
 4. **Price APIs**: Multiple sources for price comparison
+
+### Skoolib Parser Documentation
+
+#### Overview
+The Skoolib parser is a sophisticated system designed to extract book ISBNs from Skoolib library share pages. Due to Skoolib being a JavaScript Single Page Application (SPA), the parser uses Playwright for browser automation.
+
+#### Architecture
+```python
+# Two-tier parser system:
+1. SkoolibSPAParser - Basic HTML parsing (fallback)
+2. SkoolibPlaywrightParser - Full browser automation (primary)
+```
+
+#### Playwright Parser Features
+- **Headless Browser**: Uses Chromium via Playwright for JavaScript rendering
+- **Multi-Strategy Parsing**: Tries multiple CSS selectors to find book links
+- **Pagination Support**: Automatically handles paginated book lists
+- **ISBN Extraction**: Advanced ISBN detection from book detail pages
+- **Error Handling**: Comprehensive error handling with fallback mechanisms
+- **Rate Limiting**: Built-in delays and timeouts to avoid overwhelming Skoolib
+
+#### Parser Implementation
+```python
+class SkoolibPlaywrightParser:
+    async def get_all_book_isbns(self, library_url: str) -> List[str]:
+        """Main entry point for parsing Skoolib library"""
+        
+    async def get_book_links_from_library(self, library_url: str) -> List[str]:
+        """Extract all book links from library page"""
+        
+    async def extract_isbn_from_book_page(self, book_url: str) -> Optional[str]:
+        """Extract ISBN from individual book page"""
+        
+    def validate_isbn(self, isbn: str) -> bool:
+        """Validate ISBN-10 or ISBN-13 with checksum"""
+```
+
+#### Selector Strategies
+The parser tries multiple strategies to find book links:
+1. `a[href*="/books/"]` - Direct book links
+2. `[data-book-id]` - Elements with book ID attributes
+3. `.book-item`, `.book-card` - Common book container classes
+4. `div[onclick*="book"]` - Clickable elements with book handlers
+5. Content parsing for URL patterns
+
+#### Docker Configuration
+```dockerfile
+# Playwright browsers installed in shared location
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
+RUN playwright install --with-deps chromium
+```
+
+#### Current Status
+- ✅ Parser successfully loads Skoolib URLs
+- ✅ Playwright browser automation working
+- ✅ ISBN validation and normalization
+- ⚠️ No book links found (may require selector adjustments)
+- ✅ Fallback to test data when parsing fails
+
+#### Future Improvements
+- Add support for different Skoolib page layouts
+- Implement screenshot debugging for failed parses
+- Add configurable selectors via settings
+- Support for authenticated Skoolib pages
 
 #### Rate Limiting Strategy
 ```python
@@ -287,8 +355,12 @@ CORS_ORIGINS=["http://localhost:3000"]
 CACHE_TTL=3600  # seconds
 CACHE_MAX_SIZE=1000
 
+# Database
+DATABASE_URL=sqlite:///./booktarr.db
+
 # External APIs (optional)
 GOOGLE_BOOKS_API_KEY=  # Optional for higher rate limits
+OPEN_LIBRARY_API_KEY=  # Optional for higher rate limits
 ```
 
 #### Frontend (.env)

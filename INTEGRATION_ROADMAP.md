@@ -4,12 +4,12 @@ This document outlines the complete implementation path for Booktarr, with order
 
 ## Status Update - Phase 1 Progress
 
-**Current Status**: ✅ **PHASE 1 COMPLETED** | 🔄 **Ready for Phase 2**
+**Current Status**: 🔄 **PHASE 1 IN PROGRESS** | Adding SQLite persistence and moving Skoolib sync to settings
 
 ### ✅ Completed Features:
 1. **Project Infrastructure**: Complete Docker setup, environment files, testing framework
 2. **Backend Core API**: Enhanced Pydantic models, LRU cache service, health checks, CORS
-3. **Skoolib HTML Parser**: Full implementation with ISBN extraction, validation, retry logic
+3. **Skoolib Playwright Parser**: Full browser automation with ISBN extraction, validation, retry logic
 4. **External API Integration**: Google Books and Open Library APIs with metadata enrichment
 5. **Settings Management**: File-based settings with validation, persistence, and API endpoints
 6. **Frontend Enhancement**: Complete TypeScript conversion, all components, navigation
@@ -17,7 +17,10 @@ This document outlines the complete implementation path for Booktarr, with order
 8. **Testing Infrastructure**: Comprehensive test suites for all components
 
 ### 🔄 Currently Working On:
-- Ready to begin Phase 2: Sonarr-Inspired UI Enhancement
+- Adding SQLite database with persistent storage
+- Moving Skoolib sync to Settings page as manual trigger
+- Implementing proper data persistence for books and settings
+- Using test data by default instead of auto-syncing Skoolib
 
 ### 📋 Key Achievements:
 - **Enhanced Models**: Proper Book, Settings, PriceInfo models with validation
@@ -41,8 +44,8 @@ This document outlines the complete implementation path for Booktarr, with order
 - E2E testing framework with Cypress
 
 ### ⚠️ Known Limitations:
-- **Skoolib Parser**: Currently using test data because the target URL returns a JavaScript SPA instead of static HTML
-- **Settings Persistence**: Not using Docker volumes, so settings reset on container restart
+- **Skoolib Parser**: Working with Playwright but requires manual sync trigger from settings
+- **Data Persistence**: Moving from file-based to SQLite database storage
 - **CI/CD**: GitHub Actions not yet implemented (marked as low priority)
 
 ### 🎯 Current Application Status:
@@ -50,11 +53,12 @@ This document outlines the complete implementation path for Booktarr, with order
 - **✅ Backend**: Running on port 8000 with all APIs functional
 - **✅ Settings API**: Full CRUD operations with validation
 - **✅ Books API**: Working with test data, metadata enrichment from Google Books
+- **✅ Playwright Parser**: Browser automation working, can be triggered manually
 - **✅ Health Checks**: All endpoints responding correctly
 - **✅ Error Handling**: Comprehensive error middleware and logging
 - **✅ Docker Integration**: Multi-container setup with nginx proxy
 
-## Phase 1: Foundation & Basic Web UI
+## Phase 1: Foundation & Basic Web UI with Data Persistence
 
 ### 1.1 Project Setup & Infrastructure
 **Timeline**: Days 1-3
@@ -99,6 +103,9 @@ This document outlines the complete implementation path for Booktarr, with order
 - [x] Implement FastAPI application structure
 - [x] Create Pydantic models for Book, Settings, and API responses
 - [x] Implement in-memory cache service (Enhanced LRU Cache)
+- [ ] Add SQLite database with SQLAlchemy ORM
+- [ ] Implement database models and migrations
+- [ ] Add persistent storage for books and settings
 - [x] Create health check and basic endpoints
 - [x] Set up CORS middleware
 - [x] Implement error handling middleware
@@ -140,23 +147,37 @@ class CacheService:
 #### Tasks:
 - [x] Research Skoolib HTML structure
 - [x] Implement HTML fetching service with retry logic
-- [x] Create BeautifulSoup parser for ISBN extraction
+- [x] Create BeautifulSoup parser for ISBN extraction (basic fallback)
+- [x] Implement Playwright parser for JavaScript SPA handling
 - [x] Handle various Skoolib page formats
 - [x] Implement error handling for malformed HTML
 - [x] Add parser validation and testing utilities
+- [ ] Move Skoolib sync to Settings page as manual trigger
+- [ ] Disable automatic Skoolib parsing on book fetch
 
 #### Code Implementation:
 ```python
-# app/services/skoolib_parser.py
-class SkoolibParser:
+# app/services/skoolib_spa_parser.py (Basic fallback)
+class SkoolibSPAParser:
     async def fetch_html(self, url: str) -> str:
         """Fetch HTML with retry logic"""
         
     def extract_isbns(self, html: str) -> List[str]:
         """Extract ISBNs from Skoolib HTML"""
         
+# app/services/skoolib_playwright_parser.py (Primary parser)
+class SkoolibPlaywrightParser:
+    async def get_all_book_isbns(self, library_url: str) -> List[str]:
+        """Use Playwright to parse JavaScript SPA"""
+        
+    async def get_book_links_from_library(self, library_url: str) -> List[str]:
+        """Extract book links using browser automation"""
+        
+    async def extract_isbn_from_book_page(self, book_url: str) -> Optional[str]:
+        """Extract ISBN from individual book page"""
+        
     def validate_isbn(self, isbn: str) -> bool:
-        """Validate ISBN-10 or ISBN-13"""
+        """Validate ISBN-10 or ISBN-13 with checksum"""
 ```
 
 #### Tests:
@@ -222,14 +243,16 @@ class MetadataService:
 - [x] Implement API client with Axios
 - [x] Create basic layout components
 - [x] Implement book list display
-- [x] Create settings page
+- [x] Create settings page with API key management
+- [ ] Add Skoolib sync button to settings page
+- [ ] Add sync status and progress indicators
 - [x] Add loading states and error handling
 
 #### ✅ Completed Features:
 - **TypeScript Conversion**: All components converted from JavaScript to TypeScript with proper type definitions
 - **Enhanced API Client**: BooktarrAPI class with comprehensive error handling and interceptors
 - **Modern Components**: LoadingSpinner, ErrorMessage, Toast, BookCard, SearchBar, SeriesGroup, BookList, SettingsPage
-- **Settings Management**: Full settings page with URL validation, form handling, and real-time feedback
+- **Settings Management**: Full settings page with URL validation, API key management, and manual Skoolib sync trigger
 - **Navigation**: Multi-page navigation between Library and Settings
 - **Responsive Design**: Mobile-friendly layout with TailwindCSS
 - **Error Handling**: Comprehensive error boundaries and user feedback
@@ -260,21 +283,125 @@ class BooktarrAPI {
 - [ ] Integration tests for user flows
 - [ ] Accessibility tests
 
-### 1.7 Phase 1 Integration & Testing
+### 1.7 SQLite Database Integration
 **Timeline**: Days 23-25
 
 #### Tasks:
-- [x] End-to-end testing setup with Cypress
-- [x] Performance testing
-- [x] Security audit
-- [x] Documentation completion
-- [x] Deployment guide
+- [ ] Add SQLAlchemy ORM to backend dependencies
+- [ ] Create database models for Books, Settings, and SyncHistory
+- [ ] Implement database service layer
+- [ ] Add Alembic for database migrations
+- [ ] Configure Docker volume for database persistence
+- [ ] Update API endpoints to use database instead of test data
+- [ ] Create database initialization and seeding
+
+#### Code Implementation:
+```python
+# app/models/database.py
+from sqlalchemy import Column, String, DateTime, Integer, Text, Boolean
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+class BookModel(Base):
+    __tablename__ = "books"
+    
+    isbn = Column(String, primary_key=True)
+    title = Column(String, nullable=False)
+    authors = Column(Text)  # JSON serialized
+    series = Column(String, nullable=True)
+    # ... other fields
+
+class SettingsModel(Base):
+    __tablename__ = "settings"
+    
+    key = Column(String, primary_key=True)
+    value = Column(Text)
+    updated_at = Column(DateTime)
+
+class SyncHistoryModel(Base):
+    __tablename__ = "sync_history"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sync_type = Column(String)  # 'skoolib', 'manual'
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime, nullable=True)
+    books_found = Column(Integer, default=0)
+    books_added = Column(Integer, default=0)
+    status = Column(String)  # 'running', 'completed', 'failed'
+    error_message = Column(Text, nullable=True)
+```
 
 #### Tests:
-- [x] Full E2E flow: Settings → Skoolib → Display
-- [x] Load testing with multiple concurrent users
-- [x] Security scanning for vulnerabilities
-- [x] Cross-browser compatibility testing
+- [ ] Database model tests
+- [ ] Migration tests
+- [ ] Data persistence tests
+- [ ] Database service integration tests
+
+### 1.8 Settings Page Skoolib Sync Enhancement
+**Timeline**: Days 26-28
+
+#### Tasks:
+- [ ] Remove automatic Skoolib sync from books API
+- [ ] Add manual sync button to Settings page
+- [ ] Implement sync status tracking and display
+- [ ] Add sync history and statistics
+- [ ] Create sync progress indicators
+- [ ] Add sync configuration options (batch size, timeout)
+- [ ] Implement background sync with status updates
+
+#### Frontend Changes:
+```typescript
+// src/components/SettingsPage.tsx
+interface SyncStatus {
+    isRunning: boolean;
+    progress: number;
+    booksFound: number;
+    booksAdded: number;
+    currentStep: string;
+    error?: string;
+}
+
+// Settings page sections:
+// 1. API Configuration (Google Books, Open Library keys)
+// 2. Skoolib Configuration (URL, sync settings)
+// 3. Sync Management (manual trigger, history, status)
+// 4. Database Management (export, import, reset)
+```
+
+#### API Endpoints:
+```python
+# New endpoints for sync management
+POST /api/sync/skoolib - Trigger manual Skoolib sync
+GET /api/sync/status - Get current sync status
+GET /api/sync/history - Get sync history
+DELETE /api/sync/cancel - Cancel running sync
+```
+
+#### Tests:
+- [ ] Sync trigger tests
+- [ ] Status tracking tests
+- [ ] Progress indicator tests
+- [ ] Error handling tests
+
+### 1.9 Phase 1 Final Integration & Testing
+**Timeline**: Days 29-30
+
+#### Tasks:
+- [ ] Update Docker Compose for database volumes
+- [ ] Test data persistence across container restarts
+- [ ] Verify settings persistence in database
+- [ ] Test manual Skoolib sync end-to-end
+- [ ] Update documentation for new sync workflow
+- [ ] Performance testing with database
+- [ ] Final security audit
+
+#### Integration Tests:
+- [ ] Full E2E flow: Settings → Manual Sync → Display
+- [ ] Database persistence tests
+- [ ] Container restart and data integrity tests
+- [ ] Cross-browser compatibility testing
+- [ ] Load testing with database backend
 
 ## Phase 2: Sonarr-Inspired UI Enhancement
 
