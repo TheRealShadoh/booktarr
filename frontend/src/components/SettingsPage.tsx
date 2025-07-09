@@ -124,12 +124,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                     value={formData.skoolib_url || ''}
                     onChange={(e) => handleInputChange('skoolib_url', e.target.value)}
                     placeholder="https://skoolib.com/share/..."
+                    data-testid="skoolib-url-input"
                     className="flex-1 bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
                   />
                   <button
                     type="button"
                     onClick={handleValidateUrl}
                     disabled={validationLoading}
+                    data-testid="validate-url-button"
                     className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors"
                   >
                     {validationLoading ? 'Validating...' : 'Validate'}
@@ -175,6 +177,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                   value={formData.google_books_api_key || ''}
                   onChange={(e) => handleInputChange('google_books_api_key', e.target.value)}
                   placeholder="Enter your Google Books API key"
+                  data-testid="google-api-key-input"
                   className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
                 />
                 <p className="text-sm text-gray-400 mt-1">
@@ -199,6 +202,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                   max="86400"
                   value={formData.cache_ttl || 3600}
                   onChange={(e) => handleInputChange('cache_ttl', parseInt(e.target.value))}
+                  data-testid="cache-ttl-input"
                   className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:border-purple-500"
                 />
                 <p className="text-sm text-gray-400 mt-1">
@@ -213,6 +217,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                 <select
                   value={formData.default_language || 'en'}
                   onChange={(e) => handleInputChange('default_language', e.target.value)}
+                  data-testid="default-language-select"
                   className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:border-purple-500"
                 >
                   <option value="en">English</option>
@@ -233,6 +238,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                     type="checkbox"
                     checked={formData.enable_price_lookup || false}
                     onChange={(e) => handleInputChange('enable_price_lookup', e.target.checked)}
+                    data-testid="enable-price-lookup-checkbox"
                     className="rounded bg-gray-700 border-gray-600 text-purple-600 focus:ring-purple-500"
                   />
                   <span className="text-sm font-medium text-gray-300">
@@ -251,6 +257,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             <button
               type="submit"
               disabled={loading}
+              data-testid="save-settings-button"
               className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white px-6 py-2 rounded-md transition-colors"
             >
               {loading ? 'Saving...' : 'Save Settings'}

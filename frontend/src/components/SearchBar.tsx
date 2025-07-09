@@ -51,6 +51,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
           placeholder={placeholder}
           value={query}
           onChange={handleInputChange}
+          data-testid="search-input"
           className="w-full bg-gray-800 text-white pl-10 pr-20 py-3 rounded-lg border border-gray-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors"
         />
         
@@ -69,6 +70,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
         
         <button
           type="submit"
+          data-testid="search-button"
           className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500"
           aria-label="Search"
         >

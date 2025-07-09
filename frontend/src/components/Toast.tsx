@@ -70,7 +70,7 @@ const Toast: React.FC<ToastProps> = ({
   };
 
   return (
-    <div className={`fixed top-4 right-4 z-50 flex items-center space-x-2 p-4 rounded-lg border backdrop-blur-sm ${typeStyles[type]} animate-slide-in`}>
+    <div className={`fixed top-4 right-4 z-50 flex items-center space-x-2 p-4 rounded-lg border backdrop-blur-sm ${typeStyles[type]} animate-slide-in toast-${type}`} data-testid="toast">
       <div className="flex-shrink-0">
         {iconTypes[type]}
       </div>

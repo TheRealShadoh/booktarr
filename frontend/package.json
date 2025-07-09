@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.14",
+    "cypress": "^13.6.0",
     "eslint": "^8.0.0",
     "postcss": "^8.4.24",
     "prettier": "^2.8.0",
@@ -30,6 +31,8 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "test:ci": "react-scripts test --ci --coverage --watchAll=false",
+    "test:e2e": "cypress open",
+    "test:e2e:ci": "cypress run",
     "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
     "format": "prettier --write src/**/*.{js,jsx,ts,tsx,json,css,md}",
     "analyze": "npm run build && npx webpack-bundle-analyzer build/static/js/*.js",
