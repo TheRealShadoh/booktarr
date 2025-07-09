@@ -6,7 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Booktarr is a book library management system that imports books from Skoolib share links and displays them in a Sonarr-inspired interface with rich metadata and pricing information. The project evolves from a basic web UI to a mobile-capable progressive web app with barcode scanning functionality.
 Always use the INTEGRATION_ROADMAP.md file to see what you should be doing, and where you should be going. Update that file as you go with errors, status, workaround, features, needed additions to complete the goal, etc.
-
+When you think you've completed a step in the integration road map, ALWAYS build new docker images, redeploy the containers with the new images, and check for errors and if your implemented step/task is working. If docker isn't available don't try a workaround just tell me and I'll fix it.
+Once you have done the docker tests, and any other applicable tests, do a git commit with the information around that commit- then begin the next step/task/phase. This way you won't need my input, but I can roll back to different commits if needed.
 ## Tech Stack
 
 ### Backend

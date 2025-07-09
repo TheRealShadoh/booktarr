@@ -1,17 +1,19 @@
 from fastapi import APIRouter, HTTPException
-from typing import List
-from ..services import skoolib_service, google_books_service, open_library_service, cache_service
-from ..models import Book, SeriesGroup
+from typing import List, Dict
+from datetime import datetime
+from ..services import skoolib_service, google_books_service, open_library_service
+from ..services.cache_service import cache_service
+from ..models import Book, SeriesGroup, BooksResponse, MetadataSource
 
 router = APIRouter()
 
-@router.get("/books", response_model=List[SeriesGroup])
+@router.get("/books", response_model=BooksResponse)
 async def get_books():
     """Get all books grouped by series"""
     # Check cache first
-    cached_result = cache_service.cache.get("all_books")
+    cached_result = cache_service.get_api_response("all_books")
     if cached_result:
-        return cached_result
+        return BooksResponse(**cached_result)
     
     try:
         # Fetch from Skoolib
@@ -29,10 +31,18 @@ async def get_books():
         # Group by series
         grouped_books = group_books_by_series(enriched_books)
         
-        # Cache result
-        cache_service.cache.set("all_books", grouped_books)
+        # Create response object
+        response_data = {
+            "series": grouped_books,
+            "total_books": len(enriched_books),
+            "total_series": len(grouped_books),
+            "last_sync": datetime.now()
+        }
         
-        return grouped_books
+        # Cache result
+        cache_service.set_api_response("all_books", response_data)
+        
+        return BooksResponse(**response_data)
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing books: {str(e)}")
@@ -51,19 +61,29 @@ async def enrich_book_metadata(book: dict) -> Book:
             metadata = await open_library_service.fetch_book_metadata_fallback(isbn)
     
     # Create Book object with enriched data
+    current_time = datetime.now()
     return Book(
-        id=book.get("id", isbn or book.get("title", "unknown")),
+        isbn=isbn or book.get("title", "unknown"),
         title=metadata.get("title") if metadata else book.get("title", "Unknown Title"),
-        author=", ".join(metadata.get("authors", [])) if metadata else book.get("author", "Unknown Author"),
-        isbn10=book.get("isbn10"),
-        isbn13=book.get("isbn13"),
-        shelves=book.get("shelves", []),
+        authors=metadata.get("authors", []) if metadata else [book.get("author", "Unknown Author")],
         series=metadata.get("series") if metadata else None,
-        cover_image=metadata.get("cover_image") if metadata else None,
-        pricing=metadata.get("pricing") if metadata else None
+        series_position=metadata.get("series_position") if metadata else None,
+        publisher=metadata.get("publisher") if metadata else None,
+        published_date=metadata.get("published_date") if metadata else None,
+        page_count=metadata.get("page_count") if metadata else None,
+        thumbnail_url=metadata.get("thumbnail_url") if metadata else None,
+        description=metadata.get("description") if metadata else None,
+        categories=metadata.get("categories", []) if metadata else [],
+        pricing=metadata.get("pricing", []) if metadata else [],
+        metadata_source=MetadataSource.SKOOLIB,
+        added_date=current_time,
+        last_updated=current_time,
+        # Legacy fields for backward compatibility
+        isbn10=book.get("isbn10"),
+        isbn13=book.get("isbn13")
     )
 
-def group_books_by_series(books: List[Book]) -> List[SeriesGroup]:
+def group_books_by_series(books: List[Book]) -> Dict[str, List[Book]]:
     """Group books by series"""
     series_map = {}
     standalone = []
@@ -76,16 +96,13 @@ def group_books_by_series(books: List[Book]) -> List[SeriesGroup]:
         else:
             standalone.append(book)
     
-    # Create series groups
-    groups = []
+    # Sort books within each series by series_position, then by title
     for series_name, series_books in series_map.items():
-        # Sort books within series by title
-        series_books.sort(key=lambda x: x.title)
-        groups.append(SeriesGroup(series_name=series_name, books=series_books))
+        series_books.sort(key=lambda x: (x.series_position or 999, x.title))
     
     # Add standalone books as a group
     if standalone:
         standalone.sort(key=lambda x: x.title)
-        groups.append(SeriesGroup(series_name="Standalone", books=standalone))
+        series_map["Standalone"] = standalone
     
-    return groups
+    return series_map

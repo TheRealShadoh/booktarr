@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import books
+from .routers import test_books
 
 app = FastAPI(title="Booktarr API", version="1.0.0")
 
@@ -15,6 +16,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(books.router, prefix="/api")
+app.include_router(test_books.router, prefix="/api")
 
 @app.get("/")
 def read_root():
