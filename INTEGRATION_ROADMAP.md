@@ -17,8 +17,9 @@ This document outlines the complete implementation path for Booktarr, with order
 8. **Testing Infrastructure**: Comprehensive test suites for all components
 
 ### 🔄 Currently Working On:
-- Adding SQLite database with persistent storage
-- Moving Skoolib sync to Settings page as manual trigger
+- **PRIORITY**: Verify and enhance Settings button and page functionality (1.7)
+- Adding SQLite database with persistent storage (1.8)
+- Moving Skoolib sync to Settings page as manual trigger (1.9)
 - Implementing proper data persistence for books and settings
 - Using test data by default instead of auto-syncing Skoolib
 
@@ -283,8 +284,55 @@ class BooktarrAPI {
 - [ ] Integration tests for user flows
 - [ ] Accessibility tests
 
-### 1.7 SQLite Database Integration
-**Timeline**: Days 23-25
+### 1.7 Settings UI Verification & Enhancement
+**Timeline**: Day 23 (PRIORITY - DO THIS FIRST)
+
+#### Tasks:
+- [ ] Verify Settings button is visible and accessible in current UI
+- [ ] Ensure Settings page navigation is working correctly
+- [ ] Test Settings page loads without errors
+- [ ] Verify current settings form functionality (URL validation, save/load)
+- [ ] Add API key input fields for Google Books and Open Library APIs
+- [ ] Ensure settings persist correctly across page refreshes
+- [ ] Add placeholder for future Skoolib sync section
+- [ ] Test settings page accessibility and responsive design
+
+#### Current Status Check:
+```bash
+# Verify these work in the current deployment:
+1. Navigate to http://localhost:3000
+2. Click "Settings" button in header
+3. Verify settings page loads correctly
+4. Test Skoolib URL input and validation
+5. Verify save/load functionality works
+```
+
+#### Enhancement Tasks:
+```typescript
+// src/components/SettingsPage.tsx - Add these sections:
+interface SettingsForm {
+    skoolib_url: string;
+    google_books_api_key: string;  // NEW
+    open_library_api_key: string;  // NEW
+    cache_ttl: number;
+    enable_price_lookup: boolean;
+    default_language: string;
+}
+
+// Add new form sections:
+// 1. API Configuration section
+// 2. Placeholder for Sync Management section (to be implemented in 1.8)
+```
+
+#### Tests:
+- [ ] Settings page accessibility tests
+- [ ] Form validation tests
+- [ ] API key field tests
+- [ ] Navigation tests
+- [ ] Responsive design tests
+
+### 1.8 SQLite Database Integration
+**Timeline**: Days 24-26
 
 #### Tasks:
 - [ ] Add SQLAlchemy ORM to backend dependencies
@@ -338,8 +386,8 @@ class SyncHistoryModel(Base):
 - [ ] Data persistence tests
 - [ ] Database service integration tests
 
-### 1.8 Settings Page Skoolib Sync Enhancement
-**Timeline**: Days 26-28
+### 1.9 Settings Page Skoolib Sync Enhancement
+**Timeline**: Days 27-29
 
 #### Tasks:
 - [ ] Remove automatic Skoolib sync from books API
@@ -384,8 +432,8 @@ DELETE /api/sync/cancel - Cancel running sync
 - [ ] Progress indicator tests
 - [ ] Error handling tests
 
-### 1.9 Phase 1 Final Integration & Testing
-**Timeline**: Days 29-30
+### 1.10 Phase 1 Final Integration & Testing
+**Timeline**: Days 30-31
 
 #### Tasks:
 - [ ] Update Docker Compose for database volumes
