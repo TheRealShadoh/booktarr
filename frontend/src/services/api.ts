@@ -160,7 +160,7 @@ class BooktarrAPI {
 export const booktarrAPI = new BooktarrAPI();
 
 // Export individual functions for backward compatibility
-export const fetchBooks = () => booktarrAPI.getTestBooks();
+export const fetchBooks = () => booktarrAPI.getBooks();
 export const fetchSettings = () => booktarrAPI.getSettings();
 export const updateSettings = (settings: SettingsUpdateRequest) => 
   booktarrAPI.updateSettings(settings);

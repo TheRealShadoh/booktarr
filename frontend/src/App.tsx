@@ -60,7 +60,7 @@ function App() {
       // Load settings and books in parallel
       const [settingsData, booksData] = await Promise.all([
         booktarrAPI.getSettings(),
-        booktarrAPI.getTestBooks()
+        booktarrAPI.getBooks()
       ]);
 
       setState(prev => ({
@@ -85,7 +85,7 @@ function App() {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
       
-      const data = await booktarrAPI.getTestBooks();
+      const data = await booktarrAPI.getBooks();
       setState(prev => ({
         ...prev,
         books: data.series,
