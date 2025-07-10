@@ -6,6 +6,7 @@ import { Book } from '../types';
 import LoadingSpinner from './LoadingSpinner';
 import Toast from './Toast';
 import BarcodeScanner from './BarcodeScanner';
+import ScanReviewPage from './ScanReviewPage';
 import { useStateManager } from '../hooks/useStateManager';
 
 interface SearchResult {
@@ -38,8 +39,8 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
   const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
   const [searchDebounce, setSearchDebounce] = useState<NodeJS.Timeout | null>(null);
   const [showScanner, setShowScanner] = useState(false);
-  const [showBatchScanner, setShowBatchScanner] = useState(false);
-  const [quickAddMode, setQuickAddMode] = useState(false);
+  const [showReview, setShowReview] = useState(false);
+  const [scannedISBNs, setScannedISBNs] = useState<string[]>([]);
 
   // Auto-search with debouncing
   useEffect(() => {
@@ -126,103 +127,29 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
     }
   };
 
-  const handleScanResult = useCallback(async (isbn: string) => {
+  // Handle scanner completion - go to review page
+  const handleScanComplete = useCallback((isbns: string[]) => {
     setShowScanner(false);
-    
-    if (quickAddMode) {
-      // Quick add mode - search and add the first result automatically
-      try {
-        setLoading(true);
-        const results = await searchWithCaching(isbn);
-        
-        if (results.length > 0) {
-          const firstResult = results[0];
-          await handleAddBook(firstResult.book, firstResult.source);
-          showToast(`Quick added: ${firstResult.book.title}`, 'success');
-        } else {
-          showToast(`No book found for ISBN: ${isbn}`, 'warning');
-          // Fall back to detailed mode for this ISBN
-          setQuery(isbn);
-          handleSearch(isbn);
-        }
-      } catch (error) {
-        console.error('Quick add failed:', error);
-        showToast('Quick add failed, showing search results', 'error');
-        setQuery(isbn);
-        handleSearch(isbn);
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      // Detailed mode - show search results
-      setQuery(isbn);
-      handleSearch(isbn);
-      showToast(`Scanned ISBN: ${isbn}`, 'success');
-    }
-  }, [handleSearch, showToast, quickAddMode, searchWithCaching, handleAddBook]);
+    setScannedISBNs(isbns);
+    setShowReview(true);
+  }, []);
 
-  const handleBatchComplete = useCallback(async (isbns: string[]) => {
-    setShowBatchScanner(false);
-    
-    if (isbns.length === 0) {
-      showToast('No ISBNs in batch', 'warning');
-      return;
-    }
-
-    if (quickAddMode) {
-      // Quick add mode - automatically add all books
-      showToast(`Quick adding batch of ${isbns.length} ISBNs...`, 'info');
-      
-      let successCount = 0;
-      let failCount = 0;
-      
-      for (const isbn of isbns) {
-        try {
-          const results = await searchWithCaching(isbn);
-          
-          if (results.length > 0) {
-            const firstResult = results[0];
-            await handleAddBook(firstResult.book, firstResult.source);
-            successCount++;
-          } else {
-            failCount++;
-            console.warn(`No book found for ISBN: ${isbn}`);
-          }
-          
-          // Small delay between operations
-          await new Promise(resolve => setTimeout(resolve, 200));
-        } catch (error) {
-          failCount++;
-          console.error(`Failed to add book for ISBN ${isbn}:`, error);
-        }
-      }
-      
-      showToast(
-        `Quick add complete: ${successCount} added, ${failCount} failed`, 
-        successCount > 0 ? 'success' : 'warning'
-      );
-    } else {
-      // Detailed mode - show search results for all ISBNs
-      showToast(`Processing batch of ${isbns.length} ISBNs...`, 'info');
-      
-      for (const isbn of isbns) {
-        try {
-          await handleSearch(isbn);
-          // Small delay between searches to prevent overwhelming the API
-          await new Promise(resolve => setTimeout(resolve, 100));
-        } catch (error) {
-          console.error(`Failed to search for ISBN ${isbn}:`, error);
-        }
-      }
-      
-      showToast(`Batch scan complete: ${isbns.length} ISBNs processed`, 'success');
-    }
+  // Handle review completion - refresh library
+  const handleReviewComplete = useCallback(() => {
+    setShowReview(false);
+    setScannedISBNs([]);
     
     // Notify parent component
     if (onBookAdded) {
       onBookAdded();
     }
-  }, [handleSearch, showToast, onBookAdded, quickAddMode, searchWithCaching, handleAddBook]);
+  }, [onBookAdded]);
+
+  // Handle back to scanner
+  const handleBackToScanner = useCallback(() => {
+    setShowReview(false);
+    setShowScanner(true);
+  }, []);
 
   const formatAuthors = (authors: string[]) => {
     if (authors.length === 0) return 'Unknown Author';
@@ -295,22 +222,12 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
                   <button
                     onClick={() => setShowScanner(true)}
                     className="p-1 text-booktarr-textMuted hover:text-booktarr-accent hover:bg-booktarr-surface2 rounded transition-colors"
-                    title="Scan single ISBN barcode"
+                    title="Scan ISBN barcodes"
                     disabled={loading}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => setShowBatchScanner(true)}
-                    className="p-1 text-booktarr-textMuted hover:text-booktarr-accent hover:bg-booktarr-surface2 rounded transition-colors"
-                    title="Batch scan multiple ISBN barcodes"
-                    disabled={loading}
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
                   </button>
                   {loading ? (
@@ -324,7 +241,7 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
               </div>
               <div className="flex items-center justify-between mt-1">
                 <p className="text-xs text-booktarr-textMuted">
-                  Search automatically starts after typing 3+ characters, scan single ISBN, or batch scan multiple ISBNs
+                  Search automatically starts after typing 3+ characters or use the scanner to add multiple books
                 </p>
                 <p className="text-xs text-booktarr-textMuted">
                   Results are cached for faster access
@@ -332,49 +249,23 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
               </div>
             </div>
 
-            {/* Quick Add Mode Toggle */}
+            {/* Scanner Button */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={quickAddMode}
-                    onChange={(e) => setQuickAddMode(e.target.checked)}
-                    className="rounded border-booktarr-border text-booktarr-accent focus:ring-booktarr-accent focus:ring-offset-0 focus:ring-2"
-                  />
-                  <span className="text-sm text-booktarr-text">Quick Add Mode</span>
-                </label>
-                <div className="text-xs text-booktarr-textMuted">
-                  {quickAddMode 
-                    ? 'Scanned books will be added automatically' 
-                    : 'Scanned books will show search results first'
-                  }
-                </div>
+              <div className="text-sm text-booktarr-textSecondary">
+                Scan multiple ISBN barcodes to quickly add books to your library
               </div>
               
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setShowScanner(true)}
-                  className="booktarr-btn booktarr-btn-ghost text-sm"
-                  disabled={loading}
-                >
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  Scan Single
-                </button>
-                <button
-                  onClick={() => setShowBatchScanner(true)}
-                  className="booktarr-btn booktarr-btn-ghost text-sm"
-                  disabled={loading}
-                >
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
-                  Batch Scan
-                </button>
-              </div>
+              <button
+                onClick={() => setShowScanner(true)}
+                className="booktarr-btn booktarr-btn-primary"
+                disabled={loading}
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Scan Barcodes
+              </button>
             </div>
             
             {searchResults.length > 0 && (
@@ -589,20 +480,17 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
       {/* Barcode Scanner */}
       {showScanner && (
         <BarcodeScanner
-          onScan={handleScanResult}
+          onComplete={handleScanComplete}
           onClose={() => setShowScanner(false)}
-          continuous={false}
         />
       )}
 
-      {/* Batch Barcode Scanner */}
-      {showBatchScanner && (
-        <BarcodeScanner
-          onScan={handleScanResult}
-          onClose={() => setShowBatchScanner(false)}
-          continuous={true}
-          batchMode={true}
-          onBatchComplete={handleBatchComplete}
+      {/* Scan Review Page */}
+      {showReview && (
+        <ScanReviewPage
+          scannedISBNs={scannedISBNs}
+          onComplete={handleReviewComplete}
+          onBack={handleBackToScanner}
         />
       )}
     </div>

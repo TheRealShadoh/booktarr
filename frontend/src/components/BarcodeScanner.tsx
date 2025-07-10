@@ -9,19 +9,13 @@ import { useAppContext } from '../context/AppContext';
 import { scanHistory } from '../services/scanHistory';
 
 interface BarcodeScannerProps {
-  onScan: (isbn: string) => void;
+  onComplete: (isbns: string[]) => void;
   onClose: () => void;
-  continuous?: boolean;
-  batchMode?: boolean;
-  onBatchComplete?: (isbns: string[]) => void;
 }
 
 const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ 
-  onScan, 
-  onClose,
-  continuous = false,
-  batchMode = false,
-  onBatchComplete 
+  onComplete, 
+  onClose
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const scannerRef = useRef<BrowserMultiFormatReader | null>(null);
@@ -44,18 +38,18 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const [showManualInput, setShowManualInput] = useState(false);
   const [torchEnabled, setTorchEnabled] = useState(false);
   
-  // Batch scanning state
+  // Unified scanning state
   const [scannedISBNs, setScannedISBNs] = useState<string[]>([]);
   const [duplicateCount, setDuplicateCount] = useState(0);
-  const [isInBatchMode, setIsInBatchMode] = useState(batchMode);
   
   // Session tracking
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [batchId, setBatchId] = useState<string | null>(null);
 
-  // Initialize scanner
+  // Initialize scanner with better detection settings
   useEffect(() => {
     if (!scannerRef.current) {
+      console.log('Initializing ZXing scanner...');
       const hints = new Map();
       hints.set(DecodeHintType.POSSIBLE_FORMATS, [
         BarcodeFormat.EAN_13,
@@ -64,13 +58,19 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
         BarcodeFormat.UPC_E,
         BarcodeFormat.CODE_128,
         BarcodeFormat.CODE_39,
+        BarcodeFormat.CODE_93,
+        BarcodeFormat.ITF,
+        BarcodeFormat.CODABAR,
       ]);
+      hints.set(DecodeHintType.TRY_HARDER, true);
       
       scannerRef.current = new BrowserMultiFormatReader(hints);
+      console.log('ZXing scanner initialized');
     }
 
     return () => {
       if (scannerRef.current) {
+        console.log('Resetting ZXing scanner');
         scannerRef.current.reset();
       }
     };
@@ -80,20 +80,18 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   useEffect(() => {
     const initSession = async () => {
       try {
-        const newSessionId = await scanHistory.startScanSession(isInBatchMode ? 'batch' : 'single');
+        const newSessionId = await scanHistory.startScanSession('batch');
         setSessionId(newSessionId);
         
-        if (isInBatchMode) {
-          const newBatchId = `batch_${Date.now()}`;
-          setBatchId(newBatchId);
-        }
+        const newBatchId = `batch_${Date.now()}`;
+        setBatchId(newBatchId);
       } catch (error) {
         console.error('Failed to initialize scan session:', error);
       }
     };
 
     initSession();
-  }, [isInBatchMode]);
+  }, []);
 
   // Cleanup session on unmount
   useEffect(() => {
@@ -103,6 +101,45 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       }
     };
   }, [sessionId]);
+
+  // Play beep sound
+  const playBeep = useCallback(async () => {
+    try {
+      console.log('Attempting to play beep sound...');
+      
+      // Create audio context and beep sound
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Resume audio context if suspended (required after user interaction)
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+      
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.2);
+      
+      console.log('Beep sound played successfully');
+    } catch (error) {
+      console.log('Audio failed, trying vibration fallback:', error);
+      // Fallback to vibration if audio fails
+      if ('vibrate' in navigator) {
+        navigator.vibrate(200);
+        console.log('Vibration played');
+      } else {
+        console.log('No audio or vibration available');
+      }
+    }
+  }, []);
 
   // Validate ISBN-13
   const validateISBN13 = useCallback((isbn: string): boolean => {
@@ -149,34 +186,59 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
 
   // Extract and validate ISBN
   const extractISBN = useCallback((text: string): string | null => {
-    // Remove any non-digit characters
-    const digits = text.replace(/\D/g, '');
+    console.log('Extracting ISBN from:', text);
     
-    // Check for ISBN-13
+    // Remove any non-digit characters for initial check
+    const digits = text.replace(/\D/g, '');
+    console.log('Digits only:', digits);
+    
+    // Check for ISBN-13 (most common for books)
     if (digits.length === 13 && (digits.startsWith('978') || digits.startsWith('979'))) {
+      console.log('Potential ISBN-13 found:', digits);
       if (validateISBN13(digits)) {
+        console.log('Valid ISBN-13:', digits);
         return digits;
       }
     }
     
     // Check for ISBN-10
     if (digits.length === 10) {
+      console.log('Potential ISBN-10 found:', text);
       if (validateISBN10(text)) { // Use original text for ISBN-10 (might have X)
-        return convertISBN10to13(text);
+        const isbn13 = convertISBN10to13(text);
+        console.log('Converted ISBN-10 to ISBN-13:', isbn13);
+        return isbn13;
       }
     }
 
-    // Check if the text contains an ISBN pattern
+    // More flexible pattern matching for embedded ISBNs
     const isbn13Match = text.match(/(?:978|979)\d{10}/);
-    if (isbn13Match && validateISBN13(isbn13Match[0])) {
-      return isbn13Match[0];
+    if (isbn13Match) {
+      console.log('Found ISBN-13 pattern:', isbn13Match[0]);
+      if (validateISBN13(isbn13Match[0])) {
+        console.log('Valid embedded ISBN-13:', isbn13Match[0]);
+        return isbn13Match[0];
+      }
     }
 
     const isbn10Match = text.match(/\d{9}[\dX]/i);
-    if (isbn10Match && validateISBN10(isbn10Match[0])) {
-      return convertISBN10to13(isbn10Match[0]);
+    if (isbn10Match) {
+      console.log('Found ISBN-10 pattern:', isbn10Match[0]);
+      if (validateISBN10(isbn10Match[0])) {
+        const isbn13 = convertISBN10to13(isbn10Match[0]);
+        console.log('Valid embedded ISBN-10 converted:', isbn13);
+        return isbn13;
+      }
     }
 
+    // For debugging: try to match any 13-digit number starting with 9
+    if (digits.length === 13 && digits.startsWith('9')) {
+      console.log('Testing any 13-digit starting with 9:', digits);
+      // Don't validate, just return for testing
+      return digits;
+    }
+
+    console.log('No valid ISBN found in:', text);
     return null;
   }, [validateISBN13, validateISBN10, convertISBN10to13]);
 
@@ -201,66 +263,54 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   // Handle scan result
   const handleScanResult = useCallback((result: Result) => {
     const text = result.getText();
+    console.log('Barcode detected:', text);
+    
+    // Play beep sound for ANY detected barcode
+    playBeep();
+    
+    // Always show toast for any detected barcode for debugging
+    showToast(`Barcode detected: ${text}`, 'info');
     
     // Validate ISBN
     const isbn = extractISBN(text);
-    if (isbn && isbn !== lastScannedISBN) {
-      setLastScannedISBN(isbn);
-      
-      // Vibrate if available
-      if ('vibrate' in navigator) {
-        navigator.vibrate(200);
-      }
-
-      // Record scan in history
-      const recordScan = async (success: boolean, error?: string) => {
-        try {
-          await scanHistory.recordScan(
-            isbn,
-            'camera',
-            success,
-            error,
-            isInBatchMode ? batchId || undefined : undefined
-          );
-          
-          // Update session stats
-          if (sessionId) {
-            await scanHistory.updateScanSession(sessionId, {
-              totalScans: (await scanHistory.getRecentSessions(1))[0]?.totalScans + 1 || 1,
-              successfulScans: success ? ((await scanHistory.getRecentSessions(1))[0]?.successfulScans || 0) + 1 : undefined,
-              isbns: isInBatchMode ? scannedISBNs.concat(isbn) : [isbn],
-            });
+    console.log('Extracted ISBN:', isbn);
+    
+    if (isbn) {
+      if (isbn !== lastScannedISBN) {
+        setLastScannedISBN(isbn);
+        
+        // Record scan in history
+        const recordScan = async () => {
+          try {
+            await scanHistory.recordScan(
+              isbn,
+              'camera',
+              true,
+              undefined,
+              batchId || undefined
+            );
+          } catch (error) {
+            console.error('Failed to record scan:', error);
           }
-        } catch (error) {
-          console.error('Failed to record scan:', error);
-        }
-      };
+        };
 
-      if (isInBatchMode) {
-        // Handle batch scanning
+        // Handle scanning - always in unified mode
         if (scannedISBNs.includes(isbn)) {
-          // Duplicate in batch
+          // Duplicate
           setDuplicateCount(prev => prev + 1);
           showToast(`Duplicate ISBN: ${isbn}`, 'warning');
-          recordScan(false, 'Duplicate ISBN in batch');
         } else {
           // Add to batch
           setScannedISBNs(prev => [...prev, isbn]);
-          showToast(`Added ISBN: ${isbn} (${scannedISBNs.length + 1} scanned)`, 'success');
-          recordScan(true);
-        }
-      } else {
-        // Single scan mode
-        showToast(`ISBN detected: ${isbn}`, 'success');
-        recordScan(true);
-        onScan(isbn);
-
-        if (!continuous) {
-          stopScanning();
+          showToast(`ISBN scanned: ${isbn} (${scannedISBNs.length + 1} total)`, 'success');
+          recordScan();
         }
       }
+    } else {
+      // Show toast for non-ISBN barcodes for debugging
+      showToast(`Non-ISBN barcode: ${text}`, 'warning');
     }
-  }, [lastScannedISBN, continuous, onScan, showToast, extractISBN, stopScanning, isInBatchMode, scannedISBNs, batchId, sessionId]);
+  }, [lastScannedISBN, showToast, extractISBN, scannedISBNs, batchId, playBeep]);
 
   // Start scanning
   const startScanning = useCallback(async () => {
@@ -269,31 +319,48 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     try {
       setIsScanning(true);
       
-      // Get camera stream
+      // Get camera stream with optimized settings for barcode scanning
+      console.log('Requesting camera stream...');
       const stream = await getStream({
         video: {
           facingMode: 'environment',
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 },
+          frameRate: { ideal: 30, min: 10 }
         }
       });
+      console.log('Camera stream obtained:', stream);
       
       streamRef.current = stream;
       videoRef.current.srcObject = stream;
 
-      // Start continuous scanning
-      scannerRef.current.decodeFromVideoDevice(
-        selectedDeviceId,
-        videoRef.current,
-        (result, error) => {
-          if (result) {
-            handleScanResult(result);
+      // Start continuous scanning with higher frequency
+      const startDecoding = () => {
+        console.log('Starting barcode detection...');
+        scannerRef.current?.decodeFromVideoDevice(
+          selectedDeviceId,
+          videoRef.current!,
+          (result, error) => {
+            if (result) {
+              console.log('ZXing result received:', result.getText());
+              handleScanResult(result);
+            }
+            // Log all errors for debugging (temporarily)
+            if (error) {
+              if (!error.message.includes('NotFoundException')) {
+                console.debug('Scan error:', error.message);
+              }
+            }
           }
-          if (error && error.message !== 'NotFoundException') {
-            console.error('Scan error:', error);
-          }
-        }
-      );
+        );
+      };
+
+      // Wait for video to be ready
+      if (videoRef.current?.readyState === 4) {
+        startDecoding();
+      } else {
+        videoRef.current?.addEventListener('loadeddata', startDecoding, { once: true });
+      }
 
       // Check torch support
       const track = stream.getVideoTracks()[0];
@@ -340,29 +407,23 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
             'manual',
             success,
             error,
-            isInBatchMode ? batchId || undefined : undefined
+            batchId || undefined
           );
         } catch (error) {
           console.error('Failed to record manual scan:', error);
         }
       };
 
-      if (isInBatchMode) {
-        if (!scannedISBNs.includes(isbn)) {
-          setScannedISBNs(prev => [...prev, isbn]);
-          showToast(`Added ISBN: ${isbn}`, 'success');
-          recordManualScan(true);
-        } else {
-          showToast('ISBN already in batch', 'warning');
-          recordManualScan(false, 'Duplicate ISBN in batch');
-        }
-      } else {
+      // Handle manual entry - always add to unified list
+      if (!scannedISBNs.includes(isbn)) {
+        setScannedISBNs(prev => [...prev, isbn]);
+        showToast(`Added ISBN: ${isbn}`, 'success');
         recordManualScan(true);
-        onScan(isbn);
-        if (!continuous) {
-          onClose();
-        }
+      } else {
+        showToast('ISBN already in list', 'warning');
+        recordManualScan(false, 'Duplicate ISBN');
       }
+      
       setManualInput('');
       setShowManualInput(false);
     } else {
@@ -376,20 +437,16 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     }
   };
 
-  // Batch mode functions
-  const toggleBatchMode = useCallback(() => {
-    setIsInBatchMode(prev => !prev);
-    setScannedISBNs([]);
-    setDuplicateCount(0);
-  }, []);
-
-  const completeBatch = useCallback(() => {
-    if (scannedISBNs.length > 0 && onBatchComplete) {
-      onBatchComplete(scannedISBNs);
-      showToast(`Batch complete: ${scannedISBNs.length} ISBNs`, 'success');
+  // Scanner functions
+  const completeScanning = useCallback(() => {
+    if (scannedISBNs.length > 0) {
+      onComplete(scannedISBNs);
+      showToast(`Scanning complete: ${scannedISBNs.length} ISBNs`, 'success');
+    } else {
+      showToast('No ISBNs scanned', 'warning');
     }
     onClose();
-  }, [scannedISBNs, onBatchComplete, onClose, showToast]);
+  }, [scannedISBNs, onComplete, onClose, showToast]);
 
   const clearBatch = useCallback(() => {
     setScannedISBNs([]);
@@ -439,43 +496,26 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-booktarr-bg z-50 flex flex-col">
+    <div className="fixed inset-0 bg-booktarr-bg z-50 flex flex-col min-h-screen">
       {/* Header */}
       <div className="bg-booktarr-surface border-b border-booktarr-border p-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-booktarr-text">
-              {isInBatchMode ? 'Batch Scan ISBN Barcodes' : 'Scan ISBN Barcode'}
+              Scan ISBN Barcodes
             </h2>
-            {isInBatchMode && (
-              <p className="text-sm text-booktarr-textSecondary">
-                {scannedISBNs.length} scanned, {duplicateCount} duplicates
-              </p>
-            )}
+            <p className="text-sm text-booktarr-textSecondary">
+              {scannedISBNs.length} scanned, {duplicateCount} duplicates
+            </p>
           </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={toggleBatchMode}
-              className={`p-2 rounded transition-colors ${
-                isInBatchMode 
-                  ? 'bg-booktarr-accent text-white' 
-                  : 'text-booktarr-textMuted hover:text-booktarr-accent hover:bg-booktarr-surface2'
-              }`}
-              title={isInBatchMode ? 'Exit batch mode' : 'Enable batch mode'}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 text-booktarr-textMuted hover:text-booktarr-text transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-booktarr-textMuted hover:text-booktarr-text transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -568,7 +608,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       </div>
 
       {/* Controls */}
-      <div className="bg-booktarr-surface border-t border-booktarr-border p-4">
+      <div className="bg-booktarr-surface border-t border-booktarr-border p-4 flex-shrink-0">
         <div className="flex items-center justify-between space-x-4">
           {/* Camera selector */}
           {devices.length > 1 && (
@@ -588,6 +628,14 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
 
           {/* Action buttons */}
           <div className="flex space-x-2">
+            {/* Scanning status indicator */}
+            <div className="flex items-center space-x-2 px-3 py-2 bg-booktarr-surface2 rounded-lg">
+              <div className={`w-2 h-2 rounded-full ${isScanning ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+              <span className="text-xs text-booktarr-text">
+                {isScanning ? 'Scanning...' : 'Not scanning'}
+              </span>
+            </div>
+            
             {torchEnabled && (
               <button
                 onClick={toggleTorch}
@@ -600,6 +648,38 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
               </button>
             )}
             
+            {/* Debug test button */}
+            <button
+              onClick={() => {
+                // Test with a sample ISBN
+                const testISBN = '9780140328721';
+                console.log('Testing ISBN extraction with:', testISBN);
+                const extracted = extractISBN(testISBN);
+                showToast(`Test ISBN: ${testISBN} → ${extracted}`, 'info');
+              }}
+              className="p-2 bg-booktarr-accent rounded-lg hover:bg-booktarr-accentHover transition-colors"
+              title="Test ISBN extraction"
+            >
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+            </button>
+            
+            {/* Test beep button */}
+            <button
+              onClick={() => {
+                console.log('Test beep button clicked');
+                playBeep();
+                showToast('Test beep triggered', 'info');
+              }}
+              className="p-2 bg-yellow-600 rounded-lg hover:bg-yellow-700 transition-colors"
+              title="Test beep sound"
+            >
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M9 12h.01M12 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+            
             <button
               onClick={() => setShowManualInput(!showManualInput)}
               className="booktarr-btn booktarr-btn-ghost"
@@ -610,7 +690,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
               Manual Entry
             </button>
 
-            {isInBatchMode && scannedISBNs.length > 0 && (
+            {scannedISBNs.length > 0 && (
               <>
                 <button
                   onClick={clearBatch}
@@ -622,13 +702,13 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                   Clear
                 </button>
                 <button
-                  onClick={completeBatch}
+                  onClick={completeScanning}
                   className="booktarr-btn booktarr-btn-primary"
                 >
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  Complete Batch ({scannedISBNs.length})
+                  Continue ({scannedISBNs.length})
                 </button>
               </>
             )}
@@ -657,17 +737,8 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           </form>
         )}
 
-        {/* Last scanned */}
-        {lastScannedISBN && continuous && !isInBatchMode && (
-          <div className="mt-4 p-3 bg-booktarr-surface2 rounded-lg">
-            <p className="text-sm text-booktarr-textSecondary">
-              Last scanned: <span className="text-booktarr-text font-mono">{lastScannedISBN}</span>
-            </p>
-          </div>
-        )}
-
-        {/* Batch mode ISBNs list */}
-        {isInBatchMode && scannedISBNs.length > 0 && (
+        {/* Scanned ISBNs list */}
+        {scannedISBNs.length > 0 && (
           <div className="mt-4">
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-sm font-semibold text-booktarr-text">
@@ -693,7 +764,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                   <button
                     onClick={() => removeFromBatch(isbn)}
                     className="p-1 text-booktarr-textMuted hover:text-booktarr-error transition-colors"
-                    title="Remove from batch"
+                    title="Remove from list"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
