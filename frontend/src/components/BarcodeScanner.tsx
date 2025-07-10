@@ -385,16 +385,40 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     }
   }, [showToast, extractISBN, batchId, playBeep]); // Removed changing state dependencies
 
+  // Create stable refs to avoid dependency issues
+  const getStreamRef = useRef(getStream);
+  const showToastRef = useRef(showToast);
+  const handleScanResultRef = useRef(handleScanResult);
+  
+  // Update refs when functions change
+  useEffect(() => {
+    getStreamRef.current = getStream;
+  }, [getStream]);
+  
+  useEffect(() => {
+    showToastRef.current = showToast;
+  }, [showToast]);
+  
+  useEffect(() => {
+    handleScanResultRef.current = handleScanResult;
+  }, [handleScanResult]);
+
   // Start scanning - use refs to avoid dependency cycles
   const startScanning = useCallback(async () => {
     if (!videoRef.current || !scannerRef.current) return;
+    
+    // Prevent multiple camera access attempts
+    if (activeStreamRef.current) {
+      console.log('Camera stream already active, skipping new request');
+      return;
+    }
 
     try {
       setIsScanning(true);
       
       // Get camera stream with optimized settings for barcode scanning
       console.log('Requesting camera stream with enhanced settings...');
-      const stream = await getStream({
+      const stream = await getStreamRef.current({
         video: {
           facingMode: 'environment',  // Use back camera
           width: { ideal: 1920, min: 1280 },   // Higher resolution for better barcode reading
@@ -408,35 +432,33 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       console.log('Enhanced camera stream obtained:', stream);
       
       streamRef.current = stream;
+      activeStreamRef.current = stream; // Track active stream to prevent duplicates
       videoRef.current.srcObject = stream;
       
-      // Add video event listeners for debugging
-      videoRef.current.addEventListener('loadstart', () => console.log('Video: loadstart'));
-      videoRef.current.addEventListener('loadedmetadata', () => console.log('Video: loadedmetadata'));
-      videoRef.current.addEventListener('loadeddata', () => console.log('Video: loadeddata'));
-      videoRef.current.addEventListener('canplay', () => console.log('Video: canplay'));
-      videoRef.current.addEventListener('canplaythrough', () => console.log('Video: canplaythrough'));
-      videoRef.current.addEventListener('play', () => console.log('Video: play'));
-      videoRef.current.addEventListener('playing', () => console.log('Video: playing'));
-      videoRef.current.addEventListener('pause', () => console.log('Video: pause'));
-      videoRef.current.addEventListener('ended', () => console.log('Video: ended'));
-      videoRef.current.addEventListener('error', (e) => console.error('Video error:', e));
-      videoRef.current.addEventListener('stalled', () => console.log('Video: stalled'));
-      videoRef.current.addEventListener('suspend', () => console.log('Video: suspend'));
-      videoRef.current.addEventListener('waiting', () => console.log('Video: waiting'));
+      // Add video event listeners for debugging (only if not already added)
+      if (!(videoRef.current as any)._listenersAdded) {
+        videoRef.current.addEventListener('loadstart', () => console.log('Video: loadstart'));
+        videoRef.current.addEventListener('loadedmetadata', () => console.log('Video: loadedmetadata'));
+        videoRef.current.addEventListener('loadeddata', () => console.log('Video: loadeddata'));
+        videoRef.current.addEventListener('canplay', () => console.log('Video: canplay'));
+        videoRef.current.addEventListener('canplaythrough', () => console.log('Video: canplaythrough'));
+        videoRef.current.addEventListener('play', () => console.log('Video: play'));
+        videoRef.current.addEventListener('playing', () => console.log('Video: playing'));
+        videoRef.current.addEventListener('pause', () => console.log('Video: pause'));
+        videoRef.current.addEventListener('ended', () => console.log('Video: ended'));
+        videoRef.current.addEventListener('error', (e) => console.error('Video error:', e));
+        videoRef.current.addEventListener('stalled', () => console.log('Video: stalled'));
+        videoRef.current.addEventListener('suspend', () => console.log('Video: suspend'));
+        videoRef.current.addEventListener('waiting', () => console.log('Video: waiting'));
+        (videoRef.current as any)._listenersAdded = true;
+      }
 
       // Start aggressive continuous scanning
       const startDecoding = () => {
         console.log('Starting aggressive barcode detection...');
         
-        // Method 1: Use decodeFromVideoElement instead of decodeFromVideoDevice to avoid video control conflicts
-        try {
-          // Don't use decodeFromVideoDevice as it tries to control the video element
-          // Instead, rely on our manual scanning intervals
-          console.log('Skipping decodeFromVideoDevice to avoid video control conflicts');
-        } catch (error) {
-          console.error('Continuous scanning failed:', error);
-        }
+        // Skip ZXing's video control entirely to prevent conflicts
+        console.log('Using manual scanning only to avoid video control conflicts');
         
         // Method 2: Add manual scanning intervals as backup  
         const manualScanInterval = setInterval(async () => {
@@ -450,13 +472,13 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
             const result = await scannerRef.current.decodeFromVideoElement(videoRef.current);
             if (result) {
               console.log('ZXing manual interval result:', result.getText());
-              // Call handleScanResult directly to avoid stale closure
-              handleScanResult(result);
+              // Call handleScanResult via ref to avoid stale closure
+              handleScanResultRef.current(result);
             }
           } catch (error) {
             // Silent fail for manual scanning - this is expected when no barcode present
           }
-        }, 200); // Scan every 200ms for more responsive detection
+        }, 150); // Scan every 150ms for very responsive detection
         
         // Store interval ID for cleanup
         (videoRef.current as any)._scanInterval = manualScanInterval;
@@ -495,10 +517,13 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       }
     } catch (error) {
       console.error('Failed to start scanning:', error);
-      showToast('Failed to start camera', 'error');
+      showToastRef.current('Failed to start camera', 'error');
       setIsScanning(false);
+      // Clear refs on error to allow retry
+      activeStreamRef.current = null;
+      initializationRef.current = false;
     }
-  }, [getStream, showToast]); // Removed changing state dependencies and selectedDeviceId
+  }, []); // No dependencies - use refs instead
 
   // Toggle torch
   const toggleTorch = useCallback(async () => {
@@ -584,23 +609,25 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     showToast(`Removed ISBN: ${isbn}`, 'info');
   }, [showToast]);
 
-  // Request permission and start scanning - use refs for stable state
-  const permissionStateRef = useRef(permissionState);
-  const isScanningRef = useRef(isScanning);
+  // Single initialization flag to prevent multiple camera access
+  const initializationRef = useRef(false);
+  const activeStreamRef = useRef<MediaStream | null>(null);
   
+  // Request permission and start scanning - prevent multiple initializations
   useEffect(() => {
-    permissionStateRef.current = permissionState;
-    isScanningRef.current = isScanning;
-  }, [permissionState, isScanning]);
-  
-  useEffect(() => {
-    console.log('Scanner effect triggered:', { permissionState, isScanning });
-    if (permissionState === 'granted' && !isScanning) {
+    console.log('Scanner effect triggered:', { permissionState, isScanning, initialized: initializationRef.current });
+    
+    // Only start if we have permission, aren't scanning, and haven't initialized yet
+    if (permissionState === 'granted' && !isScanning && !initializationRef.current) {
       console.log('Starting scanning due to permission granted and not currently scanning');
-      startScanning();
+      initializationRef.current = true;
+      
+      // Use a timeout to break the potential synchronous cycle
+      setTimeout(() => {
+        startScanning();
+      }, 100); // Slightly longer delay to ensure DOM is ready
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [permissionState, isScanning]); // Removed startScanning dependency to prevent re-renders
+  }, [permissionState, isScanning, startScanning]); // Keep startScanning but prevent multiple inits
 
   // Cleanup on unmount - remove stopScanning dependency to prevent re-renders
   useEffect(() => {
@@ -613,6 +640,9 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
+      // Clear refs to prevent reuse
+      activeStreamRef.current = null;
+      initializationRef.current = false;
     };
   }, []); // Empty dependency array for cleanup only on unmount
 
@@ -853,7 +883,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                   const result = await scannerRef.current.decodeFromVideoElement(videoRef.current);
                   if (result) {
                     console.log('Manual capture result:', result.getText());
-                    handleScanResult(result);
+                    handleScanResultRef.current(result);
                   } else {
                     showToast('No barcode found in current frame', 'warning');
                   }
