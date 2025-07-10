@@ -196,10 +196,41 @@ class DatabaseIntegrationService:
     @staticmethod
     def _convert_book_model_to_pydantic(book_model: BookModel) -> Book:
         """Convert database BookModel to Pydantic Book model"""
+        # Parse JSON fields back to lists
+        authors = book_model.authors or "[]"
+        if isinstance(authors, str):
+            try:
+                authors = json.loads(authors)
+            except (json.JSONDecodeError, TypeError):
+                authors = []
+        
+        categories = book_model.categories or "[]"
+        if isinstance(categories, str):
+            try:
+                categories = json.loads(categories)
+            except (json.JSONDecodeError, TypeError):
+                categories = []
+        
+        pricing = book_model.pricing or "[]"
+        if isinstance(pricing, str):
+            try:
+                pricing_data = json.loads(pricing)
+                # Convert pricing data back to PriceInfo objects if needed
+                pricing = pricing_data
+            except (json.JSONDecodeError, TypeError):
+                pricing = []
+        
+        metadata_sources_used = getattr(book_model, 'metadata_sources_used', []) or "[]"
+        if isinstance(metadata_sources_used, str):
+            try:
+                metadata_sources_used = json.loads(metadata_sources_used)
+            except (json.JSONDecodeError, TypeError):
+                metadata_sources_used = []
+        
         return Book(
             isbn=book_model.isbn,
             title=book_model.title,
-            authors=book_model.authors or [],
+            authors=authors,
             series=book_model.series,
             series_position=book_model.series_position,
             publisher=book_model.publisher,
@@ -208,8 +239,8 @@ class DatabaseIntegrationService:
             language=book_model.language or 'en',
             thumbnail_url=book_model.thumbnail_url,
             description=book_model.description,
-            categories=book_model.categories or [],
-            pricing=book_model.pricing or [],
+            categories=categories,
+            pricing=pricing,
             metadata_source=MetadataSource(book_model.metadata_source or 'skoolib'),
             added_date=book_model.added_date,
             last_updated=book_model.last_updated,
@@ -218,7 +249,7 @@ class DatabaseIntegrationService:
             # Add new enhancement fields if they exist
             metadata_enhanced=getattr(book_model, 'metadata_enhanced', False) or False,
             metadata_enhanced_date=getattr(book_model, 'metadata_enhanced_date', None),
-            metadata_sources_used=getattr(book_model, 'metadata_sources_used', []) or []
+            metadata_sources_used=metadata_sources_used
         )
     
     @staticmethod
@@ -226,19 +257,43 @@ class DatabaseIntegrationService:
         """Convert Pydantic Book model to database data dict"""
         data = book.dict()
         
-        # Convert datetime objects to strings if needed
-        if isinstance(data.get('added_date'), datetime):
-            data['added_date'] = data['added_date']
-        if isinstance(data.get('last_updated'), datetime):
-            data['last_updated'] = data['last_updated']
+        # Convert datetime objects - keep as datetime objects for SQLAlchemy
+        # SQLAlchemy handles datetime conversion automatically
         
         # Convert enum to string
         if isinstance(data.get('metadata_source'), MetadataSource):
+            data['metadata_source'] = data['metadata_source'].value
+        elif data.get('metadata_source') and hasattr(data['metadata_source'], 'value'):
             data['metadata_source'] = data['metadata_source'].value
         
         # Convert URL objects to strings for database storage
         if data.get('thumbnail_url') and hasattr(data['thumbnail_url'], '__str__'):
             data['thumbnail_url'] = str(data['thumbnail_url'])
+        
+        # Convert pricing list to JSON-serializable format
+        if data.get('pricing'):
+            pricing_data = []
+            for price_info in data['pricing']:
+                if isinstance(price_info, dict):
+                    # Convert datetime in pricing data
+                    if 'last_updated' in price_info and isinstance(price_info['last_updated'], datetime):
+                        price_info = price_info.copy()
+                        price_info['last_updated'] = price_info['last_updated'].isoformat()
+                    pricing_data.append(price_info)
+                else:
+                    # Handle PriceInfo objects
+                    price_dict = price_info.dict() if hasattr(price_info, 'dict') else price_info
+                    if 'last_updated' in price_dict and isinstance(price_dict['last_updated'], datetime):
+                        price_dict['last_updated'] = price_dict['last_updated'].isoformat()
+                    pricing_data.append(price_dict)
+            data['pricing'] = json.dumps(pricing_data)
+        else:
+            data['pricing'] = json.dumps([])
+        
+        # Convert other list fields to JSON
+        data['authors'] = json.dumps(data.get('authors', []))
+        data['categories'] = json.dumps(data.get('categories', []))
+        data['metadata_sources_used'] = json.dumps(data.get('metadata_sources_used', []))
         
         return data
 
