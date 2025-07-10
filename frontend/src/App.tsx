@@ -11,6 +11,8 @@ import Toast from './components/Toast';
 import MainLayout from './components/MainLayout';
 import MetadataEnhancementPage from './components/MetadataEnhancementPage';
 import BookSearchPage from './components/BookSearchPage';
+import StatsDashboard from './components/StatsDashboard';
+import BackupRestore from './components/BackupRestore';
 import { AppProvider } from './context/AppContext';
 import { useStateManager } from './hooks/useStateManager';
 import './styles/tailwind.css';
@@ -108,6 +110,10 @@ const AppInner: React.FC = () => {
         return <MetadataEnhancementPage />;
       case 'add':
         return <BookSearchPage onBookAdded={loadBooks} />;
+      case 'stats':
+        return <StatsDashboard />;
+      case 'backup':
+        return <BackupRestore />;
       case 'wanted':
       case 'activity':
       case 'logs':

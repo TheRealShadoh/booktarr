@@ -3,7 +3,7 @@
  * Provides global keyboard navigation and actions
  */
 import { useEffect, useCallback } from 'react';
-import { useAppContext } from '../context/AppContext';
+import { useAppContext, CurrentPage } from '../context/AppContext';
 
 interface KeyboardShortcut {
   key: string;
@@ -54,6 +54,20 @@ export const useKeyboardShortcuts = () => {
       ctrl: true,
       action: () => setCurrentPage('authors'),
       description: 'Go to Authors',
+      preventDefault: true
+    },
+    {
+      key: 't',
+      ctrl: true,
+      action: () => setCurrentPage('stats'),
+      description: 'Go to Statistics',
+      preventDefault: true
+    },
+    {
+      key: 'b',
+      ctrl: true,
+      action: () => setCurrentPage('backup'),
+      description: 'Go to Backup & Restore',
       preventDefault: true
     },
     

@@ -5,8 +5,7 @@ import React, { useState } from 'react';
 import SidebarNavigation from './SidebarNavigation';
 import FilterPanel from './FilterPanel';
 import { Book } from '../types';
-
-type CurrentPage = 'library' | 'settings' | 'series' | 'authors' | 'wanted' | 'activity' | 'logs' | 'enhancement' | 'add';
+import { CurrentPage } from '../context/AppContext';
 
 interface MainLayoutProps {
   currentPage: CurrentPage;
