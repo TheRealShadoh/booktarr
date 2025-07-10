@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .routers import books
 from .routers import test_books
 from .routers import settings
+from .routers import search
 from .middleware import ErrorHandlingMiddleware, RequestLoggingMiddleware
 from .config import setup_logging, setup_colored_logging, get_logger
 from .database.connection import init_database, close_database
@@ -37,6 +38,7 @@ app.add_middleware(
 app.include_router(books.router, prefix="/api")
 app.include_router(test_books.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
+app.include_router(search.router, prefix="/api")
 
 @app.get("/")
 def read_root():
@@ -57,9 +59,11 @@ async def startup_event():
         await init_database()
         logger.info("💾 Database initialized successfully")
         
-        # Skip test data seeding for now to avoid session conflicts
-        # TODO: Fix test data seeding to work with dynamic session updates
-        logger.info("⚠️ Skipping test data seeding due to session conflicts")
+        # Seed test data if database is empty
+        try:
+            await DatabaseIntegrationService.seed_test_data()
+        except Exception as e:
+            logger.warning(f"⚠️ Test data seeding failed: {e}")
         
     except Exception as e:
         logger.error(f"❌ Database initialization failed: {e}")

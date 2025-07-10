@@ -6,9 +6,11 @@ import SidebarNavigation from './SidebarNavigation';
 import FilterPanel from './FilterPanel';
 import { Book } from '../types';
 
+type CurrentPage = 'library' | 'settings' | 'series' | 'authors' | 'wanted' | 'activity' | 'logs';
+
 interface MainLayoutProps {
-  currentPage: string;
-  onPageChange: (page: string) => void;
+  currentPage: CurrentPage;
+  onPageChange: (page: CurrentPage) => void;
   children: React.ReactNode;
   books?: Book[];
   onFilterChange?: (filteredBooks: Book[]) => void;

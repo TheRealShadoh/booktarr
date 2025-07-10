@@ -59,3 +59,29 @@ class Settings(BaseModel):
 class SettingsResponse(BaseModel):
     message: str
     settings: Settings
+
+# Search-related models
+class SearchResultModel(BaseModel):
+    """Search result with book data and relevance score"""
+    book: Book
+    score: float
+    source: str
+
+class SearchResponse(BaseModel):
+    """Response for book search endpoint"""
+    results: List[SearchResultModel]
+    total_found: int
+    query: str
+    search_time: float
+
+class AddBookRequest(BaseModel):
+    """Request to add a book to the library"""
+    isbn: str
+    source: Optional[str] = None  # Optional source identifier for tracking
+
+class AddBookResponse(BaseModel):
+    """Response after adding a book to the library"""
+    success: bool
+    message: str
+    book: Optional[Book] = None
+    already_exists: bool = False

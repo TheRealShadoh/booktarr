@@ -17,7 +17,7 @@ import {
 } from './types';
 import './styles/tailwind.css';
 
-type CurrentPage = 'library' | 'settings';
+type CurrentPage = 'library' | 'settings' | 'series' | 'authors' | 'wanted' | 'activity' | 'logs';
 
 interface AppState {
   books: BooksBySeriesMap;

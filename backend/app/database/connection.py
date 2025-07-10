@@ -14,8 +14,15 @@ logger = logging.getLogger(__name__)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///app/data/booktarr.db")
 SYNC_DATABASE_URL = os.getenv("SYNC_DATABASE_URL", "sqlite:///app/data/booktarr.db")
 
-# Ensure the data directory exists and is writable
-data_dir = pathlib.Path("/app/data")
+# Extract the data directory from the DATABASE_URL
+if "///app/data/" in DATABASE_URL:
+    data_dir = pathlib.Path("/app/data")
+elif "///data/" in DATABASE_URL:
+    # Local development - relative to current working directory
+    data_dir = pathlib.Path("data")
+else:
+    # Default fallback
+    data_dir = pathlib.Path("data")
 data_dir.mkdir(parents=True, exist_ok=True)
 
 # Test write permissions

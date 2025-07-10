@@ -42,14 +42,18 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
 
   // Extract unique values for filter options
-  const getUniqueValues = (books: Book[], key: keyof Book) => {
+  const getUniqueValues = (books: Book[], key: string) => {
     const values = new Set<string>();
     books.forEach(book => {
-      const value = book[key];
+      const value = (book as any)[key];
       if (Array.isArray(value)) {
-        value.forEach(item => values.add(item));
-      } else if (value) {
-        values.add(String(value));
+        value.forEach(item => {
+          if (typeof item === 'string') {
+            values.add(item);
+          }
+        });
+      } else if (value && typeof value === 'string') {
+        values.add(value);
       }
     });
     return Array.from(values).sort();

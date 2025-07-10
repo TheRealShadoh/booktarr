@@ -27,7 +27,7 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid' })
     return `${authors[0]} et al.`;
   };
 
-  const formatPublishedDate = (date: string | Date | null) => {
+  const formatPublishedDate = (date: string | Date | null | undefined) => {
     if (!date) return 'Unknown';
     try {
       const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -37,8 +37,8 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid' })
     }
   };
 
-  const getSeriesInfo = () => {
-    if (!book.series) return null;
+  const getSeriesInfo = (): string | undefined => {
+    if (!book.series) return undefined;
     if (book.series_position) {
       return `${book.series} #${book.series_position}`;
     }

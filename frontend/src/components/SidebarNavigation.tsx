@@ -3,9 +3,11 @@
  */
 import React from 'react';
 
+type CurrentPage = 'library' | 'settings' | 'series' | 'authors' | 'wanted' | 'activity' | 'logs';
+
 interface SidebarNavigationProps {
-  currentPage: string;
-  onPageChange: (page: string) => void;
+  currentPage: CurrentPage;
+  onPageChange: (page: CurrentPage) => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -104,7 +106,7 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
   ];
 
   const handleItemClick = (itemId: string) => {
-    onPageChange(itemId);
+    onPageChange(itemId as CurrentPage);
   };
 
   const renderNavItem = (item: NavigationItem) => (
