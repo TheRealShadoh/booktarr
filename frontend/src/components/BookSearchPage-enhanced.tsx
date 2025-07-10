@@ -17,7 +17,7 @@ interface BookSearchPageProps {
   onBookAdded?: () => void;
 }
 
-const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
+const BookSearchPageEnhanced: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
   const {
     state,
     searchWithCaching,
@@ -421,4 +421,4 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
   );
 };
 
-export default BookSearchPage;
+export default BookSearchPageEnhanced;

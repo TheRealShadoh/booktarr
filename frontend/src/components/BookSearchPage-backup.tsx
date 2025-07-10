@@ -1,11 +1,11 @@
 /**
- * Enhanced Book search and add page with optimistic updates and caching
+ * Book search and add page component
  */
 import React, { useState, useCallback, useEffect } from 'react';
 import { Book } from '../types';
+import { booktarrAPI } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
 import Toast from './Toast';
-import { useStateManager } from '../hooks/useStateManager';
 
 interface SearchResult {
   book: Book;
@@ -13,20 +13,18 @@ interface SearchResult {
   source: string;
 }
 
+interface SearchResponse {
+  results: SearchResult[];
+  total_found: number;
+  query: string;
+  search_time: number;
+}
+
 interface BookSearchPageProps {
   onBookAdded?: () => void;
 }
 
 const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
-  const {
-    state,
-    searchWithCaching,
-    addBookWithOptimizations,
-    showToast,
-    getPendingUpdates,
-    hasPendingUpdates
-  } = useStateManager();
-
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -34,6 +32,7 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
   const [totalFound, setTotalFound] = useState(0);
   const [searchTime, setSearchTime] = useState(0);
   const [addingBooks, setAddingBooks] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
   const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
   const [searchDebounce, setSearchDebounce] = useState<NodeJS.Timeout | null>(null);
 
@@ -46,7 +45,7 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
     if (query.trim().length >= 3) {
       const timeout = setTimeout(() => {
         handleSearch(query);
-      }, 500);
+      }, 500); // 500ms debounce
       setSearchDebounce(timeout);
     } else if (query.trim().length === 0) {
       setSearchResults([]);
@@ -59,7 +58,7 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
         clearTimeout(searchDebounce);
       }
     };
-  }, [query, searchDebounce]);
+  }, [query]);
 
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
@@ -70,15 +69,18 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
 
     setLoading(true);
     setError(null);
-    const startTime = Date.now();
 
     try {
-      // Use enhanced search with caching
-      const results = await searchWithCaching(searchQuery);
+      const response = await fetch(`/api/search/books?query=${encodeURIComponent(searchQuery)}&max_results=20`);
       
-      setSearchResults(results);
-      setTotalFound(results.length);
-      setSearchTime((Date.now() - startTime) / 1000);
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.status}`);
+      }
+
+      const data: SearchResponse = await response.json();
+      setSearchResults(data.results);
+      setTotalFound(data.total_found);
+      setSearchTime(data.search_time);
     } catch (err) {
       console.error('Search error:', err);
       setError(err instanceof Error ? err.message : 'Search failed');
@@ -87,32 +89,64 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
     } finally {
       setLoading(false);
     }
-  }, [searchWithCaching]);
+  }, []);
 
   const handleAddBook = async (book: Book, source: string) => {
     setAddingBooks(prev => new Set(prev).add(book.isbn));
     setError(null);
 
     try {
-      // Use optimistic updates
-      const result = await addBookWithOptimizations(book, source);
+      const response = await fetch('/api/library/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          isbn: book.isbn,
+          source: source,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to add book');
+      }
+
+      const result = await response.json();
       
       // Mark as recently added for visual feedback
       setRecentlyAdded(prev => new Set(prev).add(book.isbn));
       
-      // Remove from search results after a delay to show feedback
-      setTimeout(() => {
-        setSearchResults(prev => prev.filter(result => result.book.isbn !== book.isbn));
-      }, 1500);
+      // Show appropriate success message
+      if (result.already_exists) {
+        setToast({ 
+          message: `"${book.title}" is already in your library`, 
+          type: 'info' 
+        });
+      } else {
+        setToast({ 
+          message: `"${book.title}" added to library successfully!`, 
+          type: 'success' 
+        });
+        
+        // Remove from search results after a delay to show feedback
+        setTimeout(() => {
+          setSearchResults(prev => prev.filter(result => result.book.isbn !== book.isbn));
+        }, 1500);
+      }
       
-      // Notify parent component
+      // Refresh the library data
       if (onBookAdded) {
         onBookAdded();
       }
       
     } catch (err) {
       console.error('Add book error:', err);
-      // Error handling is done by the optimistic updates hook
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add book';
+      setToast({ 
+        message: `Failed to add "${book.title}": ${errorMessage}`, 
+        type: 'error' 
+      });
     } finally {
       setAddingBooks(prev => {
         const newSet = new Set(prev);
@@ -149,25 +183,22 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
 
   return (
     <div className="space-y-6">
-      {/* Header with pending updates indicator */}
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      {/* Header */}
       <div className="booktarr-card">
         <div className="booktarr-card-header">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-booktarr-text text-xl font-semibold">Add Books to Library</h2>
-              <p className="text-booktarr-textSecondary text-sm mt-1">
-                Search for books by title, author, series, or ISBN to add them to your library
-              </p>
-            </div>
-            {hasPendingUpdates() && (
-              <div className="flex items-center space-x-2 text-booktarr-accent">
-                <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span className="text-sm">Syncing changes...</span>
-              </div>
-            )}
-          </div>
+          <h2 className="text-booktarr-text text-xl font-semibold">Add Books to Library</h2>
+          <p className="text-booktarr-textSecondary text-sm mt-1">
+            Search for books by title, author, series, or ISBN to add them to your library
+          </p>
         </div>
       </div>
 
@@ -199,14 +230,9 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
                   )}
                 </div>
               </div>
-              <div className="flex items-center justify-between mt-1">
-                <p className="text-xs text-booktarr-textMuted">
-                  Search automatically starts after typing 3+ characters
-                </p>
-                <p className="text-xs text-booktarr-textMuted">
-                  Results are cached for faster access
-                </p>
-              </div>
+              <p className="text-xs text-booktarr-textMuted mt-1">
+                Search automatically starts after typing 3+ characters
+              </p>
             </div>
             
             {searchResults.length > 0 && (
@@ -411,9 +437,6 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
           <h3 className="text-booktarr-text text-lg font-semibold mb-2">Search for books</h3>
           <p className="text-booktarr-textSecondary">
             Enter a book title, author name, series, or ISBN to get started
-          </p>
-          <p className="text-booktarr-textMuted text-sm mt-2">
-            Use Ctrl+N to quickly focus the search box
           </p>
         </div>
       )}
