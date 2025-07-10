@@ -3,8 +3,11 @@
  */
 import React, { useState, useEffect } from 'react';
 import BookList from './components/BookList';
+import IndividualBooksPage from './components/IndividualBooksPage';
 import SearchBar from './components/SearchBar';
 import SettingsPage from './components/SettingsPage';
+import SeriesPage from './components/SeriesPage';
+import AuthorsPage from './components/AuthorsPage';
 import LoadingSpinner from './components/LoadingSpinner';
 import Toast from './components/Toast';
 import MainLayout from './components/MainLayout';
@@ -261,7 +264,25 @@ function App() {
     switch (state.currentPage) {
       case 'library':
         return (
-          <BookList
+          <IndividualBooksPage
+            books={state.filteredBooks}
+            loading={state.loading}
+            error={state.error}
+            onRefresh={loadBooks}
+          />
+        );
+      case 'series':
+        return (
+          <SeriesPage
+            books={state.filteredBooks}
+            loading={state.loading}
+            error={state.error}
+            onRefresh={loadBooks}
+          />
+        );
+      case 'authors':
+        return (
+          <AuthorsPage
             books={state.filteredBooks}
             loading={state.loading}
             error={state.error}
@@ -277,6 +298,22 @@ function App() {
             loading={state.settingsLoading}
             error={state.error}
           />
+        );
+      case 'wanted':
+      case 'activity':
+      case 'logs':
+        return (
+          <div className="flex flex-col justify-center items-center h-64 space-y-4">
+            <div className="text-center">
+              <svg className="w-16 h-16 text-booktarr-textMuted mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              <h3 className="text-booktarr-text text-xl font-semibold mb-2">{state.currentPage.charAt(0).toUpperCase() + state.currentPage.slice(1)}</h3>
+              <p className="text-booktarr-textSecondary text-sm max-w-md">
+                This page is coming soon. Stay tuned for updates!
+              </p>
+            </div>
+          </div>
         );
       default:
         return null;

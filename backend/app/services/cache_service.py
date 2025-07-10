@@ -18,9 +18,18 @@ class LRUCache:
         """Remove expired entries"""
         current_time = time.time()
         expired_keys = []
-        for key, (_, timestamp) in self.cache.items():
-            if current_time - timestamp >= self.ttl:
-                expired_keys.append(key)
+        for key, value in self.cache.items():
+            # Handle both 2-tuple and 3-tuple formats
+            if len(value) == 2:
+                # Standard format: (data, timestamp)
+                _, timestamp = value
+                if current_time - timestamp >= self.ttl:
+                    expired_keys.append(key)
+            elif len(value) == 3:
+                # Custom TTL format: (data, timestamp, custom_ttl)
+                _, timestamp, custom_ttl = value
+                if current_time - timestamp >= custom_ttl:
+                    expired_keys.append(key)
         for key in expired_keys:
             del self.cache[key]
     
@@ -95,14 +104,52 @@ class CacheService:
         self.book_cache.set(f"book:{isbn}", book_data)
     
     def get_api_response(self, url: str) -> Optional[dict]:
-        """Get API response from cache"""
+        """Get API response from cache with custom TTL support"""
         url_hash = hashlib.md5(url.encode()).hexdigest()
-        return self.api_cache.get(f"api:{url_hash}")
+        cache_key = f"api:{url_hash}"
+        
+        # Check if entry exists
+        if cache_key in self.api_cache.cache:
+            entry = self.api_cache.cache[cache_key]
+            
+            # Handle both old format (data, timestamp) and new format (data, timestamp, custom_ttl)
+            if len(entry) == 3:
+                # New format with custom TTL
+                data, timestamp, custom_ttl = entry
+                current_time = time.time()
+                if current_time - timestamp < custom_ttl:
+                    # Move to end (most recently used)
+                    self.api_cache.cache.move_to_end(cache_key)
+                    self.api_cache._hits += 1
+                    return data
+                else:
+                    # Expired, remove entry
+                    del self.api_cache.cache[cache_key]
+                    self.api_cache._misses += 1
+                    return None
+            else:
+                # Old format, use default LRU cache logic
+                return self.api_cache.get(cache_key)
+        
+        # Entry doesn't exist
+        self.api_cache._misses += 1
+        return None
     
-    def set_api_response(self, url: str, response_data: dict):
-        """Cache API response"""
+    def set_api_response(self, url: str, response_data: dict, ttl: Optional[int] = None):
+        """Cache API response with optional TTL override"""
         url_hash = hashlib.md5(url.encode()).hexdigest()
-        self.api_cache.set(f"api:{url_hash}", response_data)
+        cache_key = f"api:{url_hash}"
+        
+        if ttl is not None:
+            # Create a temporary cache entry with custom TTL
+            # Store the data with custom timestamp for TTL calculation
+            current_time = time.time()
+            # Store as tuple: (data, timestamp, custom_ttl)
+            self.api_cache.cache[cache_key] = (response_data, current_time, ttl)
+            self.api_cache.cache.move_to_end(cache_key)
+        else:
+            # Use default TTL
+            self.api_cache.set(cache_key, response_data)
     
     def get_page(self, url: str) -> Optional[str]:
         """Get HTML page from cache"""
