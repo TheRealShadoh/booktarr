@@ -1,11 +1,14 @@
 /**
  * Main layout component with sidebar navigation and content area
+ * Enhanced with mobile responsiveness and touch gestures
  */
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import SidebarNavigation from './SidebarNavigation';
 import FilterPanel from './FilterPanel';
 import { Book } from '../types';
 import { CurrentPage } from '../context/AppContext';
+import { useResponsive } from '../hooks/useResponsive';
+import { useTouchGestures } from '../hooks/useTouchGestures';
 
 interface MainLayoutProps {
   currentPage: CurrentPage;
@@ -22,39 +25,103 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   books = [],
   onFilterChange
 }) => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { device, breakpoints, getResponsiveValue } = useResponsive();
+  const mainRef = useRef<HTMLDivElement>(null);
+  
+  // Responsive state management
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(device.isMobile);
   const [filterVisible, setFilterVisible] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleToggleSidebar = () => {
-    setSidebarCollapsed(!sidebarCollapsed);
+    if (device.isMobile) {
+      setMobileMenuOpen(!mobileMenuOpen);
+    } else {
+      setSidebarCollapsed(!sidebarCollapsed);
+    }
   };
 
   const handleToggleFilter = () => {
     setFilterVisible(!filterVisible);
   };
 
+  const handleMobileMenuClose = () => {
+    setMobileMenuOpen(false);
+  };
+
+  // Touch gestures for mobile navigation
+  useTouchGestures(mainRef, {
+    onSwipe: (gesture) => {
+      if (device.isMobile && Math.abs(gesture.direction === 'right' ? gesture.distance : -gesture.distance) > 100) {
+        if (gesture.direction === 'right' && !mobileMenuOpen) {
+          setMobileMenuOpen(true);
+        } else if (gesture.direction === 'left' && mobileMenuOpen) {
+          setMobileMenuOpen(false);
+        }
+      }
+    }
+  });
+
+  const sidebarWidth = getResponsiveValue({
+    mobile: mobileMenuOpen ? 'w-64' : 'w-0',
+    tablet: sidebarCollapsed ? 'w-16' : 'w-64',
+    desktop: sidebarCollapsed ? 'w-16' : 'w-64',
+    default: 'w-64'
+  });
+
   return (
-    <div className="flex h-screen bg-booktarr-bg">
+    <div ref={mainRef} className="flex h-screen bg-booktarr-bg">
+      {/* Mobile Menu Overlay */}
+      {device.isMobile && mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40"
+          onClick={handleMobileMenuClose}
+        />
+      )}
+
       {/* Sidebar */}
-      <SidebarNavigation
-        currentPage={currentPage}
-        onPageChange={onPageChange}
-        isCollapsed={sidebarCollapsed}
-        onToggleCollapse={handleToggleSidebar}
-      />
+      <div className={`${device.isMobile ? 'fixed' : 'relative'} ${sidebarWidth} transition-all duration-300 ease-in-out z-50`}>
+        {(device.isMobile ? mobileMenuOpen : true) && (
+          <SidebarNavigation
+            currentPage={currentPage}
+            onPageChange={(page) => {
+              onPageChange(page);
+              if (device.isMobile) {
+                handleMobileMenuClose();
+              }
+            }}
+            isCollapsed={device.isMobile ? false : sidebarCollapsed}
+            onToggleCollapse={handleToggleSidebar}
+          />
+        )}
+      </div>
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden"
+           style={{ marginLeft: device.isMobile ? 0 : undefined }}>
         {/* Header bar */}
-        <header className="bg-booktarr-surface border-b border-booktarr-border px-6 py-4">
+        <header className="bg-booktarr-surface border-b border-booktarr-border px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-semibold text-booktarr-text capitalize">
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              {/* Mobile Menu Button */}
+              {device.isMobile && (
+                <button
+                  onClick={handleToggleSidebar}
+                  className="p-2 rounded-lg hover:bg-booktarr-hover transition-colors"
+                  aria-label="Toggle menu"
+                >
+                  <svg className="w-5 h-5 text-booktarr-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+              )}
+              
+              <h1 className="text-lg sm:text-xl font-semibold text-booktarr-text capitalize">
                 {currentPage}
               </h1>
               
               {/* Page-specific actions */}
-              {currentPage === 'library' && (
+              {currentPage === 'library' && !device.isMobile && (
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={handleToggleFilter}
@@ -83,36 +150,68 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             </div>
 
             {/* Global actions */}
-            <div className="flex items-center space-x-4">
-              {/* Search */}
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search books..."
-                  className="booktarr-form-input w-64 pl-10"
-                />
-                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-booktarr-textMuted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              {/* Search - Hidden on mobile, shown in a separate search page */}
+              {!device.isMobile && (
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search books..."
+                    className="booktarr-form-input w-48 lg:w-64 pl-10"
+                  />
+                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-booktarr-textMuted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              )}
+
+              {/* Mobile Search Button */}
+              {device.isMobile && (
+                <button 
+                  onClick={() => onPageChange('library')}
+                  className="p-2 rounded-lg hover:bg-booktarr-hover transition-colors"
+                  aria-label="Search"
+                >
+                  <svg className="w-5 h-5 text-booktarr-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </button>
+              )}
 
               {/* Add button */}
               <button 
                 onClick={() => onPageChange('add')}
-                className="booktarr-btn booktarr-btn-primary"
+                className={getResponsiveValue({
+                  mobile: "p-2 rounded-lg bg-booktarr-accent text-white hover:bg-booktarr-accentHover transition-colors",
+                  default: "booktarr-btn booktarr-btn-primary"
+                })}
+                aria-label={device.isMobile ? "Add book" : undefined}
               >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
-                Add Book
+                {!device.isMobile && <span>Add Book</span>}
               </button>
+
+              {/* Mobile Filter Button */}
+              {device.isMobile && currentPage === 'library' && (
+                <button 
+                  onClick={handleToggleFilter}
+                  className="p-2 rounded-lg hover:bg-booktarr-hover transition-colors"
+                  aria-label="Filters"
+                >
+                  <svg className="w-5 h-5 text-booktarr-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.414A1 1 0 013 6.707V4z" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         </header>
 
         {/* Content wrapper */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Filter panel */}
+          {/* Filter panel - Hidden on mobile when closed */}
           {currentPage === 'library' && books.length > 0 && (
             <FilterPanel
               books={books}
@@ -123,29 +222,33 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           )}
 
           {/* Main content */}
-          <main className={`flex-1 overflow-auto p-6 ${filterVisible ? 'ml-80' : ''} transition-all duration-300`}>
+          <main className={`flex-1 overflow-auto p-4 sm:p-6 ${
+            filterVisible && !device.isMobile ? 'ml-80' : ''
+          } transition-all duration-300`}>
             {children}
           </main>
         </div>
 
-        {/* Status bar */}
-        <footer className="bg-booktarr-surface border-t border-booktarr-border px-6 py-2">
-          <div className="flex items-center justify-between text-sm text-booktarr-textSecondary">
-            <div className="flex items-center space-x-4">
-              <span>{books.length} books total</span>
-              <span className="text-booktarr-textMuted">•</span>
-              <span>Last updated: just now</span>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-booktarr-success rounded-full"></div>
-                <span>Connected</span>
+        {/* Status bar - Hidden on mobile */}
+        {!device.isMobile && (
+          <footer className="bg-booktarr-surface border-t border-booktarr-border px-6 py-2">
+            <div className="flex items-center justify-between text-sm text-booktarr-textSecondary">
+              <div className="flex items-center space-x-4">
+                <span>{books.length} books total</span>
+                <span className="text-booktarr-textMuted">•</span>
+                <span>Last updated: just now</span>
               </div>
-              <span className="text-booktarr-textMuted">v1.0.0</span>
+              
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-booktarr-success rounded-full"></div>
+                  <span>Connected</span>
+                </div>
+                <span className="text-booktarr-textMuted">v1.0.0</span>
+              </div>
             </div>
-          </div>
-        </footer>
+          </footer>
+        )}
       </div>
     </div>
   );

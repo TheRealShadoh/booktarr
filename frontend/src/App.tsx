@@ -13,6 +13,9 @@ import MetadataEnhancementPage from './components/MetadataEnhancementPage';
 import BookSearchPage from './components/BookSearchPage';
 import StatsDashboard from './components/StatsDashboard';
 import BackupRestore from './components/BackupRestore';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
+import OfflineIndicator from './components/OfflineIndicator';
+import PWAUpdateNotification from './components/PWAUpdateNotification';
 import { AppProvider } from './context/AppContext';
 import { useStateManager } from './hooks/useStateManager';
 import './styles/tailwind.css';
@@ -139,6 +142,11 @@ const AppInner: React.FC = () => {
 
   return (
     <div className="h-screen overflow-hidden">
+      {/* PWA Components */}
+      <OfflineIndicator />
+      <PWAUpdateNotification />
+      <PWAInstallPrompt />
+      
       {/* Toast Notifications */}
       {state.toast && (
         <Toast
