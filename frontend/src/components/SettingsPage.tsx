@@ -17,6 +17,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   const [formData, setFormData] = useState<SettingsUpdateRequest>({});
   const [validationLoading, setValidationLoading] = useState(false);
   const [validationResult, setValidationResult] = useState<any>(null);
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncHistory, setSyncHistory] = useState<any[]>([]);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
 
   useEffect(() => {
@@ -29,8 +31,23 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         enable_price_lookup: settings.enable_price_lookup,
         default_language: settings.default_language,
       });
+      
+      // Load sync history
+      loadSyncHistory();
     }
   }, [settings]);
+
+  const loadSyncHistory = async () => {
+    try {
+      const response = await fetch('/api/settings/sync-history');
+      if (response.ok) {
+        const data = await response.json();
+        setSyncHistory(data.history || []);
+      }
+    } catch (error) {
+      console.error('Failed to load sync history:', error);
+    }
+  };
 
   const handleInputChange = (field: keyof SettingsUpdateRequest, value: any) => {
     setFormData(prev => ({
@@ -77,6 +94,40 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
       setToast({ message: 'Failed to validate URL', type: 'error' });
     } finally {
       setValidationLoading(false);
+    }
+  };
+
+  const handleManualSync = async () => {
+    setSyncLoading(true);
+    
+    try {
+      const response = await fetch('/api/settings/sync-skoolib', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        setToast({ 
+          message: result.message || `Sync completed! Added ${result.books_added} new books.`,
+          type: 'success' 
+        });
+        
+        // Reload sync history
+        await loadSyncHistory();
+      } else {
+        setToast({ 
+          message: result.detail || result.message || 'Sync failed',
+          type: 'error' 
+        });
+      }
+    } catch (error) {
+      setToast({ message: 'Failed to start sync', type: 'error' });
+    } finally {
+      setSyncLoading(false);
     }
   };
 
@@ -270,26 +321,62 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             </div>
           </div>
 
-          {/* Sync Management (Placeholder for Phase 1.9) */}
+          {/* Sync Management */}
           <div>
             <h2 className="text-lg font-semibold text-white mb-4">Sync Management</h2>
             
-            <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
+            <div className="bg-gray-700 rounded-lg p-4 border border-gray-600 mb-6">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-gray-300">Manual Skoolib Sync</span>
-                <span className="text-xs text-gray-400 bg-gray-600 px-2 py-1 rounded">Coming Soon</span>
+                {formData.skoolib_url && (
+                  <span className="text-xs text-green-400 bg-green-900/20 px-2 py-1 rounded border border-green-500/50">
+                    Ready
+                  </span>
+                )}
               </div>
               <p className="text-sm text-gray-400 mb-4">
-                Manually trigger synchronization with your Skoolib library. This will be implemented in Phase 1.9.
+                Manually trigger synchronization with your Skoolib library to import new books.
+                {!formData.skoolib_url && " Please configure your Skoolib URL first."}
               </p>
               <button
                 type="button"
-                disabled={true}
-                className="bg-gray-600 text-gray-400 px-4 py-2 rounded-md cursor-not-allowed"
+                onClick={handleManualSync}
+                disabled={syncLoading || !formData.skoolib_url}
+                data-testid="manual-sync-button"
+                className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md transition-colors"
               >
-                Sync Now (Coming Soon)
+                {syncLoading ? 'Syncing...' : 'Sync Now'}
               </button>
             </div>
+
+            {/* Sync History */}
+            {syncHistory.length > 0 && (
+              <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
+                <h3 className="text-md font-semibold text-white mb-3">Recent Sync History</h3>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {syncHistory.map((sync: any, index: number) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-gray-800 rounded">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <span className={`w-2 h-2 rounded-full ${sync.success ? 'bg-green-400' : 'bg-red-400'}`}></span>
+                          <span className="text-sm text-gray-300">
+                            {sync.source} sync - {sync.books_processed}/{sync.books_found} books
+                          </span>
+                        </div>
+                        {sync.error_details && (
+                          <div className="text-xs text-red-400 mt-1 ml-4">
+                            {sync.error_details[0]}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400">
+                        {new Date(sync.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Submit Button */}

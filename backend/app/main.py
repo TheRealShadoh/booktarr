@@ -6,6 +6,8 @@ from .routers import test_books
 from .routers import settings
 from .middleware import ErrorHandlingMiddleware, RequestLoggingMiddleware
 from .config import setup_logging, setup_colored_logging, get_logger
+from .database.connection import init_database, close_database
+from .services.database_service import DatabaseIntegrationService
 
 # Setup logging
 log_level = os.getenv("LOG_LEVEL", "INFO")
@@ -49,8 +51,29 @@ def health_check():
 @app.on_event("startup")
 async def startup_event():
     logger.info("🚀 Booktarr API starting up")
+    
+    # Initialize database
+    try:
+        await init_database()
+        logger.info("💾 Database initialized successfully")
+        
+        # Skip test data seeding for now to avoid session conflicts
+        # TODO: Fix test data seeding to work with dynamic session updates
+        logger.info("⚠️ Skipping test data seeding due to session conflicts")
+        
+    except Exception as e:
+        logger.error(f"❌ Database initialization failed: {e}")
+        raise
+    
     logger.info("📚 Book library management system ready")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("🛑 Booktarr API shutting down")
+    
+    # Close database connections
+    try:
+        await close_database()
+        logger.info("💾 Database connections closed")
+    except Exception as e:
+        logger.error(f"❌ Error closing database connections: {e}")

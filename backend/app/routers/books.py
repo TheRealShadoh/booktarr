@@ -7,6 +7,7 @@ from ..services import google_books_service, open_library_service
 from ..services.cache_service import cache_service
 from ..services.settings_service import settings_service
 from ..services.skoolib_playwright_parser import SkoolibPlaywrightParser
+from ..services.database_service import DatabaseIntegrationService
 from ..models import Book, SeriesGroup, BooksResponse, MetadataSource
 
 router = APIRouter()
@@ -14,51 +15,36 @@ logger = logging.getLogger(__name__)
 
 @router.get("/books", response_model=BooksResponse)
 async def get_books():
-    """Get all books grouped by series - returns test data by default"""
+    """Get all books grouped by series from database"""
     # Check cache first
     cached_result = cache_service.get_api_response("all_books")
     if cached_result:
         return BooksResponse(**cached_result)
     
     try:
-        logger.info("Loading books - using test data (Skoolib sync moved to manual trigger)")
+        logger.info("Loading books from database")
         
-        # Use test data by default - Skoolib sync is now manual via settings
-        isbns = [
-            "9780143127741",  # The Body Keeps the Score
-            "9780547928227",  # The Hobbit
-            "9780553103540",  # A Game of Thrones
-            "9780553108033",  # A Clash of Kings
-            "9780553106633",  # A Storm of Swords
-        ]
+        # Get books from database
+        books_response = await DatabaseIntegrationService.get_books_response()
         
-        # Enrich with metadata
-        enriched_books = []
-        for isbn in isbns:
-            enriched = await enrich_book_metadata(isbn)
-            enriched_books.append(enriched)
-        
-        # Group by series
-        grouped_books = group_books_by_series(enriched_books)
-        
-        # Create response object
+        # Create response object for caching
         response_data = {
-            "series": grouped_books,
-            "total_books": len(enriched_books),
-            "total_series": len(grouped_books),
-            "last_sync": datetime.now()
+            "series": books_response.series,
+            "total_books": books_response.total_books,
+            "total_series": books_response.total_series,
+            "last_sync": books_response.last_sync
         }
         
         # Cache result
         cache_service.set_api_response("all_books", response_data)
         
-        return BooksResponse(**response_data)
+        return books_response
     
     except Exception as e:
-        logger.error(f"Error processing books: {str(e)}")
+        logger.error(f"Error loading books from database: {str(e)}")
         logger.error(f"Error type: {type(e)}")
         logger.error(f"Error traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Error processing books: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error loading books: {str(e)}")
 
 async def enrich_book_metadata(isbn: str) -> Book:
     """Enrich book data with metadata from external APIs"""

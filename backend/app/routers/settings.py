@@ -12,6 +12,7 @@ from ..services.settings_service import (
     SettingsValidationError,
     SettingsStorageError
 )
+from ..services.database_service import DatabaseIntegrationService
 
 logger = logging.getLogger(__name__)
 
@@ -48,9 +49,9 @@ class RestoreRequest(BaseModel):
 
 @router.get("/settings", response_model=Settings)
 async def get_settings():
-    """Get current application settings"""
+    """Get current application settings from database"""
     try:
-        settings = await settings_service.get_settings()
+        settings = await DatabaseIntegrationService.get_settings()
         return settings
     except Exception as e:
         logger.error(f"Error retrieving settings: {e}")
@@ -61,7 +62,7 @@ async def get_settings():
 
 @router.put("/settings", response_model=SettingsResponse)
 async def update_settings(request: SettingsUpdateRequest):
-    """Update application settings"""
+    """Update application settings in database"""
     try:
         # Convert request to dict, excluding None values
         update_data = request.dict(exclude_none=True)
@@ -72,7 +73,7 @@ async def update_settings(request: SettingsUpdateRequest):
                 detail="No settings provided to update"
             )
         
-        updated_settings = await settings_service.update_settings(update_data)
+        updated_settings = await DatabaseIntegrationService.update_settings(update_data)
         
         return SettingsResponse(
             message="Settings updated successfully",
@@ -190,6 +191,165 @@ async def get_settings_info():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get settings information"
+        )
+
+@router.post("/settings/sync-skoolib")
+async def manual_skoolib_sync():
+    """Trigger manual Skoolib synchronization"""
+    try:
+        # Get current settings to retrieve Skoolib URL
+        settings = await DatabaseIntegrationService.get_settings()
+        
+        if not settings.skoolib_url:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Skoolib URL is not configured. Please set it in settings first."
+            )
+        
+        # Import here to avoid circular imports
+        from ..services.skoolib_playwright_parser import SkoolibPlaywrightParser
+        from ..services import google_books_service, open_library_service
+        from ..models import Book, MetadataSource
+        from datetime import datetime
+        
+        logger.info(f"🔄 Starting manual Skoolib sync for URL: {settings.skoolib_url}")
+        
+        # Parse ISBNs from Skoolib
+        parser = SkoolibPlaywrightParser()
+        isbn_list = await parser.extract_isbns(settings.skoolib_url)
+        
+        if not isbn_list:
+            return {
+                "success": False,
+                "message": "No books found in Skoolib library",
+                "books_processed": 0,
+                "books_added": 0,
+                "errors": []
+            }
+        
+        logger.info(f"📚 Found {len(isbn_list)} ISBNs from Skoolib")
+        
+        books_added = 0
+        errors = []
+        
+        for isbn in isbn_list:
+            try:
+                # Check if book already exists
+                existing_book = await DatabaseIntegrationService.get_book_by_isbn(isbn)
+                if existing_book:
+                    logger.debug(f"📖 Book {isbn} already exists, skipping")
+                    continue
+                
+                # Enrich with metadata
+                metadata = None
+                
+                # Try Google Books first
+                metadata = await google_books_service.fetch_book_metadata(isbn)
+                
+                # Fallback to Open Library
+                if not metadata:
+                    metadata = await open_library_service.fetch_book_metadata_fallback(isbn)
+                
+                # Create Book object
+                current_time = datetime.now()
+                book = Book(
+                    isbn=isbn,
+                    title=metadata.get("title") if metadata else "Unknown Title",
+                    authors=metadata.get("authors", []) if metadata else ["Unknown Author"],
+                    series=metadata.get("series") if metadata else None,
+                    series_position=metadata.get("series_position") if metadata else None,
+                    publisher=metadata.get("publisher") if metadata else None,
+                    published_date=metadata.get("published_date") if metadata else None,
+                    page_count=metadata.get("page_count") if metadata else None,
+                    thumbnail_url=metadata.get("thumbnail_url") if metadata else None,
+                    description=metadata.get("description") if metadata else None,
+                    categories=metadata.get("categories", []) if metadata else [],
+                    pricing=metadata.get("pricing", []) if metadata else [],
+                    metadata_source=MetadataSource.SKOOLIB,
+                    added_date=current_time,
+                    last_updated=current_time
+                )
+                
+                # Save to database
+                await DatabaseIntegrationService.create_book(book)
+                books_added += 1
+                logger.info(f"✅ Added book: {book.title} ({isbn})")
+                
+            except Exception as e:
+                error_msg = f"Failed to process ISBN {isbn}: {str(e)}"
+                logger.error(error_msg)
+                errors.append(error_msg)
+        
+        # Create sync history record
+        await DatabaseIntegrationService.create_sync_history(
+            source="skoolib",
+            url=settings.skoolib_url,
+            books_found=len(isbn_list),
+            books_processed=books_added,
+            success=True,
+            error_details=errors if errors else None
+        )
+        
+        logger.info(f"🎉 Manual sync completed: {books_added}/{len(isbn_list)} books added")
+        
+        return {
+            "success": True,
+            "message": f"Sync completed successfully. Added {books_added} new books.",
+            "books_processed": len(isbn_list),
+            "books_added": books_added,
+            "errors": errors
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Manual sync failed: {e}")
+        
+        # Try to create sync history record for failed sync
+        try:
+            settings = await DatabaseIntegrationService.get_settings()
+            if settings.skoolib_url:
+                await DatabaseIntegrationService.create_sync_history(
+                    source="skoolib",
+                    url=settings.skoolib_url,
+                    books_found=0,
+                    books_processed=0,
+                    success=False,
+                    error_details=[str(e)]
+                )
+        except:
+            pass  # Don't fail the response if sync history fails
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Sync failed: {str(e)}"
+        )
+
+@router.get("/settings/sync-history")
+async def get_sync_history():
+    """Get recent sync history"""
+    try:
+        history = await DatabaseIntegrationService.get_sync_history(limit=10)
+        return {
+            "history": [
+                {
+                    "id": record.id,
+                    "source": record.source,
+                    "url": record.url,
+                    "timestamp": record.timestamp.isoformat(),
+                    "books_found": record.books_found,
+                    "books_processed": record.books_processed,
+                    "success": record.success,
+                    "error_details": record.error_details
+                }
+                for record in history
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error fetching sync history: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch sync history"
         )
 
 @router.get("/settings/health")

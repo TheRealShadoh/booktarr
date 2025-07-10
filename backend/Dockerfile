@@ -19,7 +19,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY ./app ./app
 
 # Create non-root user first
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+RUN useradd -m -u 1000 appuser 
+
+# Create data directory for database with proper permissions
+RUN mkdir -p /app/data && chown -R appuser:appuser /app
 
 # Create shared directory for Playwright browsers
 RUN mkdir -p /opt/playwright && chmod 755 /opt/playwright

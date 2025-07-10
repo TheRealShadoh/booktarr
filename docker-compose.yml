@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build: ./backend
@@ -8,9 +6,12 @@ services:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
+    volumes:
+      - ./data:/app/data:rw
     networks:
       - booktarr-network
     restart: unless-stopped
+    user: "1000:1000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -39,5 +40,4 @@ networks:
   booktarr-network:
     driver: bridge
 
-volumes:
-  booktarr-data:
+# Using bind mount instead of named volume for database persistence
