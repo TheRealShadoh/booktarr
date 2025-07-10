@@ -1,26 +1,41 @@
 /**
  * Combined state management hook that integrates all state management features
- * Provides a single interface for all state operations
+ * Provides a single interface for all state operations with offline support
  */
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { useOptimisticUpdates } from './useOptimisticUpdates';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { clientCache } from '../services/cache';
+import { offlineSync } from '../services/offlineSync';
+import { offlineQueue } from '../services/offlineQueue';
 import { Book } from '../types';
 
 export const useStateManager = () => {
   const appContext = useAppContext();
   const optimisticUpdates = useOptimisticUpdates();
   const keyboardShortcuts = useKeyboardShortcuts();
+  
+  // Offline state
+  const [offlineInfo, setOfflineInfo] = useState<any>(null);
+  const [syncStatus, setSyncStatus] = useState<any>(null);
 
-  // Enhanced book operations with caching and optimistic updates
+  // Enhanced book operations with caching, optimistic updates, and offline support
   const addBookWithOptimizations = useCallback(async (book: Book, source?: string) => {
     try {
       // Cache the book data
       await clientCache.setBook(book.isbn, book);
       
-      // Perform optimistic update
+      // Queue for offline if needed, otherwise execute optimistically
+      if (!navigator.onLine) {
+        await offlineSync.queueBookOperation('add', book);
+        // Still do optimistic update for immediate UI feedback
+        appContext.addBook(book);
+        appContext.showToast('Book queued for addition when online', 'info');
+        return { book, success: true };
+      }
+      
+      // Perform optimistic update when online
       const result = await optimisticUpdates.optimisticAddBook(book, source);
       
       // Update cache with server response if different
@@ -30,24 +45,52 @@ export const useStateManager = () => {
       
       return result;
     } catch (error) {
-      // Remove from cache on error
-      await clientCache.deleteBook(book.isbn);
+      // If online operation fails, queue for offline retry
+      if (navigator.onLine) {
+        try {
+          await offlineSync.queueBookOperation('add', book);
+          appContext.showToast('Book queued for retry when connection is stable', 'warning');
+        } catch (queueError) {
+          await clientCache.deleteBook(book.isbn);
+          throw error;
+        }
+      } else {
+        await clientCache.deleteBook(book.isbn);
+      }
       throw error;
     }
-  }, [optimisticUpdates]);
+  }, [optimisticUpdates, appContext]);
 
   const removeBookWithOptimizations = useCallback(async (isbn: string, title: string) => {
     try {
-      // Perform optimistic update
+      // Queue for offline if needed
+      if (!navigator.onLine) {
+        await offlineSync.queueBookOperation('remove', { isbn });
+        // Still do optimistic update for immediate UI feedback
+        appContext.removeBook(isbn);
+        appContext.showToast('Book removal queued for when online', 'info');
+        return;
+      }
+      
+      // Perform optimistic update when online
       await optimisticUpdates.optimisticRemoveBook(isbn, title);
       
       // Remove from cache
       await clientCache.deleteBook(isbn);
     } catch (error) {
-      // Book will be restored by optimistic update rollback
+      // If online operation fails, queue for offline retry
+      if (navigator.onLine) {
+        try {
+          await offlineSync.queueBookOperation('remove', { isbn });
+          appContext.showToast('Book removal queued for retry when connection is stable', 'warning');
+        } catch (queueError) {
+          // Book will be restored by optimistic update rollback
+          throw error;
+        }
+      }
       throw error;
     }
-  }, [optimisticUpdates]);
+  }, [optimisticUpdates, appContext]);
 
   // Enhanced search with caching
   const searchWithCaching = useCallback(async (query: string): Promise<any[]> => {
@@ -224,6 +267,26 @@ export const useStateManager = () => {
     }
   }, [optimisticUpdates, appContext]);
 
+  // Offline functionality
+  const startOfflineSync = useCallback(async () => {
+    try {
+      const result = await offlineSync.startSync();
+      appContext.showToast(`Sync completed: ${result.syncedItems} items synced`, 'success');
+      return result;
+    } catch (error) {
+      appContext.showToast('Sync failed: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
+      throw error;
+    }
+  }, [appContext]);
+
+  const getOfflineInfo = useCallback(async () => {
+    return await offlineSync.getOfflineModeInfo();
+  }, []);
+
+  const getQueueStats = useCallback(async () => {
+    return await offlineQueue.getQueueStats();
+  }, []);
+
   // Auto-cleanup on mount and periodically
   useEffect(() => {
     cleanup();
@@ -231,6 +294,31 @@ export const useStateManager = () => {
     const interval = setInterval(cleanup, 5 * 60 * 1000); // Every 5 minutes
     return () => clearInterval(interval);
   }, [cleanup]);
+
+  // Setup offline sync listeners
+  useEffect(() => {
+    const handleSyncStatus = (status: any) => setSyncStatus(status);
+    
+    offlineSync.addSyncListener(handleSyncStatus);
+    
+    // Update offline info periodically
+    const updateOfflineInfo = async () => {
+      try {
+        const info = await getOfflineInfo();
+        setOfflineInfo(info);
+      } catch (error) {
+        console.error('Failed to update offline info:', error);
+      }
+    };
+    
+    updateOfflineInfo();
+    const infoInterval = setInterval(updateOfflineInfo, 30000); // Every 30 seconds
+    
+    return () => {
+      offlineSync.removeSyncListener(handleSyncStatus);
+      clearInterval(infoInterval);
+    };
+  }, [getOfflineInfo]);
 
   return {
     // Core app context
@@ -265,6 +353,13 @@ export const useStateManager = () => {
     
     // Cleanup
     cleanup,
+    
+    // Offline functionality
+    startOfflineSync,
+    getOfflineInfo,
+    getQueueStats,
+    offlineInfo,
+    syncStatus,
   };
 };
 
