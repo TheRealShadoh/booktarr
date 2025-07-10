@@ -161,6 +161,12 @@ class CacheService:
         url_hash = hashlib.md5(url.encode()).hexdigest()
         self.page_cache.set(f"page:{url_hash}", html_content)
     
+    def delete_api_response(self, url: str) -> bool:
+        """Delete a specific API response from cache"""
+        url_hash = hashlib.md5(url.encode()).hexdigest()
+        cache_key = f"api:{url_hash}"
+        return self.api_cache.delete(cache_key)
+    
     def clear_all(self):
         """Clear all caches"""
         self.book_cache.clear()

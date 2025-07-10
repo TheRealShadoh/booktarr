@@ -304,7 +304,7 @@ function App() {
       case 'enhancement':
         return <MetadataEnhancementPage />;
       case 'add':
-        return <BookSearchPage />;
+        return <BookSearchPage onBookAdded={loadBooks} />;
       case 'wanted':
       case 'activity':
       case 'logs':

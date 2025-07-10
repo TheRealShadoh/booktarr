@@ -19,7 +19,11 @@ interface SearchResponse {
   search_time: number;
 }
 
-const BookSearchPage: React.FC = () => {
+interface BookSearchPageProps {
+  onBookAdded?: () => void;
+}
+
+const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -85,6 +89,11 @@ const BookSearchPage: React.FC = () => {
       
       // Show success message
       console.log(`Added "${book.title}" to library`);
+      
+      // Refresh the library data
+      if (onBookAdded) {
+        onBookAdded();
+      }
       
     } catch (err) {
       console.error('Add book error:', err);

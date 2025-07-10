@@ -110,7 +110,7 @@ async def add_book_to_library(request: AddBookRequest):
         saved_book = await DatabaseIntegrationService.add_book(book)
         
         # Clear cache to ensure fresh data on next request
-        cache_service.api_cache.delete("all_books")
+        cache_service.delete_api_response("all_books")
         
         logger.info(f"Successfully added book to library: {saved_book.title} by {', '.join(saved_book.authors)}")
         
@@ -254,7 +254,7 @@ async def remove_book_from_library(isbn: str):
             raise HTTPException(status_code=500, detail="Failed to remove book from library")
         
         # Clear cache to ensure fresh data on next request
-        cache_service.api_cache.delete("all_books")
+        cache_service.delete_api_response("all_books")
         
         logger.info(f"Successfully removed book from library: {existing_book.title}")
         
