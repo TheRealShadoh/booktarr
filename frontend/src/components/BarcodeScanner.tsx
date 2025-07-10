@@ -43,6 +43,8 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const [duplicateCount, setDuplicateCount] = useState(0);
   const [detectionCount, setDetectionCount] = useState(0);
   const [lastDetectionTime, setLastDetectionTime] = useState<number>(0);
+  const [lastDetectedCode, setLastDetectedCode] = useState<string | null>(null);
+  const [showDetectionFlash, setShowDetectionFlash] = useState(false);
   
   // Session tracking
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -217,24 +219,28 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           return digits;
         } else {
           console.log('❌ Invalid ISBN-13 checksum:', digits);
-          // TEMPORARILY: Return anyway for testing
-          console.log('🔧 RETURNING ANYWAY FOR TESTING');
-          return digits;
+          // Don't return invalid ISBNs
+          return null;
         }
       }
       
-      // Non-standard 13-digit starting with other digits - some books use these
-      console.log('13-digit code with non-standard prefix - might be valid book code');
-      console.log('🔧 ACCEPTING AS POTENTIAL ISBN FOR TESTING');
-      return digits;
+      // Non-standard 13-digit starting with other digits - validate anyway
+      console.log('13-digit code with non-standard prefix - validating...');
+      if (validateISBN13(digits)) {
+        console.log('✅ Valid 13-digit code (non-ISBN prefix):', digits);
+        return digits;
+      }
+      console.log('❌ Invalid 13-digit code');
+      return null;
     }
     
     // 2. Check for 12-digit codes (UPC-A without check digit)
     if (digits.length === 12) {
       console.log('Found 12-digit UPC-A code:', digits);
-      // Some books use UPC-A format
-      console.log('🔧 ACCEPTING 12-digit as potential book code');
-      return digits;
+      // Try to validate as UPC-A or convert to ISBN-13
+      // For now, we'll skip 12-digit codes as they're not standard ISBNs
+      console.log('⚠️ 12-digit codes not supported (not standard ISBN)');
+      return null;
     }
     
     // 3. Check for 10-digit ISBN
@@ -248,15 +254,8 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
         return isbn13;
       } else {
         console.log('❌ Invalid ISBN-10 checksum');
-        // TEMPORARILY: Try converting anyway
-        console.log('🔧 TRYING CONVERSION ANYWAY FOR TESTING');
-        try {
-          const isbn13 = convertISBN10to13(text);
-          console.log('Converted anyway:', isbn13);
-          return isbn13;
-        } catch (error) {
-          console.log('Conversion failed:', error);
-        }
+        // Don't convert invalid ISBN-10s
+        return null;
       }
     }
 
@@ -280,11 +279,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       }
     }
 
-    // 5. Fallback: accept any reasonable numeric string for testing
-    if (digits.length >= 10 && digits.length <= 13) {
-      console.log('🔧 FALLBACK: Accepting', digits.length, 'digit code for testing:', digits);
-      return digits;
-    }
+    // No fallback - only accept valid ISBNs
 
     console.log('❌ No valid ISBN pattern found in:', text);
     console.log('=== END ISBN EXTRACTION ===');
@@ -329,11 +324,16 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     // Update detection statistics
     setDetectionCount(prev => prev + 1);
     setLastDetectionTime(now);
+    setLastDetectedCode(text);
     
     console.log(`Barcode detected:`, text);
     
     // Play beep sound for ANY detected barcode
     playBeep();
+    
+    // Show visual flash feedback
+    setShowDetectionFlash(true);
+    setTimeout(() => setShowDetectionFlash(false), 300);
     
     // Enhanced toast with detection info
     showToast(`📷 Barcode: ${text}`, 'info');
@@ -755,6 +755,11 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute inset-0 bg-black bg-opacity-40" />
               
+              {/* Detection flash effect */}
+              {showDetectionFlash && (
+                <div className="absolute inset-0 bg-green-500 bg-opacity-30 animate-pulse" />
+              )}
+              
               {/* Responsive scanning area for better detection */}
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4/5 max-w-md h-48 sm:h-56 lg:h-64">
                 <div className="relative w-full h-full">
@@ -789,6 +794,9 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                   <p className="text-white text-sm font-medium">📚 Scan ISBN Barcode on Book</p>
                   <p className="text-white text-xs mt-1">Look for barcode with "ISBN" text - usually on back cover</p>
                   <p className="text-yellow-300 text-xs mt-1">✨ Tip: Hold steady, ensure good lighting</p>
+                  {lastDetectedCode && (
+                    <p className="text-green-300 text-xs mt-2">Last detected: {lastDetectedCode}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -869,7 +877,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
               </svg>
             </button>
             
-            {/* Manual capture button */}
+            {/* Manual capture button - larger and more prominent */}
             <button
               onClick={async () => {
                 console.log('Manual capture button clicked');
@@ -878,28 +886,33 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                   return;
                 }
                 
+                // Visual feedback
+                setShowDetectionFlash(true);
+                setTimeout(() => setShowDetectionFlash(false), 200);
+                
                 try {
-                  showToast('Capturing frame...', 'info');
+                  showToast('📸 Capturing frame...', 'info');
                   const result = await scannerRef.current.decodeFromVideoElement(videoRef.current);
                   if (result) {
                     console.log('Manual capture result:', result.getText());
                     handleScanResultRef.current(result);
                   } else {
-                    showToast('No barcode found in current frame', 'warning');
+                    showToast('❌ No barcode found in frame - try again', 'warning');
                   }
                 } catch (error) {
                   console.error('Manual capture failed:', error);
-                  showToast('No barcode detected in frame', 'warning');
+                  showToast('❌ No barcode detected - position barcode in view', 'warning');
                 }
               }}
-              className="p-2 bg-orange-600 rounded-lg hover:bg-orange-700 transition-colors"
-              title="Manually capture current frame"
+              className="px-3 py-2 bg-booktarr-accent rounded-lg hover:bg-booktarr-accentHover transition-colors flex items-center space-x-2"
+              title="Capture frame now (for when auto-scan misses)"
               disabled={!isScanning}
             >
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
+              <span className="text-white text-sm font-medium hidden sm:inline">Capture</span>
             </button>
             
             <button
