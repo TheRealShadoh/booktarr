@@ -9,7 +9,7 @@ Always use the INTEGRATION_ROADMAP.md file to see what you should be doing, and 
 
 - During frontend and backend development run the npm server and backend locally for quicker fails/bugs/errors.
 
-- For front end update speed and backend update speed run locally and not in docker.
+- For front end update speed and backend update speed run locally and not in container.
 - Once you think you have completes a step or phase, run all tests to ensure nothing broke, do a git commit with the information around that commit- then begin the next step/task/phase. This way you won't need my input, but I can roll back to different commits if needed.
 
 ## Tech Stack
@@ -30,7 +30,6 @@ Always use the INTEGRATION_ROADMAP.md file to see what you should be doing, and 
 - **PWA**: Workbox for service workers
 
 ### Infrastructure
-- **Containerization**: Docker Compose with multi-stage builds
 - **Database**: SQLite with volume persistence
 - **Reverse Proxy**: Nginx for frontend serving
 - **Development**: Hot-reload enabled for both services
@@ -77,20 +76,6 @@ npm run format     # Prettier formatting
 npm run build      # Production build
 npm run analyze    # Bundle size analysis
 npm run serve      # Serve production build locally
-```
-
-### Full Stack Development
-```bash
-# Development mode with hot-reload
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
-
-# Production mode
-docker-compose up --build -d
-
-# Utility commands
-docker-compose logs -f [service_name]  # View logs
-docker-compose exec backend pytest      # Run backend tests
-docker-compose down -v                  # Stop and remove volumes
 ```
 
 ## Architecture Overview
@@ -269,13 +254,6 @@ The parser tries multiple strategies to find book links:
 4. `div[onclick*="book"]` - Clickable elements with book handlers
 5. Content parsing for URL patterns
 
-#### Docker Configuration
-```dockerfile
-# Playwright browsers installed in shared location
-ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
-RUN playwright install --with-deps chromium
-```
-
 #### Current Status
 - ✅ Parser successfully loads Skoolib URLs
 - ✅ Playwright browser automation working
@@ -375,27 +353,6 @@ REACT_APP_ENABLE_PWA=true
 REACT_APP_ENABLE_ANALYTICS=false
 ```
 
-### Docker Configuration
-
-#### Network Architecture
-```yaml
-networks:
-  booktarr-net:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
-```
-
-#### Health Checks
-```yaml
-healthcheck:
-  test: ["CMD", "curl", "-f", "http://localhost/health"]
-  interval: 30s
-  timeout: 10s
-  retries: 3
-  start_period: 40s
-```
 
 ## Error Handling Patterns
 
