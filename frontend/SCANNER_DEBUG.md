@@ -4,10 +4,16 @@
 
 ### 🔧 Recent Fixes Applied:
 1. **UI Layout Fixed**: Controls now properly visible at all screen resolutions
-2. **SVG Error Fixed**: Malformed SVG path corrected (no more console errors)
+2. **SVG Error Fixed**: Malformed SVG path corrected (no more console errors)  
 3. **Beep Sound Enhanced**: Now plays for ANY detected barcode + better audio context handling
 4. **Test Buttons Added**: Yellow beep test button + purple ISBN test button
 5. **Layout Improved**: Fixed flex layout for high-resolution displays
+6. **🆕 Larger Scanning Area**: Increased scan frame from 64×32 to 80×48 for better detection
+7. **🆕 Enhanced Camera Quality**: Higher resolution (1920×1080) for clearer barcode reading
+8. **🆕 ISBN-Optimized Detection**: Prioritized EAN-13 and UPC formats (most common for books)
+9. **🆕 Detection Statistics**: Shows barcode count vs ISBN count in header
+10. **🆕 Smart Tips**: Contextual help when detecting non-ISBN barcodes
+11. **🆕 Toast Visibility Fix**: Notifications now appear above scanner (z-index 60 vs 50)
 
 ## Enhanced Scanner Features
 

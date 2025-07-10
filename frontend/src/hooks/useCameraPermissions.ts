@@ -2,7 +2,7 @@
  * Camera permissions hook
  * Handles camera access permissions and device enumeration
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export type PermissionState = 'prompt' | 'granted' | 'denied' | 'checking';
 
@@ -28,6 +28,13 @@ export const useCameraPermissions = () => {
     selectedDeviceId: null,
     error: null,
   });
+  
+  // Use ref to track current state to avoid dependency cycles
+  const stateRef = useRef(state);
+  
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   // Check if camera is supported
   useEffect(() => {
@@ -54,7 +61,8 @@ export const useCameraPermissions = () => {
 
   // Check permission state
   const checkPermission = useCallback(async () => {
-    if (!state.isSupported) return;
+    // Use ref to get current state instead of dependency
+    if (!stateRef.current.isSupported) return;
 
     try {
       // Check if we already have permission by trying to enumerate devices
@@ -109,11 +117,11 @@ export const useCameraPermissions = () => {
         error: 'Failed to check camera permission',
       }));
     }
-  }, [state.isSupported]);
+  }, []); // Remove state.isSupported dependency to prevent circular dependency
 
   // Request camera permission
   const requestPermission = useCallback(async () => {
-    if (!state.isSupported) {
+    if (!stateRef.current.isSupported) {
       setState(prev => ({
         ...prev,
         error: 'Camera not supported',
@@ -171,7 +179,7 @@ export const useCameraPermissions = () => {
 
       return false;
     }
-  }, [state.isSupported]);
+  }, []);
 
   // Select camera device
   const selectDevice = useCallback((deviceId: string) => {
@@ -183,7 +191,8 @@ export const useCameraPermissions = () => {
 
   // Get media stream with selected device
   const getStream = useCallback(async (constraints?: MediaStreamConstraints) => {
-    if (!state.isSupported || state.permissionState !== 'granted') {
+    const currentState = stateRef.current;
+    if (!currentState.isSupported || currentState.permissionState !== 'granted') {
       throw new Error('Camera not available or permission not granted');
     }
 
@@ -192,8 +201,8 @@ export const useCameraPermissions = () => {
       ...constraints?.video as MediaTrackConstraints,
     };
 
-    if (state.selectedDeviceId) {
-      videoConstraints.deviceId = { exact: state.selectedDeviceId };
+    if (currentState.selectedDeviceId) {
+      videoConstraints.deviceId = { exact: currentState.selectedDeviceId };
     }
 
     try {
@@ -207,14 +216,15 @@ export const useCameraPermissions = () => {
       console.error('Error getting camera stream:', error);
       throw error;
     }
-  }, [state.isSupported, state.permissionState, state.selectedDeviceId]);
+  }, []);
 
-  // Check permission on mount
+  // Check permission on mount - separate effect to avoid circular dependency
   useEffect(() => {
     if (state.isSupported) {
       checkPermission();
     }
-  }, [state.isSupported, checkPermission]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.isSupported]); // Remove checkPermission dependency to prevent circular dependency
 
   return {
     ...state,
