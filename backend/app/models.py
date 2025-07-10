@@ -89,6 +89,7 @@ class AddBookResponse(BaseModel):
     success: bool
     message: str
     book: Optional[Book] = None
+    already_exists: bool = False
 
 # Metadata Enhancement models
 class EnhancementRequest(BaseModel):

@@ -1,10 +1,11 @@
 /**
  * Book search and add page component
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Book } from '../types';
 import { booktarrAPI } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
+import Toast from './Toast';
 
 interface SearchResult {
   book: Book;
@@ -31,6 +32,33 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
   const [totalFound, setTotalFound] = useState(0);
   const [searchTime, setSearchTime] = useState(0);
   const [addingBooks, setAddingBooks] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
+  const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
+  const [searchDebounce, setSearchDebounce] = useState<NodeJS.Timeout | null>(null);
+
+  // Auto-search with debouncing
+  useEffect(() => {
+    if (searchDebounce) {
+      clearTimeout(searchDebounce);
+    }
+
+    if (query.trim().length >= 3) {
+      const timeout = setTimeout(() => {
+        handleSearch(query);
+      }, 500); // 500ms debounce
+      setSearchDebounce(timeout);
+    } else if (query.trim().length === 0) {
+      setSearchResults([]);
+      setTotalFound(0);
+      setError(null);
+    }
+
+    return () => {
+      if (searchDebounce) {
+        clearTimeout(searchDebounce);
+      }
+    };
+  }, [query]);
 
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
@@ -84,11 +112,28 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
         throw new Error(errorData.detail || 'Failed to add book');
       }
 
-      // Remove the book from search results since it's now in library
-      setSearchResults(prev => prev.filter(result => result.book.isbn !== book.isbn));
+      const result = await response.json();
       
-      // Show success message
-      console.log(`Added "${book.title}" to library`);
+      // Mark as recently added for visual feedback
+      setRecentlyAdded(prev => new Set(prev).add(book.isbn));
+      
+      // Show appropriate success message
+      if (result.already_exists) {
+        setToast({ 
+          message: `"${book.title}" is already in your library`, 
+          type: 'info' 
+        });
+      } else {
+        setToast({ 
+          message: `"${book.title}" added to library successfully!`, 
+          type: 'success' 
+        });
+        
+        // Remove from search results after a delay to show feedback
+        setTimeout(() => {
+          setSearchResults(prev => prev.filter(result => result.book.isbn !== book.isbn));
+        }, 1500);
+      }
       
       // Refresh the library data
       if (onBookAdded) {
@@ -97,7 +142,11 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
       
     } catch (err) {
       console.error('Add book error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to add book');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add book';
+      setToast({ 
+        message: `Failed to add "${book.title}": ${errorMessage}`, 
+        type: 'error' 
+      });
     } finally {
       setAddingBooks(prev => {
         const newSet = new Set(prev);
@@ -134,6 +183,15 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
 
   return (
     <div className="space-y-6">
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       {/* Header */}
       <div className="booktarr-card">
         <div className="booktarr-card-header">
@@ -147,13 +205,7 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
       {/* Search Form */}
       <div className="booktarr-card">
         <div className="booktarr-card-body">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSearch(query);
-            }}
-            className="space-y-4"
-          >
+          <div className="space-y-4">
             <div>
               <label htmlFor="search" className="booktarr-form-label">
                 Search for books
@@ -164,7 +216,7 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Enter book title, author, series, or ISBN..."
+                  placeholder="Enter book title, author, series, or ISBN... (min 3 chars)"
                   className="booktarr-form-input pr-12"
                   disabled={loading}
                 />
@@ -178,24 +230,29 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
                   )}
                 </div>
               </div>
+              <p className="text-xs text-booktarr-textMuted mt-1">
+                Search automatically starts after typing 3+ characters
+              </p>
             </div>
             
-            <div className="flex items-center justify-between">
-              <button
-                type="submit"
-                disabled={loading || !query.trim()}
-                className="booktarr-btn booktarr-btn-primary"
-              >
-                {loading ? 'Searching...' : 'Search Books'}
-              </button>
-              
-              {searchResults.length > 0 && (
+            {searchResults.length > 0 && (
+              <div className="flex items-center justify-between">
                 <div className="text-sm text-booktarr-textSecondary">
                   Found {totalFound} results in {searchTime.toFixed(2)}s
                 </div>
-              )}
-            </div>
-          </form>
+                <button
+                  onClick={() => {
+                    setQuery('');
+                    setSearchResults([]);
+                    setError(null);
+                  }}
+                  className="text-sm text-booktarr-textMuted hover:text-booktarr-text"
+                >
+                  Clear search
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -314,25 +371,39 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
 
                         {/* Add Button */}
                         <div className="ml-4 flex-shrink-0">
-                          <button
-                            onClick={() => handleAddBook(result.book, result.source)}
-                            disabled={addingBooks.has(result.book.isbn)}
-                            className="booktarr-btn booktarr-btn-primary"
-                          >
-                            {addingBooks.has(result.book.isbn) ? (
-                              <div className="flex items-center space-x-2">
-                                <LoadingSpinner size="small" />
-                                <span>Adding...</span>
-                              </div>
-                            ) : (
+                          {recentlyAdded.has(result.book.isbn) ? (
+                            <button
+                              disabled
+                              className="booktarr-btn bg-green-600 text-white cursor-not-allowed"
+                            >
                               <div className="flex items-center space-x-2">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                 </svg>
-                                <span>Add to Library</span>
+                                <span>Added!</span>
                               </div>
-                            )}
-                          </button>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleAddBook(result.book, result.source)}
+                              disabled={addingBooks.has(result.book.isbn)}
+                              className="booktarr-btn booktarr-btn-primary"
+                            >
+                              {addingBooks.has(result.book.isbn) ? (
+                                <div className="flex items-center space-x-2">
+                                  <LoadingSpinner size="small" />
+                                  <span>Adding...</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center space-x-2">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                  </svg>
+                                  <span>Add to Library</span>
+                                </div>
+                              )}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
