@@ -21,6 +21,10 @@ export interface Book {
   last_updated: string;
   isbn10?: string;
   isbn13?: string;
+  // Metadata enhancement fields
+  metadata_enhanced?: boolean;
+  metadata_enhanced_date?: string;
+  metadata_sources_used?: string[];
 }
 
 export interface PriceInfo {
@@ -238,3 +242,63 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   selectedAuthors: [],
   selectedCategories: [],
 };
+
+// Metadata Enhancement types
+export enum EnhancementStatus {
+  PENDING = 'pending',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  CACHED = 'cached',
+}
+
+export interface EnhancementRequest {
+  isbn?: string;
+  force_refresh?: boolean;
+}
+
+export interface EnhancementResult {
+  isbn: string;
+  status: EnhancementStatus;
+  original_book?: Book;
+  enhanced_book?: Book;
+  error_message?: string;
+  sources_used: string[];
+  cache_hit: boolean;
+  processing_time: number;
+}
+
+export interface BatchEnhancementResponse {
+  success: boolean;
+  message: string;
+  total_books: number;
+  enhanced_books: number;
+  failed_books: number;
+  cached_books: number;
+  processing_time: number;
+  results: EnhancementResult[];
+}
+
+export interface EnhancementProgressResponse {
+  total_books: number;
+  processed_books: number;
+  successful_enhancements: number;
+  failed_enhancements: number;
+  cached_results: number;
+  current_isbn?: string;
+  estimated_completion?: string;
+  is_complete: boolean;
+}
+
+export interface CacheStatsResponse {
+  cache_stats: any;
+  enhancement_cache_ttl: number;
+  api_cache_ttl: number;
+  book_cache_ttl: number;
+}
+
+export interface MetadataSourcesResponse {
+  isbn: string;
+  sources: { [key: string]: any };
+  total_sources: number;
+}

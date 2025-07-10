@@ -214,7 +214,11 @@ class DatabaseIntegrationService:
             added_date=book_model.added_date,
             last_updated=book_model.last_updated,
             isbn10=book_model.isbn10,
-            isbn13=book_model.isbn13
+            isbn13=book_model.isbn13,
+            # Add new enhancement fields if they exist
+            metadata_enhanced=getattr(book_model, 'metadata_enhanced', False) or False,
+            metadata_enhanced_date=getattr(book_model, 'metadata_enhanced_date', None),
+            metadata_sources_used=getattr(book_model, 'metadata_sources_used', []) or []
         )
     
     @staticmethod
@@ -231,6 +235,10 @@ class DatabaseIntegrationService:
         # Convert enum to string
         if isinstance(data.get('metadata_source'), MetadataSource):
             data['metadata_source'] = data['metadata_source'].value
+        
+        # Convert URL objects to strings for database storage
+        if data.get('thumbnail_url') and hasattr(data['thumbnail_url'], '__str__'):
+            data['thumbnail_url'] = str(data['thumbnail_url'])
         
         return data
 

@@ -13,6 +13,11 @@ import {
   SettingsInfo,
   SettingsHealth,
   APIError,
+  EnhancementRequest,
+  EnhancementResult,
+  BatchEnhancementResponse,
+  CacheStatsResponse,
+  MetadataSourcesResponse,
 } from '../types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
@@ -89,6 +94,32 @@ class BooktarrAPI {
 
   async getTestBooks(): Promise<BooksResponse> {
     const response = await this.api.get<BooksResponse>('/books/test');
+    return response.data;
+  }
+
+  // Metadata Enhancement API
+  async enhanceAllBooksMetadata(request: EnhancementRequest = {}): Promise<BatchEnhancementResponse> {
+    const response = await this.api.post<BatchEnhancementResponse>('/books/enhance-metadata', request);
+    return response.data;
+  }
+
+  async enhanceBookMetadata(isbn: string, request: EnhancementRequest = {}): Promise<EnhancementResult> {
+    const response = await this.api.post<EnhancementResult>(`/books/${isbn}/enhance-metadata`, request);
+    return response.data;
+  }
+
+  async getEnhancementCacheStats(): Promise<CacheStatsResponse> {
+    const response = await this.api.get<CacheStatsResponse>('/books/enhancement/cache-stats');
+    return response.data;
+  }
+
+  async clearEnhancementCache(): Promise<{ message: string }> {
+    const response = await this.api.delete('/books/enhancement/cache');
+    return response.data;
+  }
+
+  async getBookMetadataSources(isbn: string): Promise<MetadataSourcesResponse> {
+    const response = await this.api.get<MetadataSourcesResponse>(`/books/${isbn}/metadata-sources`);
     return response.data;
   }
 

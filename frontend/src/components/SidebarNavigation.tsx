@@ -3,7 +3,7 @@
  */
 import React from 'react';
 
-type CurrentPage = 'library' | 'settings' | 'series' | 'authors' | 'wanted' | 'activity' | 'logs';
+type CurrentPage = 'library' | 'settings' | 'series' | 'authors' | 'wanted' | 'activity' | 'logs' | 'enhancement';
 
 interface SidebarNavigationProps {
   currentPage: CurrentPage;
@@ -57,6 +57,16 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
         </svg>
       ),
       isActive: currentPage === 'authors'
+    },
+    {
+      id: 'enhancement',
+      label: 'Enhancement',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      ),
+      isActive: currentPage === 'enhancement'
     },
     {
       id: 'wanted',

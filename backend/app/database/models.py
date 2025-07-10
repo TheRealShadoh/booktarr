@@ -41,6 +41,9 @@ class BookModel(Base):
     
     # Metadata tracking
     metadata_source = Column(String, default="skoolib")  # skoolib, google_books, open_library
+    metadata_enhanced = Column(Boolean, default=False)  # Whether metadata has been enhanced
+    metadata_enhanced_date = Column(DateTime, nullable=True)  # When metadata was last enhanced
+    metadata_sources_used = Column(JSON, default=list)  # List of sources used for enhancement
     added_date = Column(DateTime, default=func.now(), nullable=False)
     last_updated = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
     

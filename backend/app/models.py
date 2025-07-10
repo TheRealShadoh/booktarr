@@ -33,6 +33,11 @@ class Book(BaseModel):
     added_date: datetime
     last_updated: datetime
     
+    # Metadata enhancement fields
+    metadata_enhanced: bool = False
+    metadata_enhanced_date: Optional[datetime] = None
+    metadata_sources_used: List[str] = []
+    
     # Legacy fields for backward compatibility
     isbn10: Optional[str] = None
     isbn13: Optional[str] = None
@@ -84,4 +89,57 @@ class AddBookResponse(BaseModel):
     success: bool
     message: str
     book: Optional[Book] = None
+
+# Metadata Enhancement models
+class EnhancementRequest(BaseModel):
+    """Request to enhance metadata for books"""
+    isbn: Optional[str] = None  # If provided, enhance single book
+    force_refresh: bool = False  # Force refresh even if cached
+    
+class EnhancementStatus(str, Enum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CACHED = "cached"
+
+class EnhancementResult(BaseModel):
+    """Result of metadata enhancement operation"""
+    isbn: str
+    status: EnhancementStatus
+    original_book: Optional[Book] = None
+    enhanced_book: Optional[Book] = None
+    error_message: Optional[str] = None
+    sources_used: List[str] = []
+    cache_hit: bool = False
+    processing_time: float = 0.0
+
+class BatchEnhancementResponse(BaseModel):
+    """Response for batch metadata enhancement"""
+    success: bool
+    message: str
+    total_books: int
+    enhanced_books: int
+    failed_books: int
+    cached_books: int
+    processing_time: float
+    results: List[EnhancementResult] = []
+
+class EnhancementProgressResponse(BaseModel):
+    """Response for enhancement progress tracking"""
+    total_books: int
+    processed_books: int
+    successful_enhancements: int
+    failed_enhancements: int
+    cached_results: int
+    current_isbn: Optional[str] = None
+    estimated_completion: Optional[datetime] = None
+    is_complete: bool = False
+
+class CacheStatsResponse(BaseModel):
+    """Response for cache statistics"""
+    cache_stats: Dict
+    enhancement_cache_ttl: int
+    api_cache_ttl: int
+    book_cache_ttl: int
     already_exists: bool = False

@@ -6,7 +6,7 @@ import SidebarNavigation from './SidebarNavigation';
 import FilterPanel from './FilterPanel';
 import { Book } from '../types';
 
-type CurrentPage = 'library' | 'settings' | 'series' | 'authors' | 'wanted' | 'activity' | 'logs';
+type CurrentPage = 'library' | 'settings' | 'series' | 'authors' | 'wanted' | 'activity' | 'logs' | 'enhancement';
 
 interface MainLayoutProps {
   currentPage: CurrentPage;

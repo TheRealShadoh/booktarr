@@ -11,6 +11,7 @@ import AuthorsPage from './components/AuthorsPage';
 import LoadingSpinner from './components/LoadingSpinner';
 import Toast from './components/Toast';
 import MainLayout from './components/MainLayout';
+import MetadataEnhancementPage from './components/MetadataEnhancementPage';
 import { booktarrAPI } from './services/api';
 import { 
   BooksBySeriesMap, 
@@ -20,7 +21,7 @@ import {
 } from './types';
 import './styles/tailwind.css';
 
-type CurrentPage = 'library' | 'settings' | 'series' | 'authors' | 'wanted' | 'activity' | 'logs';
+type CurrentPage = 'library' | 'settings' | 'series' | 'authors' | 'wanted' | 'activity' | 'logs' | 'enhancement';
 
 interface AppState {
   books: BooksBySeriesMap;
@@ -299,6 +300,8 @@ function App() {
             error={state.error}
           />
         );
+      case 'enhancement':
+        return <MetadataEnhancementPage />;
       case 'wanted':
       case 'activity':
       case 'logs':
