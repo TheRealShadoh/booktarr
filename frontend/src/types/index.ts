@@ -25,6 +25,16 @@ export interface Book {
   metadata_enhanced?: boolean;
   metadata_enhanced_date?: string;
   metadata_sources_used?: string[];
+  // Reading progress and status fields
+  reading_status: ReadingStatus;
+  reading_progress_pages?: number;
+  reading_progress_percentage?: number;
+  date_started?: string;
+  date_finished?: string;
+  personal_rating?: number; // 1-5 star rating
+  personal_notes?: string;
+  reading_goal_id?: string;
+  times_read: number;
 }
 
 export interface PriceInfo {
@@ -39,6 +49,14 @@ export enum MetadataSource {
   SKOOLIB = 'skoolib',
   GOOGLE_BOOKS = 'google_books',
   OPEN_LIBRARY = 'open_library',
+}
+
+export enum ReadingStatus {
+  UNREAD = 'unread',
+  READING = 'reading',
+  READ = 'read',
+  WISHLIST = 'wishlist',
+  DNF = 'dnf', // Did Not Finish
 }
 
 export interface BooksResponse {
@@ -301,4 +319,49 @@ export interface MetadataSourcesResponse {
   isbn: string;
   sources: { [key: string]: any };
   total_sources: number;
+}
+
+// Reading Progress API types
+export interface UpdateReadingProgressRequest {
+  isbn: string;
+  reading_status?: ReadingStatus;
+  reading_progress_pages?: number;
+  reading_progress_percentage?: number;
+  date_started?: string;
+  date_finished?: string;
+  personal_rating?: number;
+  personal_notes?: string;
+}
+
+export interface ReadingProgressResponse {
+  success: boolean;
+  message: string;
+  book?: Book;
+}
+
+export interface ReadingStatsResponse {
+  total_books: number;
+  books_read: number;
+  books_reading: number;
+  books_unread: number;
+  books_wishlist: number;
+  books_dnf: number;
+  average_rating?: number;
+  total_pages_read?: number;
+  reading_streak_days: number;
+  books_this_year: number;
+  books_this_month: number;
+}
+
+export interface ReadingGoal {
+  id: string;
+  title: string;
+  target_books?: number;
+  target_pages?: number;
+  start_date: string;
+  end_date: string;
+  current_books: number;
+  current_pages: number;
+  is_completed: boolean;
+  created_date: string;
 }

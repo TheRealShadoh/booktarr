@@ -249,7 +249,17 @@ class DatabaseIntegrationService:
             # Add new enhancement fields if they exist
             metadata_enhanced=getattr(book_model, 'metadata_enhanced', False) or False,
             metadata_enhanced_date=getattr(book_model, 'metadata_enhanced_date', None),
-            metadata_sources_used=metadata_sources_used
+            metadata_sources_used=metadata_sources_used,
+            # Add reading progress fields
+            reading_status=getattr(book_model, 'reading_status', 'unread') or 'unread',
+            reading_progress_pages=getattr(book_model, 'reading_progress_pages', None),
+            reading_progress_percentage=getattr(book_model, 'reading_progress_percentage', None),
+            date_started=getattr(book_model, 'date_started', None),
+            date_finished=getattr(book_model, 'date_finished', None),
+            personal_rating=getattr(book_model, 'personal_rating', None),
+            personal_notes=getattr(book_model, 'personal_notes', None),
+            reading_goal_id=getattr(book_model, 'reading_goal_id', None),
+            times_read=getattr(book_model, 'times_read', 0) or 0
         )
     
     @staticmethod

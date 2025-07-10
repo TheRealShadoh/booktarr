@@ -1,8 +1,12 @@
 /**
- * Enhanced BookCard component with Sonarr-inspired styling
+ * Enhanced BookCard component with Sonarr-inspired styling and reading progress
  */
 import React, { useState } from 'react';
-import { Book } from '../types';
+import { Book, ReadingStatus } from '../types';
+import ReadingStatusBadge from './ReadingStatusBadge';
+import ReadingProgressBar from './ReadingProgressBar';
+import StarRating from './StarRating';
+import { booktarrAPI } from '../services/api';
 
 interface BookCardProps {
   book: Book;
@@ -90,7 +94,8 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid' })
             {formatAuthors(book.authors)}
           </p>
           
-          <div className="flex items-center space-x-4 text-sm text-booktarr-textMuted">
+          <div className="flex items-center space-x-4 text-sm text-booktarr-textMuted mb-2">
+            <ReadingStatusBadge status={book.reading_status || ReadingStatus.UNREAD} />
             <span>{formatPublishedDate(book.published_date)}</span>
             {getSeriesInfo() && (
               <span className="text-booktarr-accent truncate" title={getSeriesInfo()}>
@@ -101,6 +106,30 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid' })
               <span>{book.page_count} pages</span>
             )}
           </div>
+
+          {/* Reading progress for currently reading books */}
+          {book.reading_status === ReadingStatus.READING && (book.reading_progress_percentage || book.reading_progress_pages) && (
+            <div className="mb-2">
+              <ReadingProgressBar
+                percentage={book.reading_progress_percentage}
+                currentPage={book.reading_progress_pages}
+                totalPages={book.page_count}
+                size="small"
+              />
+            </div>
+          )}
+
+          {/* Star rating for read books */}
+          {book.reading_status === ReadingStatus.READ && book.personal_rating && book.personal_rating > 0 && (
+            <div className="mb-2">
+              <StarRating
+                rating={book.personal_rating}
+                readonly={true}
+                size="small"
+                showText={true}
+              />
+            </div>
+          )}
           
           {book.categories && book.categories.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
@@ -169,17 +198,35 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid' })
 
         {/* Quality/Status indicators */}
         <div className="absolute top-2 right-2 flex flex-col space-y-1">
+          <ReadingStatusBadge 
+            status={book.reading_status || ReadingStatus.UNREAD} 
+            className="bg-opacity-90 backdrop-blur-sm"
+          />
           {book.series && (
-            <div className="bg-booktarr-accent text-white px-2 py-1 rounded-full text-xs font-medium">
+            <div className="bg-booktarr-accent text-white px-2 py-1 rounded-full text-xs font-medium bg-opacity-90 backdrop-blur-sm">
               Series
             </div>
           )}
           {book.categories && book.categories.length > 0 && (
-            <div className="bg-booktarr-surface bg-opacity-90 text-booktarr-text px-2 py-1 rounded-full text-xs">
+            <div className="bg-booktarr-surface bg-opacity-90 text-booktarr-text px-2 py-1 rounded-full text-xs backdrop-blur-sm">
               {book.categories[0]}
             </div>
           )}
         </div>
+
+        {/* Reading progress bar overlay for currently reading books */}
+        {book.reading_status === ReadingStatus.READING && book.reading_progress_percentage && (
+          <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black to-transparent">
+            <ReadingProgressBar
+              percentage={book.reading_progress_percentage}
+              currentPage={book.reading_progress_pages}
+              totalPages={book.page_count}
+              size="small"
+              showText={false}
+              className="opacity-90"
+            />
+          </div>
+        )}
       </div>
       
       <div className="booktarr-book-info">
@@ -207,6 +254,37 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid' })
         {book.pricing && book.pricing.length > 0 && (
           <div className="mt-2 text-xs text-booktarr-success font-medium">
             {formatPrice(book.pricing[0].price, book.pricing[0].currency)}
+          </div>
+        )}
+
+        {/* Reading progress for currently reading books */}
+        {book.reading_status === ReadingStatus.READING && (book.reading_progress_percentage || book.reading_progress_pages) && (
+          <div className="mt-2">
+            <ReadingProgressBar
+              percentage={book.reading_progress_percentage}
+              currentPage={book.reading_progress_pages}
+              totalPages={book.page_count}
+              size="small"
+              showText={false}
+            />
+          </div>
+        )}
+
+        {/* Star rating for read books */}
+        {book.reading_status === ReadingStatus.READ && book.personal_rating && book.personal_rating > 0 && (
+          <div className="mt-2">
+            <StarRating
+              rating={book.personal_rating}
+              readonly={true}
+              size="small"
+            />
+          </div>
+        )}
+
+        {/* Reading times counter */}
+        {book.times_read > 0 && (
+          <div className="mt-1 text-xs text-booktarr-textMuted">
+            {book.times_read === 1 ? 'Read once' : `Read ${book.times_read} times`}
           </div>
         )}
       </div>

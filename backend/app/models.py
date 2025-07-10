@@ -8,6 +8,13 @@ class MetadataSource(str, Enum):
     GOOGLE_BOOKS = "google_books"
     OPEN_LIBRARY = "open_library"
 
+class ReadingStatus(str, Enum):
+    UNREAD = "unread"
+    READING = "reading"
+    READ = "read"
+    WISHLIST = "wishlist"
+    DNF = "dnf"  # Did Not Finish
+
 class PriceInfo(BaseModel):
     source: str
     price: float
@@ -41,6 +48,17 @@ class Book(BaseModel):
     # Legacy fields for backward compatibility
     isbn10: Optional[str] = None
     isbn13: Optional[str] = None
+    
+    # Reading progress and status fields
+    reading_status: ReadingStatus = ReadingStatus.UNREAD
+    reading_progress_pages: Optional[int] = None  # Current page number
+    reading_progress_percentage: Optional[float] = None  # Percentage read (0-100)
+    date_started: Optional[date] = None
+    date_finished: Optional[date] = None
+    personal_rating: Optional[float] = None  # 1-5 star rating
+    personal_notes: Optional[str] = None
+    reading_goal_id: Optional[str] = None  # Reference to reading goal
+    times_read: int = 0  # Number of times this book has been read
     
 class SeriesGroup(BaseModel):
     series_name: str
@@ -144,3 +162,48 @@ class CacheStatsResponse(BaseModel):
     api_cache_ttl: int
     book_cache_ttl: int
     already_exists: bool = False
+
+# Reading Progress Models
+class UpdateReadingProgressRequest(BaseModel):
+    """Request to update reading progress for a book"""
+    isbn: str
+    reading_status: Optional[ReadingStatus] = None
+    reading_progress_pages: Optional[int] = None
+    reading_progress_percentage: Optional[float] = None
+    date_started: Optional[date] = None
+    date_finished: Optional[date] = None
+    personal_rating: Optional[float] = None
+    personal_notes: Optional[str] = None
+
+class ReadingProgressResponse(BaseModel):
+    """Response for reading progress update"""
+    success: bool
+    message: str
+    book: Optional[Book] = None
+
+class ReadingStatsResponse(BaseModel):
+    """Response for reading statistics"""
+    total_books: int
+    books_read: int
+    books_reading: int
+    books_unread: int
+    books_wishlist: int
+    books_dnf: int
+    average_rating: Optional[float] = None
+    total_pages_read: Optional[int] = None
+    reading_streak_days: int = 0
+    books_this_year: int = 0
+    books_this_month: int = 0
+
+class ReadingGoal(BaseModel):
+    """Reading goal model"""
+    id: str
+    title: str
+    target_books: Optional[int] = None
+    target_pages: Optional[int] = None
+    start_date: date
+    end_date: date
+    current_books: int = 0
+    current_pages: int = 0
+    is_completed: bool = False
+    created_date: datetime

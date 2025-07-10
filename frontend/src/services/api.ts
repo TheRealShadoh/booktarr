@@ -18,6 +18,10 @@ import {
   BatchEnhancementResponse,
   CacheStatsResponse,
   MetadataSourcesResponse,
+  UpdateReadingProgressRequest,
+  ReadingProgressResponse,
+  ReadingStatsResponse,
+  ReadingStatus,
 } from '../types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
@@ -184,6 +188,38 @@ class BooktarrAPI {
 
   setTimeout(timeout: number): void {
     this.api.defaults.timeout = timeout;
+  }
+
+  // Reading Progress API methods
+  async updateReadingProgress(request: UpdateReadingProgressRequest): Promise<ReadingProgressResponse> {
+    const response = await this.api.put<ReadingProgressResponse>('/reading/progress', request);
+    return response.data;
+  }
+
+  async getReadingStats(): Promise<ReadingStatsResponse> {
+    const response = await this.api.get<ReadingStatsResponse>('/reading/stats');
+    return response.data;
+  }
+
+  async getBooksByStatus(status: ReadingStatus): Promise<Book[]> {
+    const response = await this.api.get<Book[]>(`/reading/books/status/${status}`);
+    return response.data;
+  }
+
+  async startReading(isbn: string): Promise<ReadingProgressResponse> {
+    const response = await this.api.post<ReadingProgressResponse>(`/reading/books/${isbn}/start-reading`);
+    return response.data;
+  }
+
+  async finishReading(isbn: string, rating?: number): Promise<ReadingProgressResponse> {
+    const url = `/reading/books/${isbn}/finish-reading${rating ? `?rating=${rating}` : ''}`;
+    const response = await this.api.post<ReadingProgressResponse>(url);
+    return response.data;
+  }
+
+  async addToWishlist(isbn: string): Promise<ReadingProgressResponse> {
+    const response = await this.api.post<ReadingProgressResponse>(`/reading/books/${isbn}/add-to-wishlist`);
+    return response.data;
   }
 }
 

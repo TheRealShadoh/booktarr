@@ -39,6 +39,17 @@ class BookModel(Base):
     isbn10 = Column(String, nullable=True)
     isbn13 = Column(String, nullable=True)
     
+    # Reading progress and status fields
+    reading_status = Column(String, default="unread")  # unread, reading, read, wishlist, dnf
+    reading_progress_pages = Column(Integer, nullable=True)  # Current page number
+    reading_progress_percentage = Column(Float, nullable=True)  # Percentage read (0-100)
+    date_started = Column(String, nullable=True)  # Store as ISO date string
+    date_finished = Column(String, nullable=True)  # Store as ISO date string
+    personal_rating = Column(Float, nullable=True)  # 1-5 star rating
+    personal_notes = Column(Text, nullable=True)
+    reading_goal_id = Column(String, nullable=True)  # Reference to reading goal
+    times_read = Column(Integer, default=0)  # Number of times this book has been read
+    
     # Metadata tracking
     metadata_source = Column(String, default="skoolib")  # skoolib, google_books, open_library
     metadata_enhanced = Column(Boolean, default=False)  # Whether metadata has been enhanced

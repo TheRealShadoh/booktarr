@@ -125,6 +125,17 @@ class BookService:
             grouped["Standalone"] = standalone
         
         return grouped
+    
+    @staticmethod
+    async def get_books_by_status(status: str) -> List[BookModel]:
+        """Get all books with a specific reading status"""
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(BookModel)
+                .where(BookModel.reading_status == status)
+                .order_by(BookModel.title)
+            )
+            return result.scalars().all()
 
 class SettingsService:
     """Service for settings-related database operations"""
