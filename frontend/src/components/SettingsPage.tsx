@@ -19,6 +19,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   const [validationResult, setValidationResult] = useState<any>(null);
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncHistory, setSyncHistory] = useState<any[]>([]);
+  const [cacheStats, setCacheStats] = useState<any>(null);
+  const [cacheLoading, setCacheLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
 
   useEffect(() => {
@@ -32,8 +34,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         default_language: settings.default_language,
       });
       
-      // Load sync history
+      // Load sync history and cache stats
       loadSyncHistory();
+      loadCacheStats();
     }
   }, [settings]);
 
@@ -46,6 +49,43 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
       }
     } catch (error) {
       console.error('Failed to load sync history:', error);
+    }
+  };
+
+  const loadCacheStats = async () => {
+    try {
+      const response = await fetch('/api/settings/cache/stats');
+      if (response.ok) {
+        const data = await response.json();
+        setCacheStats(data);
+      }
+    } catch (error) {
+      console.error('Failed to load cache stats:', error);
+    }
+  };
+
+  const handleClearCache = async (cacheType?: string) => {
+    setCacheLoading(true);
+    try {
+      const url = cacheType 
+        ? `/api/settings/cache/clear?cache_type=${cacheType}`
+        : '/api/settings/cache/clear';
+      
+      const response = await fetch(url, { method: 'DELETE' });
+      
+      if (response.ok) {
+        const result = await response.json();
+        setToast({ message: result.message || 'Cache cleared successfully', type: 'success' });
+        
+        // Reload cache stats
+        await loadCacheStats();
+      } else {
+        setToast({ message: 'Failed to clear cache', type: 'error' });
+      }
+    } catch (error) {
+      setToast({ message: 'Failed to clear cache', type: 'error' });
+    } finally {
+      setCacheLoading(false);
     }
   };
 
@@ -377,6 +417,86 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Cache Management */}
+          <div>
+            <h2 className="text-lg font-semibold text-white mb-4">Cache Management</h2>
+            
+            <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
+              <div className="mb-4">
+                <h3 className="text-md font-semibold text-white mb-2">Cache Statistics</h3>
+                {cacheStats ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-gray-800 p-3 rounded">
+                      <h4 className="text-sm font-medium text-gray-400 mb-1">Book Cache</h4>
+                      <p className="text-white text-lg">{cacheStats.book_cache.size} items</p>
+                      <p className="text-xs text-gray-400">
+                        Hit rate: {(cacheStats.book_cache.hit_rate * 100).toFixed(1)}%
+                      </p>
+                    </div>
+                    <div className="bg-gray-800 p-3 rounded">
+                      <h4 className="text-sm font-medium text-gray-400 mb-1">API Cache</h4>
+                      <p className="text-white text-lg">{cacheStats.api_cache.size} items</p>
+                      <p className="text-xs text-gray-400">
+                        Hit rate: {(cacheStats.api_cache.hit_rate * 100).toFixed(1)}%
+                      </p>
+                    </div>
+                    <div className="bg-gray-800 p-3 rounded">
+                      <h4 className="text-sm font-medium text-gray-400 mb-1">Page Cache</h4>
+                      <p className="text-white text-lg">{cacheStats.page_cache.size} items</p>
+                      <p className="text-xs text-gray-400">
+                        Hit rate: {(cacheStats.page_cache.hit_rate * 100).toFixed(1)}%
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-gray-400 text-sm">Loading cache statistics...</div>
+                )}
+              </div>
+
+              <div className="border-t border-gray-600 pt-4">
+                <h3 className="text-md font-semibold text-white mb-2">Clear Cache</h3>
+                <p className="text-sm text-gray-400 mb-3">
+                  Clear cached data to free up memory and force fresh data retrieval.
+                  Note: Search results cache persists until manually cleared here.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleClearCache()}
+                    disabled={cacheLoading}
+                    className="bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors text-sm"
+                  >
+                    {cacheLoading ? 'Clearing...' : 'Clear All Caches'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleClearCache('book')}
+                    disabled={cacheLoading}
+                    className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-700 text-white px-4 py-2 rounded-md transition-colors text-sm"
+                  >
+                    Clear Book Cache
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleClearCache('api')}
+                    disabled={cacheLoading}
+                    className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-700 text-white px-4 py-2 rounded-md transition-colors text-sm"
+                  >
+                    Clear API Cache
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleClearCache('page')}
+                    disabled={cacheLoading}
+                    className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-700 text-white px-4 py-2 rounded-md transition-colors text-sm"
+                  >
+                    Clear Page Cache
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Submit Button */}

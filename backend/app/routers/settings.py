@@ -13,6 +13,7 @@ from ..services.settings_service import (
     SettingsStorageError
 )
 from ..services.database_service import DatabaseIntegrationService
+from ..services.cache_service import cache_service
 
 logger = logging.getLogger(__name__)
 
@@ -371,3 +372,62 @@ async def settings_health_check():
             "status": "unhealthy",
             "error": str(e)
         }
+
+@router.get("/settings/cache/stats")
+async def get_cache_stats():
+    """Get cache statistics for all caches"""
+    try:
+        book_stats = cache_service.book_cache.get_stats()
+        api_stats = cache_service.api_cache.get_stats()
+        page_stats = cache_service.page_cache.get_stats()
+        
+        return {
+            "book_cache": book_stats,
+            "api_cache": api_stats,
+            "page_cache": page_stats,
+            "total_items": book_stats["size"] + api_stats["size"] + page_stats["size"],
+            "total_hits": book_stats["hits"] + api_stats["hits"] + page_stats["hits"],
+            "total_misses": book_stats["misses"] + api_stats["misses"] + page_stats["misses"]
+        }
+    except Exception as e:
+        logger.error(f"Error getting cache stats: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get cache statistics"
+        )
+
+@router.delete("/settings/cache/clear")
+async def clear_cache(cache_type: Optional[str] = None):
+    """Clear cache (all or specific type)"""
+    try:
+        if cache_type:
+            if cache_type == "book":
+                cache_service.book_cache.clear()
+                message = "Book cache cleared"
+            elif cache_type == "api":
+                cache_service.api_cache.clear()
+                message = "API cache cleared"
+            elif cache_type == "page":
+                cache_service.page_cache.clear()
+                message = "Page cache cleared"
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid cache type: {cache_type}. Valid types are: book, api, page"
+                )
+        else:
+            # Clear all caches
+            cache_service.clear_all()
+            message = "All caches cleared"
+        
+        logger.info(f"Cache cleared: {message}")
+        return {"success": True, "message": message}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error clearing cache: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to clear cache"
+        )

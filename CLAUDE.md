@@ -49,15 +49,22 @@ pip install -r requirements-dev.txt  # Development dependencies
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Run tests
-pytest -v
-pytest --cov=app  # With coverage report
+pytest -v                              # Run all tests
+pytest --cov=app --cov-report=html    # With coverage report
+pytest tests/test_specific.py -v      # Run specific test file
+pytest -k "test_function_name"        # Run specific test by name
 
 # Format code
-black app/
-isort app/
+black app/          # Format code
+isort app/          # Sort imports
+flake8              # Linting
 
 # Type checking
 mypy app/
+
+# Database migrations
+alembic upgrade head                               # Apply migrations
+alembic revision --autogenerate -m "description"   # Create new migration
 ```
 
 ### Frontend Development
@@ -66,16 +73,45 @@ cd frontend
 npm install
 
 # Development
-npm start          # Development server on port 3000
-npm run test       # Run test suite in watch mode
-npm run test:ci    # Single test run for CI
-npm run lint       # ESLint checking
-npm run format     # Prettier formatting
+npm start           # Development server on port 3000
+npm run test        # Run test suite in watch mode
+npm run test:ci     # Single test run with coverage
+npm run test:e2e    # Open Cypress interactive mode
+npm run test:e2e:ci # Run Cypress headless
+npm run lint        # ESLint checking
+npm run format      # Prettier formatting
 
 # Production
-npm run build      # Production build
-npm run analyze    # Bundle size analysis
-npm run serve      # Serve production build locally
+npm run build       # Production build
+npm run analyze     # Bundle size analysis
+npm run serve       # Serve production build locally
+```
+
+## Project Structure
+
+```
+booktarr/
+├── backend/               # FastAPI backend service
+│   ├── app/              # Main application code
+│   │   ├── config/       # Configuration and logging setup
+│   │   ├── database/     # SQLAlchemy models and DB services
+│   │   ├── middleware/   # Error handling and logging middleware
+│   │   ├── routers/      # API endpoints (books, settings, health)
+│   │   ├── services/     # Business logic (skoolib, metadata, cache)
+│   │   └── main.py       # FastAPI app initialization
+│   ├── alembic/          # Database migrations
+│   ├── tests/            # Backend test suite
+│   └── data/             # SQLite database storage
+├── frontend/             # React TypeScript frontend
+│   ├── src/
+│   │   ├── components/   # React components
+│   │   ├── pages/        # Page components (Library, Series, Authors, Settings)
+│   │   ├── services/     # API client and utilities
+│   │   ├── styles/       # Tailwind CSS and theme
+│   │   └── types/        # TypeScript definitions
+│   ├── cypress/          # E2E test suite
+│   └── public/           # Static assets
+└── INTEGRATION_ROADMAP.md # Project roadmap and status
 ```
 
 ## Architecture Overview
@@ -209,6 +245,12 @@ interface AppState {
 2. **Google Books API**: Rich metadata (no key required for basic access)
 3. **Open Library API**: Fallback for missing metadata
 4. **Price APIs**: Multiple sources for price comparison
+
+#### API Response Caching
+- Google Books: 24 hours cache
+- Open Library: 48 hours cache
+- Skoolib parsing: 1 hour cache
+- Price data: 6 hours cache
 
 ### Skoolib Parser Documentation
 
@@ -467,4 +509,30 @@ git push origin feature/description
 - Code coverage maintained
 - Documentation updated
 - Reviewed by at least one team member
+
+## Database Schema
+
+### Core Tables
+- **books**: ISBN (PK), title, authors, series info, metadata
+- **settings**: Configuration for Skoolib URL, API keys, sync preferences
+- **sync_history**: Track Skoolib sync operations and results
+- **cache**: Generic key-value cache for API responses
+
+### Alembic Migrations
+Database schema is managed through Alembic migrations. Always create a migration when modifying models:
+```bash
+cd backend
+alembic revision --autogenerate -m "Add new field to book model"
+alembic upgrade head  # Apply migration
 ```
+
+## Integration Roadmap
+
+The project follows a phased approach documented in INTEGRATION_ROADMAP.md:
+- **Phase 1**: Basic MVP with Skoolib sync and metadata enrichment (COMPLETE)
+- **Phase 2**: UI enhancements and series management (CURRENT)
+- **Phase 3**: User accounts and reading progress
+- **Phase 4**: Mobile PWA with barcode scanning
+- **Phase 5**: Social features and recommendations
+
+Always check INTEGRATION_ROADMAP.md for current status and next steps.

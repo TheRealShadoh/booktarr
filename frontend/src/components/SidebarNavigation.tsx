@@ -3,7 +3,7 @@
  */
 import React from 'react';
 
-type CurrentPage = 'library' | 'settings' | 'series' | 'authors' | 'wanted' | 'activity' | 'logs' | 'enhancement';
+type CurrentPage = 'library' | 'settings' | 'series' | 'authors' | 'wanted' | 'activity' | 'logs' | 'enhancement' | 'add';
 
 interface SidebarNavigationProps {
   currentPage: CurrentPage;
