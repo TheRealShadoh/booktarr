@@ -24,6 +24,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
       setFormData({
         skoolib_url: settings.skoolib_url || '',
         google_books_api_key: settings.google_books_api_key || '',
+        open_library_api_key: settings.open_library_api_key || '',
         cache_ttl: settings.cache_ttl,
         enable_price_lookup: settings.enable_price_lookup,
         default_language: settings.default_language,
@@ -184,6 +185,23 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                   Optional: Provides higher rate limits for Google Books API
                 </p>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Open Library API Key (Optional)
+                </label>
+                <input
+                  type="password"
+                  value={formData.open_library_api_key || ''}
+                  onChange={(e) => handleInputChange('open_library_api_key', e.target.value)}
+                  placeholder="Enter your Open Library API key"
+                  data-testid="open-library-api-key-input"
+                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
+                />
+                <p className="text-sm text-gray-400 mt-1">
+                  Optional: Provides higher rate limits for Open Library API
+                </p>
+              </div>
             </div>
           </div>
 
@@ -249,6 +267,28 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                   Fetch pricing information from external sources
                 </p>
               </div>
+            </div>
+          </div>
+
+          {/* Sync Management (Placeholder for Phase 1.9) */}
+          <div>
+            <h2 className="text-lg font-semibold text-white mb-4">Sync Management</h2>
+            
+            <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-300">Manual Skoolib Sync</span>
+                <span className="text-xs text-gray-400 bg-gray-600 px-2 py-1 rounded">Coming Soon</span>
+              </div>
+              <p className="text-sm text-gray-400 mb-4">
+                Manually trigger synchronization with your Skoolib library. This will be implemented in Phase 1.9.
+              </p>
+              <button
+                type="button"
+                disabled={true}
+                className="bg-gray-600 text-gray-400 px-4 py-2 rounded-md cursor-not-allowed"
+              >
+                Sync Now (Coming Soon)
+              </button>
             </div>
           </div>
 

@@ -51,6 +51,7 @@ class BooksResponse(BaseModel):
 class Settings(BaseModel):
     skoolib_url: Optional[str] = None
     google_books_api_key: Optional[str] = None
+    open_library_api_key: Optional[str] = None
     cache_ttl: int = 3600
     enable_price_lookup: bool = True
     default_language: str = "en"

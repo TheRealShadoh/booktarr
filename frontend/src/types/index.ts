@@ -47,6 +47,7 @@ export interface BooksResponse {
 export interface Settings {
   skoolib_url?: string;
   google_books_api_key?: string;
+  open_library_api_key?: string;
   cache_ttl: number;
   enable_price_lookup: boolean;
   default_language: string;
@@ -72,6 +73,7 @@ export interface UrlValidationResponse {
 export interface SettingsUpdateRequest {
   skoolib_url?: string;
   google_books_api_key?: string;
+  open_library_api_key?: string;
   cache_ttl?: number;
   enable_price_lookup?: boolean;
   default_language?: string;
@@ -210,6 +212,7 @@ export interface AppAction {
 export const DEFAULT_SETTINGS: Settings = {
   skoolib_url: undefined,
   google_books_api_key: undefined,
+  open_library_api_key: undefined,
   cache_ttl: 3600,
   enable_price_lookup: true,
   default_language: 'en',

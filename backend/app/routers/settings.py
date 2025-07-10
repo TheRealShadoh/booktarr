@@ -20,6 +20,7 @@ router = APIRouter(tags=["settings"])
 class SettingsUpdateRequest(BaseModel):
     skoolib_url: Optional[str] = None
     google_books_api_key: Optional[str] = None
+    open_library_api_key: Optional[str] = None
     cache_ttl: Optional[int] = None
     enable_price_lookup: Optional[bool] = None
     default_language: Optional[str] = None

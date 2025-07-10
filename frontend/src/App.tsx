@@ -6,15 +6,13 @@ import BookList from './components/BookList';
 import SearchBar from './components/SearchBar';
 import SettingsPage from './components/SettingsPage';
 import LoadingSpinner from './components/LoadingSpinner';
-import ErrorMessage from './components/ErrorMessage';
 import Toast from './components/Toast';
 import { booktarrAPI } from './services/api';
 import { 
   BooksBySeriesMap, 
   Settings, 
   SettingsUpdateRequest,
-  UrlValidationResponse,
-  APIError 
+  UrlValidationResponse
 } from './types';
 import './styles/tailwind.css';
 
@@ -31,12 +29,14 @@ interface AppState {
 }
 
 function App() {
+  console.log('App component mounting...');
   const [state, setState] = useState<AppState>({
     books: {},
     filteredBooks: {},
     settings: {
       skoolib_url: undefined,
       google_books_api_key: undefined,
+      open_library_api_key: undefined,
       cache_ttl: 3600,
       enable_price_lookup: true,
       default_language: 'en',
@@ -49,6 +49,7 @@ function App() {
 
   // Add error boundary functionality
   const [hasError, setHasError] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
   
   // Handle uncaught errors
   useEffect(() => {
@@ -71,6 +72,22 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    console.log('App useEffect - calling loadInitialData');
+    loadInitialData();
+  }, []);
+  
+  // Debug useEffect to track state changes
+  useEffect(() => {
+    console.log('App state changed:', {
+      loading: state.loading,
+      error: state.error,
+      booksCount: Object.keys(state.books).length,
+      currentPage: state.currentPage
+    });
+  }, [state.loading, state.error, state.books, state.currentPage]);
+
+  // Render error boundary UI if there's a critical error
   if (hasError) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -91,22 +108,6 @@ function App() {
     );
   }
 
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
-
-  useEffect(() => {
-    loadInitialData();
-  }, []);
-  
-  // Debug useEffect to track state changes
-  useEffect(() => {
-    console.log('App state changed:', {
-      loading: state.loading,
-      error: state.error,
-      booksCount: Object.keys(state.books).length,
-      currentPage: state.currentPage
-    });
-  }, [state.loading, state.error, state.books, state.currentPage]);
-
   const loadInitialData = async () => {
     try {
       console.log('Loading initial data...');
@@ -123,6 +124,7 @@ function App() {
         settingsData = {
           skoolib_url: undefined,
           google_books_api_key: undefined,
+          open_library_api_key: undefined,
           cache_ttl: 3600,
           enable_price_lookup: true,
           default_language: 'en',
@@ -160,6 +162,7 @@ function App() {
         settings: {
           skoolib_url: undefined,
           google_books_api_key: undefined,
+          open_library_api_key: undefined,
           cache_ttl: 3600,
           enable_price_lookup: true,
           default_language: 'en',
