@@ -7,6 +7,7 @@ import SearchBar from './components/SearchBar';
 import SettingsPage from './components/SettingsPage';
 import LoadingSpinner from './components/LoadingSpinner';
 import Toast from './components/Toast';
+import MainLayout from './components/MainLayout';
 import { booktarrAPI } from './services/api';
 import { 
   BooksBySeriesMap, 
@@ -283,7 +284,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="h-screen overflow-hidden">
       {toast && (
         <Toast
           message={toast.message}
@@ -292,69 +293,25 @@ function App() {
         />
       )}
 
-      <header className="bg-gray-800 shadow-lg">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-4xl font-bold text-white">
-              📚 Booktarr
-            </h1>
-            <div className="flex items-center space-x-4">
-              <nav className="flex space-x-2">
-                <button
-                  onClick={() => setCurrentPage('library')}
-                  className={`px-4 py-2 rounded transition-colors ${
-                    state.currentPage === 'library'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  Library
-                </button>
-                <button
-                  onClick={() => setCurrentPage('settings')}
-                  className={`px-4 py-2 rounded transition-colors ${
-                    state.currentPage === 'settings'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  Settings
-                </button>
-              </nav>
-              {state.currentPage === 'library' && (
-                <button
-                  onClick={loadBooks}
-                  disabled={state.loading}
-                  className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 disabled:bg-gray-600 transition-colors"
-                >
-                  {state.loading ? (
-                    <div className="flex items-center space-x-2">
-                      <LoadingSpinner size="small" />
-                      <span>Loading...</span>
-                    </div>
-                  ) : (
-                    'Refresh'
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
-          
-          {state.currentPage === 'library' && (
-            <SearchBar onSearch={handleSearch} />
-          )}
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-6">
+      <MainLayout
+        currentPage={state.currentPage}
+        onPageChange={setCurrentPage}
+        books={Object.values(state.books).flat()}
+        onFilterChange={(filteredBooks) => {
+          // Convert filtered books back to series format
+          const filteredSeries: BooksBySeriesMap = {};
+          filteredBooks.forEach(book => {
+            const seriesName = book.series || 'Standalone';
+            if (!filteredSeries[seriesName]) {
+              filteredSeries[seriesName] = [];
+            }
+            filteredSeries[seriesName].push(book);
+          });
+          setState(prev => ({ ...prev, filteredBooks: filteredSeries }));
+        }}
+      >
         {renderCurrentPage()}
-      </main>
-
-      <footer className="bg-gray-800 mt-12 py-4">
-        <div className="container mx-auto px-4 text-center text-gray-400">
-          <p>Booktarr - Your personal book library management system</p>
-        </div>
-      </footer>
+      </MainLayout>
     </div>
   );
 }

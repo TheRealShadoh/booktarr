@@ -80,14 +80,19 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh })
   if (!seriesGroups || seriesGroups.length === 0) {
     return (
       <div className="flex flex-col justify-center items-center h-64 space-y-4">
-        <div className="text-gray-400 text-xl">No books found</div>
-        <div className="text-gray-500 text-sm max-w-md text-center">
-          Your library appears to be empty. Make sure your Skoolib URL is configured correctly in settings.
+        <div className="text-center">
+          <svg className="w-16 h-16 text-booktarr-textMuted mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+          <h3 className="text-booktarr-text text-xl font-semibold mb-2">No books found</h3>
+          <p className="text-booktarr-textSecondary text-sm max-w-md">
+            Your library appears to be empty. Make sure your Skoolib URL is configured correctly in settings.
+          </p>
         </div>
         {onRefresh && (
           <button
             onClick={onRefresh}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded transition-colors"
+            className="booktarr-btn booktarr-btn-primary"
           >
             Refresh Library
           </button>
@@ -99,49 +104,53 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh })
   return (
     <div className="space-y-6">
       {/* Summary and controls */}
-      <div className="bg-gray-800 rounded-lg p-4">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-white text-lg font-semibold">
-            Your Library
-          </h2>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleExpandAll}
-              className="text-purple-400 hover:text-purple-300 text-sm transition-colors"
-            >
-              Expand All
-            </button>
-            <span className="text-gray-500">|</span>
-            <button
-              onClick={handleCollapseAll}
-              className="text-purple-400 hover:text-purple-300 text-sm transition-colors"
-            >
-              Collapse All
-            </button>
+      <div className="booktarr-card">
+        <div className="booktarr-card-header">
+          <div className="flex items-center justify-between">
+            <h2 className="text-booktarr-text text-lg font-semibold">
+              Your Library
+            </h2>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleExpandAll}
+                className="text-booktarr-accent hover:text-booktarr-accentHover text-sm transition-colors"
+              >
+                Expand All
+              </button>
+              <span className="text-booktarr-textMuted">|</span>
+              <button
+                onClick={handleCollapseAll}
+                className="text-booktarr-accent hover:text-booktarr-accentHover text-sm transition-colors"
+              >
+                Collapse All
+              </button>
+            </div>
           </div>
         </div>
         
-        <div className="flex items-center space-x-4 text-sm text-gray-400">
-          <span>
-            {totalBooks} books across {seriesGroups.length} series
-          </span>
-          <span>•</span>
-          <span>
-            {seriesGroups.filter(group => group.seriesName !== 'Standalone').length} series
-          </span>
-          {seriesGroups.find(group => group.seriesName === 'Standalone') && (
-            <>
-              <span>•</span>
-              <span>
-                {seriesGroups.find(group => group.seriesName === 'Standalone')?.bookCount || 0} standalone books
-              </span>
-            </>
-          )}
+        <div className="booktarr-card-body">
+          <div className="flex items-center space-x-4 text-sm text-booktarr-textSecondary">
+            <span>
+              {totalBooks} books across {seriesGroups.length} series
+            </span>
+            <span className="text-booktarr-textMuted">•</span>
+            <span>
+              {seriesGroups.filter(group => group.seriesName !== 'Standalone').length} series
+            </span>
+            {seriesGroups.find(group => group.seriesName === 'Standalone') && (
+              <>
+                <span className="text-booktarr-textMuted">•</span>
+                <span>
+                  {seriesGroups.find(group => group.seriesName === 'Standalone')?.bookCount || 0} standalone books
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Series groups */}
-      <div className="space-y-4">
+      <div className="space-y-6">
         {seriesGroups.map((group) => (
           <SeriesGroup
             key={group.seriesName}
