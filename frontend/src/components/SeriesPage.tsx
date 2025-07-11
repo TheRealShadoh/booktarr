@@ -23,7 +23,10 @@ const SeriesPage: React.FC<SeriesPageProps> = ({ books, loading, error, onRefres
     if (!books) return [];
     
     return Object.entries(books)
-      .filter(([seriesName]) => seriesName !== 'Standalone') // Only show actual series
+      .filter(([seriesName, bookList]) => {
+        // Only show actual series (not Standalone) and must have at least one book
+        return seriesName !== 'Standalone' && bookList.length > 0;
+      })
       .map(([seriesName, bookList]) => ({
         seriesName,
         books: bookList,

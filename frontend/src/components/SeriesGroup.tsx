@@ -1,8 +1,9 @@
 /**
  * Enhanced SeriesGroup component with Sonarr-inspired styling
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import BookCard from './BookCard';
+import MissingBookCard from './MissingBookCard';
 import { Book } from '../types';
 
 interface SeriesGroupProps {
@@ -40,17 +41,172 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
     return a.title.localeCompare(b.title);
   });
 
+  // Define the type for book items
+  type BookItem = { type: 'book'; book: Book } | { type: 'missing'; position: number; title?: string };
+
+  // State for series information from API
+  const [seriesInfo, setSeriesInfo] = useState<{
+    totalBooks: number;
+    knownBooks: Array<{ position: number; title: string; author: string }>;
+  } | null>(null);
+  const [loadingSeriesInfo, setLoadingSeriesInfo] = useState(false);
+
+  // Fetch series information from API
+  useEffect(() => {
+    const fetchSeriesInfo = async () => {
+      if (!books.length || loadingSeriesInfo) return;
+      
+      setLoadingSeriesInfo(true);
+      try {
+        const firstAuthor = books[0]?.authors[0];
+        const response = await fetch(
+          `http://localhost:8000/api/series/info/${encodeURIComponent(seriesName)}?author=${encodeURIComponent(firstAuthor || '')}`
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log(`SeriesGroup ${seriesName}: Fetched series info from API:`, data);
+          setSeriesInfo({
+            totalBooks: data.total_books,
+            knownBooks: data.known_books
+          });
+        } else {
+          console.log(`SeriesGroup ${seriesName}: No series info found in API, trying fallback`);
+          // Only use fallback for critical series we want to guarantee work
+          const fallback = getKnownSeriesInfo(seriesName);
+          if (fallback) {
+            setSeriesInfo(fallback);
+          }
+        }
+      } catch (error) {
+        console.error(`SeriesGroup ${seriesName}: Error fetching series info:`, error);
+      } finally {
+        setLoadingSeriesInfo(false);
+      }
+    };
+
+    fetchSeriesInfo();
+  }, [seriesName, books]);
+
+  // Fallback known series information
+  const getKnownSeriesInfo = (seriesName: string): { totalBooks: number; knownBooks: Array<{ position: number; title: string; author: string }> } | null => {
+    const knownSeries: { [key: string]: { total: number; books: Array<{ pos: number; title: string }> } } = {
+      'Harry Potter': {
+        total: 7,
+        books: [
+          { pos: 1, title: "Harry Potter and the Philosopher's Stone" },
+          { pos: 2, title: "Harry Potter and the Chamber of Secrets" },
+          { pos: 3, title: "Harry Potter and the Prisoner of Azkaban" },
+          { pos: 4, title: "Harry Potter and the Goblet of Fire" },
+          { pos: 5, title: "Harry Potter and the Order of the Phoenix" },
+          { pos: 6, title: "Harry Potter and the Half-Blood Prince" },
+          { pos: 7, title: "Harry Potter and the Deathly Hallows" }
+        ]
+      },
+      'A Song of Ice and Fire': {
+        total: 7,
+        books: [
+          { pos: 1, title: "A Game of Thrones" },
+          { pos: 2, title: "A Clash of Kings" },
+          { pos: 3, title: "A Storm of Swords" },
+          { pos: 4, title: "A Feast for Crows" },
+          { pos: 5, title: "A Dance with Dragons" },
+          { pos: 6, title: "The Winds of Winter" },
+          { pos: 7, title: "A Dream of Spring" }
+        ]
+      },
+      'Hitchhiker\'s Guide to the Galaxy': {
+        total: 5,
+        books: [
+          { pos: 1, title: "The Hitchhiker's Guide to the Galaxy" },
+          { pos: 2, title: "The Restaurant at the End of the Universe" },
+          { pos: 3, title: "Life, the Universe and Everything" },
+          { pos: 4, title: "So Long, and Thanks for All the Fish" },
+          { pos: 5, title: "Mostly Harmless" }
+        ]
+      }
+    };
+    
+    const series = knownSeries[seriesName];
+    if (!series) return null;
+    
+    return {
+      totalBooks: series.total,
+      knownBooks: series.books.map(book => ({
+        position: book.pos,
+        title: book.title,
+        author: books[0]?.authors[0] || 'Unknown'
+      }))
+    };
+  };
+
+  // Create a combined array of books and missing placeholders
+  const getBooksWithMissing = (): BookItem[] => {
+    console.log(`SeriesGroup ${seriesName}: Processing books for missing detection:`, books);
+    
+    const booksWithPositions = books.filter(book => book.series_position);
+    console.log(`SeriesGroup ${seriesName}: Books with positions:`, booksWithPositions.map(b => ({ title: b.title, position: b.series_position })));
+    
+    if (booksWithPositions.length === 0) {
+      console.log(`SeriesGroup ${seriesName}: No books with positions, returning all books`);
+      return sortedBooks.map(book => ({ type: 'book' as const, book }));
+    }
+
+    const positions = booksWithPositions.map(book => book.series_position!).sort((a, b) => a - b);
+    const minPos = Math.min(...positions);
+    const maxPos = Math.max(...positions);
+    
+    // Use series info if available, otherwise just show gaps within owned books
+    let expectedMaxPos = maxPos;
+    if (seriesInfo && seriesInfo.totalBooks > maxPos) {
+      expectedMaxPos = seriesInfo.totalBooks;
+      console.log(`SeriesGroup ${seriesName}: Using series data - series has ${seriesInfo.totalBooks} total books`);
+    }
+    
+    console.log(`SeriesGroup ${seriesName}: Position range: ${minPos} to ${expectedMaxPos} (owned: ${minPos}-${maxPos})`);
+    
+    const result: BookItem[] = [];
+    
+    for (let pos = minPos; pos <= expectedMaxPos; pos++) {
+      const bookAtPosition = booksWithPositions.find(book => book.series_position === pos);
+      if (bookAtPosition) {
+        console.log(`SeriesGroup ${seriesName}: Found book at position ${pos}: ${bookAtPosition.title}`);
+        result.push({ type: 'book', book: bookAtPosition });
+      } else {
+        // Find the book title from series info if available
+        const knownBook = seriesInfo?.knownBooks.find(book => book.position === pos);
+        const bookTitle = knownBook?.title;
+        console.log(`SeriesGroup ${seriesName}: Missing book at position ${pos}${bookTitle ? `: ${bookTitle}` : ''}`);
+        result.push({ type: 'missing', position: pos, title: bookTitle });
+      }
+    }
+    
+    // Add books without positions at the end
+    const booksWithoutPositions = books.filter(book => !book.series_position);
+    booksWithoutPositions.forEach(book => {
+      console.log(`SeriesGroup ${seriesName}: Adding book without position: ${book.title}`);
+      result.push({ type: 'book', book });
+    });
+    
+    console.log(`SeriesGroup ${seriesName}: Final result with ${result.filter(r => r.type === 'missing').length} missing books:`, result);
+    return result;
+  };
+
+  const booksWithMissing = getBooksWithMissing();
+
   const getSeriesStats = () => {
     const totalBooks = books.length;
     const withPositions = books.filter(book => book.series_position).length;
     const averagePages = books.reduce((sum, book) => sum + (book.page_count || 0), 0) / totalBooks;
     const authors = new Set(books.flatMap(book => book.authors));
+    const missingCount = booksWithMissing.filter((item: BookItem) => item.type === 'missing').length;
     
     return {
       totalBooks,
       withPositions,
       averagePages: Math.round(averagePages),
-      uniqueAuthors: authors.size
+      uniqueAuthors: authors.size,
+      missingCount
     };
   };
 
@@ -79,6 +235,9 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
               {!isExpanded && (
                 <div className="text-xs text-booktarr-textMuted mt-1">
                   {stats.uniqueAuthors} author{stats.uniqueAuthors !== 1 ? 's' : ''} • {stats.averagePages} avg pages
+                  {stats.missingCount > 0 && (
+                    <span className="text-red-500"> • {stats.missingCount} missing</span>
+                  )}
                 </div>
               )}
             </div>
@@ -128,25 +287,47 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
         <div className="animate-slide-up">
           {viewMode === 'grid' ? (
             <div className="booktarr-book-grid">
-              {sortedBooks.map(book => (
-                <BookCard 
-                  key={book.isbn} 
-                  book={book} 
-                  onClick={onBookClick}
-                  viewMode={viewMode}
-                />
-              ))}
+              {booksWithMissing.map((item, index) => 
+                item.type === 'book' ? (
+                  <BookCard 
+                    key={item.book.isbn} 
+                    book={item.book} 
+                    onClick={onBookClick}
+                    viewMode={viewMode}
+                  />
+                ) : (
+                  <MissingBookCard
+                    key={`missing-${item.position}`}
+                    seriesName={seriesName}
+                    position={item.position}
+                    bookTitle={item.title}
+                    viewMode={viewMode}
+                    onClick={() => console.log(`Search for ${item.title || `${seriesName} #${item.position}`}`)}
+                  />
+                )
+              )}
             </div>
           ) : (
             <div className="space-y-2">
-              {sortedBooks.map(book => (
-                <BookCard 
-                  key={book.isbn} 
-                  book={book} 
-                  onClick={onBookClick}
-                  viewMode={viewMode}
-                />
-              ))}
+              {booksWithMissing.map((item, index) => 
+                item.type === 'book' ? (
+                  <BookCard 
+                    key={item.book.isbn} 
+                    book={item.book} 
+                    onClick={onBookClick}
+                    viewMode={viewMode}
+                  />
+                ) : (
+                  <MissingBookCard
+                    key={`missing-${item.position}`}
+                    seriesName={seriesName}
+                    position={item.position}
+                    bookTitle={item.title}
+                    viewMode={viewMode}
+                    onClick={() => console.log(`Search for ${item.title || `${seriesName} #${item.position}`}`)}
+                  />
+                )
+              )}
             </div>
           )}
           
@@ -154,7 +335,7 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
           {isExpanded && (
             <div className="mt-6 p-4 bg-booktarr-surface2 rounded-lg border border-booktarr-border">
               <h4 className="text-sm font-semibold text-booktarr-text mb-2">Series Summary</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                 <div>
                   <span className="text-booktarr-textMuted">Total Books</span>
                   <p className="text-booktarr-text font-medium">{stats.totalBooks}</p>
@@ -162,6 +343,10 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
                 <div>
                   <span className="text-booktarr-textMuted">Numbered</span>
                   <p className="text-booktarr-text font-medium">{stats.withPositions}</p>
+                </div>
+                <div>
+                  <span className="text-booktarr-textMuted">Missing</span>
+                  <p className="text-red-600 font-medium">{stats.missingCount}</p>
                 </div>
                 <div>
                   <span className="text-booktarr-textMuted">Authors</span>

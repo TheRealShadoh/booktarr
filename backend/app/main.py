@@ -2,10 +2,12 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import books
+from .routers import books_admin
 from .routers import test_books
 from .routers import settings
 from .routers import search
 from .routers import reading_progress
+from .routers import series
 from .middleware import ErrorHandlingMiddleware, RequestLoggingMiddleware
 from .config import setup_logging, setup_colored_logging, get_logger
 from .database.connection import init_database, close_database
@@ -37,10 +39,12 @@ app.add_middleware(
 
 # Include routers
 app.include_router(books.router, prefix="/api")
+app.include_router(books_admin.router, prefix="/api")
 app.include_router(test_books.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(reading_progress.router)
+app.include_router(series.router, prefix="/api")
 
 @app.get("/")
 def read_root():
