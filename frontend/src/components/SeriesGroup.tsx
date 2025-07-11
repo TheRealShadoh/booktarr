@@ -51,7 +51,7 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
   } | null>(null);
   const [loadingSeriesInfo, setLoadingSeriesInfo] = useState(false);
 
-  // Fetch series information from API
+  // Fetch series information from API (dynamic only)
   useEffect(() => {
     const fetchSeriesInfo = async () => {
       if (!books.length || loadingSeriesInfo) return;
@@ -71,15 +71,13 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
             knownBooks: data.known_books
           });
         } else {
-          console.log(`SeriesGroup ${seriesName}: No series info found in API, trying fallback`);
-          // Only use fallback for critical series we want to guarantee work
-          const fallback = getKnownSeriesInfo(seriesName);
-          if (fallback) {
-            setSeriesInfo(fallback);
-          }
+          console.log(`SeriesGroup ${seriesName}: No series info found in API - showing only owned books`);
+          // No fallback - if API doesn't have it, we only show what we own
+          setSeriesInfo(null);
         }
       } catch (error) {
         console.error(`SeriesGroup ${seriesName}: Error fetching series info:`, error);
+        setSeriesInfo(null);
       } finally {
         setLoadingSeriesInfo(false);
       }
@@ -88,59 +86,7 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
     fetchSeriesInfo();
   }, [seriesName, books]);
 
-  // Fallback known series information
-  const getKnownSeriesInfo = (seriesName: string): { totalBooks: number; knownBooks: Array<{ position: number; title: string; author: string }> } | null => {
-    const knownSeries: { [key: string]: { total: number; books: Array<{ pos: number; title: string }> } } = {
-      'Harry Potter': {
-        total: 7,
-        books: [
-          { pos: 1, title: "Harry Potter and the Philosopher's Stone" },
-          { pos: 2, title: "Harry Potter and the Chamber of Secrets" },
-          { pos: 3, title: "Harry Potter and the Prisoner of Azkaban" },
-          { pos: 4, title: "Harry Potter and the Goblet of Fire" },
-          { pos: 5, title: "Harry Potter and the Order of the Phoenix" },
-          { pos: 6, title: "Harry Potter and the Half-Blood Prince" },
-          { pos: 7, title: "Harry Potter and the Deathly Hallows" }
-        ]
-      },
-      'A Song of Ice and Fire': {
-        total: 7,
-        books: [
-          { pos: 1, title: "A Game of Thrones" },
-          { pos: 2, title: "A Clash of Kings" },
-          { pos: 3, title: "A Storm of Swords" },
-          { pos: 4, title: "A Feast for Crows" },
-          { pos: 5, title: "A Dance with Dragons" },
-          { pos: 6, title: "The Winds of Winter" },
-          { pos: 7, title: "A Dream of Spring" }
-        ]
-      },
-      'Hitchhiker\'s Guide to the Galaxy': {
-        total: 5,
-        books: [
-          { pos: 1, title: "The Hitchhiker's Guide to the Galaxy" },
-          { pos: 2, title: "The Restaurant at the End of the Universe" },
-          { pos: 3, title: "Life, the Universe and Everything" },
-          { pos: 4, title: "So Long, and Thanks for All the Fish" },
-          { pos: 5, title: "Mostly Harmless" }
-        ]
-      }
-    };
-    
-    const series = knownSeries[seriesName];
-    if (!series) return null;
-    
-    return {
-      totalBooks: series.total,
-      knownBooks: series.books.map(book => ({
-        position: book.pos,
-        title: book.title,
-        author: books[0]?.authors[0] || 'Unknown'
-      }))
-    };
-  };
-
-  // Create a combined array of books and missing placeholders
+  // Create a combined array of books and missing placeholders (fully dynamic)
   const getBooksWithMissing = (): BookItem[] => {
     console.log(`SeriesGroup ${seriesName}: Processing books for missing detection:`, books);
     

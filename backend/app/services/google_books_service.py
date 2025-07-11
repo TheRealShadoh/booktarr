@@ -4,10 +4,13 @@ from typing import Optional, Dict, List
 from datetime import datetime, date
 import re
 import os
+import logging
 from .cache_service import cache_service
+from .dynamic_cache_service import DynamicCacheService
 from ..models import PriceInfo, MetadataSource
 
 GOOGLE_BOOKS_API = "https://www.googleapis.com/books/v1/volumes"
+logger = logging.getLogger(__name__)
 
 class GoogleBooksAPIError(Exception):
     """Raised when Google Books API request fails"""
@@ -16,10 +19,11 @@ class GoogleBooksAPIError(Exception):
 class GoogleBooksClient:
     """Enhanced Google Books API client with rate limiting and caching"""
     
-    def __init__(self, api_key: Optional[str] = None, timeout: int = 30):
+    def __init__(self, api_key: Optional[str] = None, timeout: int = 30, cache_service: Optional[DynamicCacheService] = None):
         self.api_key = api_key or os.getenv("GOOGLE_BOOKS_API_KEY")
         self.timeout = timeout
         self.session = None
+        self.cache_service = cache_service
         self._rate_limiter = RateLimiter(calls_per_second=10, calls_per_minute=1000)
     
     async def __aenter__(self):
@@ -37,11 +41,25 @@ class GoogleBooksClient:
         if not self.session:
             raise GoogleBooksAPIError("Client not initialized. Use async context manager.")
         
-        # Check cache first
-        cache_key = f"google_books_{isbn}"
-        cached_result = cache_service.get_api_response(cache_key)
-        if cached_result:
-            return cached_result
+        api_service = "google_books"
+        url = f"{GOOGLE_BOOKS_API}?q=isbn:{isbn}"
+        
+        # Check dynamic cache first
+        if self.cache_service:
+            cached_result = await self.cache_service.get_cached_response(api_service, url)
+            if cached_result:
+                return cached_result
+            
+            # Check rate limiting
+            if not await self.cache_service.check_rate_limit(api_service, "minute"):
+                logger.warning(f"Rate limit exceeded for {api_service}")
+                return None
+        else:
+            # Fallback to old cache service
+            cache_key = f"google_books_{isbn}"
+            cached_result = cache_service.get_api_response(cache_key)
+            if cached_result:
+                return cached_result
         
         try:
             # Apply rate limiting
@@ -77,13 +95,109 @@ class GoogleBooksClient:
                 }
                 
                 # Cache the result
-                cache_service.set_api_response(cache_key, metadata)
+                if self.cache_service:
+                    await self.cache_service.store_cached_response(api_service, url, metadata, ttl_hours=24)
+                else:
+                    # Fallback to old cache
+                    cache_key = f"google_books_{isbn}"
+                    cache_service.set_api_response(cache_key, metadata)
+                
                 return metadata
                 
         except httpx.HTTPError as e:
             raise GoogleBooksAPIError(f"HTTP error fetching from Google Books: {e}")
         except Exception as e:
             raise GoogleBooksAPIError(f"Error fetching from Google Books: {e}")
+        
+        return None
+    
+    async def search_series_books(self, series_name: str, author: str = None, max_results: int = 40) -> List[Dict]:
+        """Search for all books in a series"""
+        if not self.session:
+            raise GoogleBooksAPIError("Client not initialized. Use async context manager.")
+        
+        api_service = "google_books"
+        
+        # Build search query
+        query_parts = [f'intitle:"{series_name}"']
+        if author:
+            query_parts.append(f'inauthor:"{author}"')
+        
+        query = " ".join(query_parts)
+        url = f"{GOOGLE_BOOKS_API}?q={query}&maxResults={max_results}"
+        
+        # Check cache first
+        if self.cache_service:
+            cached_result = await self.cache_service.get_cached_response(api_service, url)
+            if cached_result:
+                return cached_result
+            
+            # Check rate limiting
+            if not await self.cache_service.check_rate_limit(api_service, "minute"):
+                logger.warning(f"Rate limit exceeded for {api_service}")
+                return []
+        
+        try:
+            # Apply rate limiting
+            await self._rate_limiter.acquire()
+            
+            params = {
+                "q": query,
+                "maxResults": max_results,
+                "orderBy": "relevance"
+            }
+            if self.api_key:
+                params["key"] = self.api_key
+            
+            response = await self.session.get(GOOGLE_BOOKS_API, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            books = []
+            if data.get("totalItems", 0) > 0:
+                for item in data.get("items", []):
+                    volume_info = item.get("volumeInfo", {})
+                    
+                    # Extract book information
+                    book = {
+                        "title": volume_info.get("title", "").strip(),
+                        "authors": volume_info.get("authors", []),
+                        "series": self._extract_series_info(volume_info),
+                        "series_position": self._extract_series_position(volume_info),
+                        "published_date": self._parse_published_date(volume_info.get("publishedDate")),
+                        "thumbnail_url": self._get_best_thumbnail(volume_info.get("imageLinks", {})),
+                        "description": volume_info.get("description", "").strip(),
+                        "page_count": volume_info.get("pageCount"),
+                        "isbn": self._extract_isbn(item.get("volumeInfo", {})),
+                        "google_books_id": item.get("id")
+                    }
+                    books.append(book)
+            
+            # Cache the result
+            if self.cache_service:
+                await self.cache_service.store_cached_response(api_service, url, books, ttl_hours=72)
+            
+            return books
+            
+        except httpx.HTTPError as e:
+            logger.error(f"HTTP error searching Google Books: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Error searching Google Books: {e}")
+            return []
+    
+    def _extract_isbn(self, volume_info: Dict) -> Optional[str]:
+        """Extract ISBN from volume info"""
+        identifiers = volume_info.get("industryIdentifiers", [])
+        
+        # Prefer ISBN-13, then ISBN-10
+        for identifier in identifiers:
+            if identifier.get("type") == "ISBN_13":
+                return identifier.get("identifier")
+        
+        for identifier in identifiers:
+            if identifier.get("type") == "ISBN_10":
+                return identifier.get("identifier")
         
         return None
     

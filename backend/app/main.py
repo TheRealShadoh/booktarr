@@ -12,6 +12,8 @@ from .middleware import ErrorHandlingMiddleware, RequestLoggingMiddleware
 from .config import setup_logging, setup_colored_logging, get_logger
 from .database.connection import init_database, close_database
 from .services.database_service import DatabaseIntegrationService
+from .services.background_job_service import background_worker
+from .services.setup_scheduled_tasks import initialize_dynamic_system
 
 # Setup logging
 log_level = os.getenv("LOG_LEVEL", "INFO")
@@ -65,6 +67,21 @@ async def startup_event():
         await init_database()
         logger.info("💾 Database initialized successfully")
         
+        # Initialize dynamic caching system
+        try:
+            await initialize_dynamic_system()
+            logger.info("🔄 Dynamic caching system initialized")
+        except Exception as e:
+            logger.warning(f"⚠️ Dynamic system initialization failed: {e}")
+        
+        # Start background worker for jobs
+        try:
+            import asyncio
+            asyncio.create_task(background_worker.start_worker())
+            logger.info("⚙️ Background job worker started")
+        except Exception as e:
+            logger.warning(f"⚠️ Background worker failed to start: {e}")
+        
         # Seed test data if database is empty
         try:
             await DatabaseIntegrationService.seed_test_data()
@@ -75,11 +92,18 @@ async def startup_event():
         logger.error(f"❌ Database initialization failed: {e}")
         raise
     
-    logger.info("📚 Book library management system ready")
+    logger.info("📚 Book library management system ready with dynamic caching")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("🛑 Booktarr API shutting down")
+    
+    # Stop background worker
+    try:
+        await background_worker.stop_worker()
+        logger.info("⚙️ Background job worker stopped")
+    except Exception as e:
+        logger.error(f"❌ Error stopping background worker: {e}")
     
     # Close database connections
     try:
