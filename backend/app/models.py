@@ -207,3 +207,19 @@ class ReadingGoal(BaseModel):
     current_pages: int = 0
     is_completed: bool = False
     created_date: datetime
+
+# Import models
+class ImportResult(BaseModel):
+    success: bool
+    imported: int
+    failed: int
+    errors: List[str]
+    skipped: int = 0
+    processing_time: float
+    books_added: List[str] = []  # List of ISBNs that were added
+
+class ImportRequest(BaseModel):
+    format: str = "csv"
+    field_mapping: Dict[str, str] = {}
+    skip_duplicates: bool = True
+    enrich_metadata: bool = True

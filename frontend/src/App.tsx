@@ -9,6 +9,7 @@ import SettingsPage from './components/SettingsPage';
 import SeriesPage from './components/SeriesPage';
 import AuthorsPage from './components/AuthorsPage';
 import WantedPage from './components/WantedPage';
+import ImportPage from './components/ImportPage';
 import Toast from './components/Toast';
 import MainLayout from './components/MainLayout';
 import MetadataEnhancementPage from './components/MetadataEnhancementPage';
@@ -155,6 +156,8 @@ const AppInner: React.FC = () => {
             onBookClick={handleBookClick}
           />
         );
+      case 'import':
+        return <ImportPage />;
       case 'activity':
       case 'logs':
         return (

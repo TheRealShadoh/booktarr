@@ -1,8 +1,11 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from typing import List, Dict
+from fastapi import APIRouter, HTTPException, BackgroundTasks, File, UploadFile
+from typing import List, Dict, Optional
 from datetime import datetime
 import logging
 import traceback
+import csv
+import json
+import io
 from ..services import google_books_service, open_library_service
 from ..services.cache_service import cache_service
 from ..services.settings_service import settings_service
@@ -12,7 +15,7 @@ from ..services.metadata_enhancement_service import MetadataEnhancementService
 from ..models import (
     Book, SeriesGroup, BooksResponse, MetadataSource,
     EnhancementRequest, EnhancementResult, BatchEnhancementResponse,
-    EnhancementProgressResponse, CacheStatsResponse
+    EnhancementProgressResponse, CacheStatsResponse, ImportResult, ImportRequest
 )
 
 router = APIRouter()
@@ -361,3 +364,275 @@ async def get_book_metadata_sources(isbn: str):
         series_map["Standalone"] = standalone
     
     return series_map
+
+# Import endpoints
+@router.post("/books/import", response_model=ImportResult)
+async def import_books(
+    file: UploadFile = File(...),
+    format: str = "csv",
+    field_mapping: str = "{}",
+    skip_duplicates: bool = True,
+    enrich_metadata: bool = True
+):
+    """
+    Import books from various formats (CSV, JSON, etc.)
+    """
+    start_time = datetime.now()
+    
+    try:
+        # Parse field mapping
+        try:
+            field_mapping_dict = json.loads(field_mapping) if field_mapping else {}
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid field mapping JSON")
+        
+        # Read file content
+        content = await file.read()
+        
+        # Parse content based on format
+        if format in ["csv", "goodreads"]:
+            books_data = await parse_csv_content(content, format, field_mapping_dict)
+        elif format == "handylib":
+            books_data = await parse_tab_delimited_content(content)
+        elif format == "hardcover":
+            books_data = await parse_json_content(content)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported format: {format}")
+        
+        # Process books
+        result = await process_imported_books(
+            books_data, 
+            skip_duplicates, 
+            enrich_metadata
+        )
+        
+        # Calculate processing time
+        processing_time = (datetime.now() - start_time).total_seconds()
+        result.processing_time = processing_time
+        
+        # Clear cache
+        cache_service.book_cache.delete("all_books")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error importing books: {str(e)}")
+        logger.error(f"Error traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+
+async def parse_csv_content(content: bytes, format: str, field_mapping: Dict[str, str]) -> List[Dict]:
+    """Parse CSV content with field mapping"""
+    try:
+        text = content.decode('utf-8')
+        reader = csv.DictReader(io.StringIO(text))
+        books_data = []
+        
+        for row in reader:
+            book_data = {}
+            
+            if format == "csv":
+                # Use custom field mapping
+                for field, column in field_mapping.items():
+                    if column in row:
+                        book_data[field] = row[column]
+            elif format == "goodreads":
+                # Standard Goodreads format
+                book_data = {
+                    'title': clean_goodreads_value(row.get('Title', '')),
+                    'author': clean_goodreads_value(row.get('Author', '')),
+                    'isbn': clean_goodreads_value(row.get('ISBN', '') or row.get('ISBN13', '')),
+                    'series': clean_goodreads_value(row.get('Series', '')),
+                    'series_position': parse_int_safe(clean_goodreads_value(row.get('Series Position', ''))),
+                    'rating': parse_float_safe(clean_goodreads_value(row.get('My Rating', ''))),
+                    'description': clean_goodreads_value(row.get('Description', '')),
+                    'published_date': clean_goodreads_value(row.get('Year Published', '')),
+                    'page_count': parse_int_safe(clean_goodreads_value(row.get('Number of Pages', ''))),
+                }
+            
+            if book_data.get('title') and book_data.get('isbn'):
+                books_data.append(book_data)
+        
+        return books_data
+        
+    except Exception as e:
+        logger.error(f"Error parsing CSV content: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Invalid CSV format: {str(e)}")
+
+async def parse_tab_delimited_content(content: bytes) -> List[Dict]:
+    """Parse HandyLib tab-delimited content"""
+    try:
+        text = content.decode('utf-8')
+        reader = csv.DictReader(io.StringIO(text), delimiter='\t')
+        books_data = []
+        
+        for row in reader:
+            book_data = {
+                'title': row.get('Title', ''),
+                'author': row.get('Author', ''),
+                'isbn': row.get('ISBN', ''),
+                'series': row.get('Series', ''),
+                'series_position': parse_int_safe(row.get('Position', '')),
+                'description': row.get('Description', ''),
+                'published_date': row.get('Published', ''),
+                'page_count': parse_int_safe(row.get('Pages', '')),
+            }
+            
+            if book_data.get('title') and book_data.get('isbn'):
+                books_data.append(book_data)
+        
+        return books_data
+        
+    except Exception as e:
+        logger.error(f"Error parsing tab-delimited content: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Invalid tab-delimited format: {str(e)}")
+
+async def parse_json_content(content: bytes) -> List[Dict]:
+    """Parse JSON content (Hardcover format)"""
+    try:
+        text = content.decode('utf-8')
+        data = json.loads(text)
+        
+        # Handle both array and single object
+        if isinstance(data, list):
+            books_data = data
+        else:
+            books_data = [data]
+        
+        # Normalize field names
+        normalized_books = []
+        for book in books_data:
+            normalized_book = {
+                'title': book.get('title', ''),
+                'author': book.get('author', ''),
+                'isbn': book.get('isbn', '') or book.get('isbn13', ''),
+                'series': book.get('series', ''),
+                'series_position': parse_int_safe(book.get('seriesPosition', '')),
+                'description': book.get('description', ''),
+                'published_date': book.get('publishedDate', ''),
+                'page_count': parse_int_safe(book.get('pageCount', '')),
+            }
+            
+            if normalized_book.get('title') and normalized_book.get('isbn'):
+                normalized_books.append(normalized_book)
+        
+        return normalized_books
+        
+    except Exception as e:
+        logger.error(f"Error parsing JSON content: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Invalid JSON format: {str(e)}")
+
+def clean_goodreads_value(value: str) -> str:
+    """Clean Goodreads Excel formula format (="value")"""
+    if value.startswith('="') and value.endswith('"'):
+        return value[2:-1]
+    return value
+
+def parse_int_safe(value: str) -> Optional[int]:
+    """Safely parse integer from string"""
+    try:
+        return int(value) if value else None
+    except (ValueError, TypeError):
+        return None
+
+def parse_float_safe(value: str) -> Optional[float]:
+    """Safely parse float from string"""
+    try:
+        return float(value) if value else None
+    except (ValueError, TypeError):
+        return None
+
+async def process_imported_books(
+    books_data: List[Dict], 
+    skip_duplicates: bool, 
+    enrich_metadata: bool
+) -> ImportResult:
+    """Process imported books and add them to the database"""
+    result = ImportResult(
+        success=True,
+        imported=0,
+        failed=0,
+        errors=[],
+        skipped=0,
+        processing_time=0.0,
+        books_added=[]
+    )
+    
+    try:
+        # Get existing books to check for duplicates
+        existing_books = await DatabaseIntegrationService.get_all_books_grouped()
+        existing_isbns = set()
+        for series_books in existing_books.values():
+            for book in series_books:
+                existing_isbns.add(book.isbn)
+        
+        for book_data in books_data:
+            try:
+                isbn = book_data.get('isbn', '').strip()
+                title = book_data.get('title', '').strip()
+                
+                if not isbn or not title:
+                    result.failed += 1
+                    result.errors.append(f"Missing required fields (title or ISBN) for book: {title or 'Unknown'}")
+                    continue
+                
+                # Check for duplicates
+                if skip_duplicates and isbn in existing_isbns:
+                    result.skipped += 1
+                    continue
+                
+                # Create book object
+                book = Book(
+                    isbn=isbn,
+                    title=title,
+                    authors=[book_data.get('author', 'Unknown Author')] if book_data.get('author') else ['Unknown Author'],
+                    series=book_data.get('series') if book_data.get('series') else None,
+                    series_position=book_data.get('series_position'),
+                    description=book_data.get('description', ''),
+                    published_date=None,  # Will be enriched if requested
+                    page_count=book_data.get('page_count'),
+                    categories=[],
+                    thumbnail_url=None,
+                    language='en',
+                    pricing=[],
+                    metadata_source=MetadataSource.SKOOLIB,
+                    added_date=datetime.now(),
+                    last_updated=datetime.now()
+                )
+                
+                # Enrich metadata if requested
+                if enrich_metadata:
+                    try:
+                        enriched_book = await enrich_book_metadata(isbn)
+                        # Merge imported data with enriched metadata
+                        book.description = enriched_book.description or book.description
+                        book.published_date = enriched_book.published_date
+                        book.page_count = enriched_book.page_count or book.page_count
+                        book.categories = enriched_book.categories or book.categories
+                        book.thumbnail_url = enriched_book.thumbnail_url
+                        book.metadata_enhanced = True
+                        book.metadata_enhanced_date = datetime.now()
+                    except Exception as e:
+                        logger.warning(f"Failed to enrich metadata for ISBN {isbn}: {str(e)}")
+                
+                # Add to database
+                await DatabaseIntegrationService.add_book(book)
+                
+                result.imported += 1
+                result.books_added.append(isbn)
+                existing_isbns.add(isbn)  # Prevent duplicates within the same import
+                
+            except Exception as e:
+                result.failed += 1
+                result.errors.append(f"Failed to process book '{book_data.get('title', 'Unknown')}': {str(e)}")
+                logger.error(f"Error processing book: {str(e)}")
+        
+        if result.failed > 0:
+            result.success = len(result.errors) == 0
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error processing imported books: {str(e)}")
+        result.success = False
+        result.errors.append(f"Processing failed: {str(e)}")
+        return result
