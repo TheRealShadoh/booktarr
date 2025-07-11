@@ -8,6 +8,7 @@ import IndividualBooksPage from './components/IndividualBooksPage';
 import SettingsPage from './components/SettingsPage';
 import SeriesPage from './components/SeriesPage';
 import AuthorsPage from './components/AuthorsPage';
+import WantedPage from './components/WantedPage';
 import Toast from './components/Toast';
 import MainLayout from './components/MainLayout';
 import MetadataEnhancementPage from './components/MetadataEnhancementPage';
@@ -145,6 +146,15 @@ const AppInner: React.FC = () => {
       case 'backup':
         return <BackupRestore />;
       case 'wanted':
+        return (
+          <WantedPage
+            books={state.filteredBooks}
+            loading={state.loading}
+            error={state.error}
+            onRefresh={loadBooks}
+            onBookClick={handleBookClick}
+          />
+        );
       case 'activity':
       case 'logs':
         return (
