@@ -14,6 +14,11 @@ import CollectionsPage from './components/CollectionsPage';
 import AdvancedSearchPage from './components/AdvancedSearchPage';
 import BulkEditPage from './components/BulkEditPage';
 import LibraryAnalyticsPage from './components/LibraryAnalyticsPage';
+import RecommendationsPage from './components/RecommendationsPage';
+import ReadingChallengesPage from './components/ReadingChallengesPage';
+import SharePage from './components/SharePage';
+import ReadingTimelinePage from './components/ReadingTimelinePage';
+import AmazonSyncPage from './components/AmazonSyncPage';
 import Toast from './components/Toast';
 import MainLayout from './components/MainLayout';
 import MetadataEnhancementPage from './components/MetadataEnhancementPage';
@@ -199,7 +204,42 @@ const AppInner: React.FC = () => {
             onRefresh={loadBooks}
           />
         );
+      case 'recommendations':
+        return (
+          <RecommendationsPage
+            books={state.filteredBooks}
+            loading={state.loading}
+            error={state.error}
+            onBookClick={handleBookClick}
+          />
+        );
+      case 'challenges':
+        return (
+          <ReadingChallengesPage
+            books={state.filteredBooks}
+            loading={state.loading}
+            error={state.error}
+          />
+        );
+      case 'share':
+        return (
+          <SharePage
+            books={state.filteredBooks}
+            loading={state.loading}
+            error={state.error}
+          />
+        );
       case 'activity':
+        return (
+          <ReadingTimelinePage
+            books={state.filteredBooks}
+            loading={state.loading}
+            error={state.error}
+            onBookClick={handleBookClick}
+          />
+        );
+      case 'amazon-sync':
+        return <AmazonSyncPage />;
       case 'logs':
         return (
           <div className="flex flex-col justify-center items-center h-64 space-y-4">

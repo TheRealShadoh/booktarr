@@ -96,6 +96,10 @@ async def get_async_session() -> AsyncSession:
         finally:
             await session.close()
 
+async def get_db_session() -> AsyncSession:
+    """Get database session for services"""
+    return AsyncSessionLocal()
+
 def get_sync_session():
     """Get sync database session for migrations"""
     session = SessionLocal()
@@ -115,6 +119,7 @@ async def init_database():
     try:
         # Import all models to ensure they're registered
         from .models import BookModel, SettingsModel, SyncHistoryModel
+        from .models_amazon import AmazonAuth, AmazonSyncJob, BookEdition, AmazonLibraryItem
         
         if ":memory:" in DATABASE_URL:
             logger.info("🔄 Initializing in-memory database...")

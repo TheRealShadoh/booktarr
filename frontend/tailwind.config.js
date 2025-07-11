@@ -17,41 +17,41 @@ module.exports = {
           900: '#581c87',
         },
         booktarr: {
-          // Main backgrounds - matching Sonarr's dark theme
-          bg: '#1e1e1e',           // Main background
-          surface: '#252525',       // Cards, panels
-          surface2: '#2f2f2f',      // Elevated surfaces
-          surface3: '#3a3a3a',      // Interactive elements
+          // Main backgrounds - using CSS custom properties for dynamic theming
+          bg: 'var(--booktarr-bg)',
+          surface: 'var(--booktarr-surface)',
+          surface2: 'var(--booktarr-surface2)',
+          surface3: 'var(--booktarr-surface3)',
           
           // Borders and dividers
-          border: '#404040',        // Standard borders
-          borderLight: '#4a4a4a',   // Lighter borders
+          border: 'var(--booktarr-border)',
+          borderLight: 'var(--booktarr-borderLight)',
           
           // Text colors
-          text: '#ffffff',          // Primary text
-          textSecondary: '#cccccc', // Secondary text
-          textMuted: '#999999',     // Muted text
-          textDisabled: '#666666',  // Disabled text
+          text: 'var(--booktarr-text)',
+          textSecondary: 'var(--booktarr-textSecondary)',
+          textMuted: 'var(--booktarr-textMuted)',
+          textDisabled: 'var(--booktarr-textDisabled)',
           
           // Brand colors
-          accent: '#f39c12',        // Orange accent (Sonarr-like)
-          accentHover: '#e67e22',   // Darker orange on hover
+          accent: 'var(--booktarr-accent)',
+          accentHover: 'var(--booktarr-accentHover)',
           
           // Status colors
-          success: '#27ae60',       // Green for success
-          warning: '#f39c12',       // Orange for warnings
-          error: '#e74c3c',         // Red for errors
-          info: '#3498db',          // Blue for info
+          success: 'var(--booktarr-success)',
+          warning: 'var(--booktarr-warning)',
+          error: 'var(--booktarr-error)',
+          info: 'var(--booktarr-info)',
           
           // Semantic colors
-          wanted: '#e67e22',        // Orange for wanted items
-          monitored: '#27ae60',     // Green for monitored
-          unmonitored: '#95a5a6',   // Gray for unmonitored
+          wanted: 'var(--booktarr-wanted)',
+          monitored: 'var(--booktarr-monitored)',
+          unmonitored: 'var(--booktarr-unmonitored)',
           
           // Interactive states
-          hover: '#363636',         // Hover background
-          active: '#404040',        // Active/pressed state
-          focus: '#f39c12',         // Focus color
+          hover: 'var(--booktarr-hover)',
+          active: 'var(--booktarr-active)',
+          focus: 'var(--booktarr-focus)',
         }
       },
       fontFamily: {

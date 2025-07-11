@@ -192,401 +192,422 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
+    <div className="booktarr-main-content">
+      <div className="max-w-4xl mx-auto p-6 space-y-6">
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+          />
+        )}
 
-      <div className="bg-gray-800 rounded-lg p-6">
-        <h1 className="text-2xl font-bold text-white mb-6">Settings</h1>
+        <div className="booktarr-card">
+          <div className="booktarr-card-header">
+            <h1 className="text-2xl font-bold text-booktarr-text mb-2">Settings</h1>
+            <p className="text-booktarr-textSecondary">Configure Booktarr settings and preferences</p>
+          </div>
+          <div className="booktarr-card-body">
         
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Skoolib Configuration */}
-          <div>
-            <h2 className="text-lg font-semibold text-white mb-4">Skoolib Configuration</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Skoolib Share URL
-                </label>
-                <div className="flex space-x-2">
-                  <input
-                    type="url"
-                    value={formData.skoolib_url || ''}
-                    onChange={(e) => handleInputChange('skoolib_url', e.target.value)}
-                    placeholder="https://skoolib.com/share/..."
-                    data-testid="skoolib-url-input"
-                    className="flex-1 bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleValidateUrl}
-                    disabled={validationLoading}
-                    data-testid="validate-url-button"
-                    className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors"
-                  >
-                    {validationLoading ? 'Validating...' : 'Validate'}
-                  </button>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Skoolib Configuration */}
+              <div className="booktarr-card">
+                <div className="booktarr-card-header">
+                  <h2 className="text-lg font-semibold text-booktarr-text">Skoolib Configuration</h2>
                 </div>
-                <p className="text-sm text-gray-400 mt-1">
-                  Enter your Skoolib library share URL to import your books
-                </p>
-                
-                {validationResult && (
-                  <div className={`mt-2 p-3 rounded-md ${
-                    validationResult.valid ? 'bg-green-900/20 border border-green-500/50' : 'bg-red-900/20 border border-red-500/50'
-                  }`}>
-                    <p className={`text-sm ${validationResult.valid ? 'text-green-400' : 'text-red-400'}`}>
-                      {validationResult.valid ? (
-                        <>
-                          ✓ Valid URL! Found {validationResult.isbn_count || 0} books
-                          {validationResult.warning && (
-                            <span className="block text-yellow-400 mt-1">⚠ {validationResult.warning}</span>
-                          )}
-                        </>
-                      ) : (
-                        <>✗ {validationResult.error}</>
-                      )}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* API Configuration */}
-          <div>
-            <h2 className="text-lg font-semibold text-white mb-4">API Configuration</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Google Books API Key (Optional)
-                </label>
-                <input
-                  type="password"
-                  value={formData.google_books_api_key || ''}
-                  onChange={(e) => handleInputChange('google_books_api_key', e.target.value)}
-                  placeholder="Enter your Google Books API key"
-                  data-testid="google-api-key-input"
-                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-                />
-                <p className="text-sm text-gray-400 mt-1">
-                  Optional: Provides higher rate limits for Google Books API
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Open Library API Key (Optional)
-                </label>
-                <input
-                  type="password"
-                  value={formData.open_library_api_key || ''}
-                  onChange={(e) => handleInputChange('open_library_api_key', e.target.value)}
-                  placeholder="Enter your Open Library API key"
-                  data-testid="open-library-api-key-input"
-                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-                />
-                <p className="text-sm text-gray-400 mt-1">
-                  Optional: Provides higher rate limits for Open Library API
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Application Settings */}
-          <div>
-            <h2 className="text-lg font-semibold text-white mb-4">Application Settings</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Cache TTL (seconds)
-                </label>
-                <input
-                  type="number"
-                  min="60"
-                  max="86400"
-                  value={formData.cache_ttl || 3600}
-                  onChange={(e) => handleInputChange('cache_ttl', parseInt(e.target.value))}
-                  data-testid="cache-ttl-input"
-                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:border-purple-500"
-                />
-                <p className="text-sm text-gray-400 mt-1">
-                  How long to cache API responses (60-86400 seconds)
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Default Language
-                </label>
-                <select
-                  value={formData.default_language || 'en'}
-                  onChange={(e) => handleInputChange('default_language', e.target.value)}
-                  data-testid="default-language-select"
-                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:border-purple-500"
-                >
-                  <option value="en">English</option>
-                  <option value="fr">French</option>
-                  <option value="es">Spanish</option>
-                  <option value="de">German</option>
-                  <option value="it">Italian</option>
-                  <option value="pt">Portuguese</option>
-                  <option value="ja">Japanese</option>
-                  <option value="ko">Korean</option>
-                  <option value="zh">Chinese</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.enable_price_lookup || false}
-                    onChange={(e) => handleInputChange('enable_price_lookup', e.target.checked)}
-                    data-testid="enable-price-lookup-checkbox"
-                    className="rounded bg-gray-700 border-gray-600 text-purple-600 focus:ring-purple-500"
-                  />
-                  <span className="text-sm font-medium text-gray-300">
-                    Enable price lookup
-                  </span>
-                </label>
-                <p className="text-sm text-gray-400 mt-1 ml-6">
-                  Fetch pricing information from external sources
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Sync Management */}
-          <div>
-            <h2 className="text-lg font-semibold text-white mb-4">Sync Management</h2>
-            
-            <div className="bg-gray-700 rounded-lg p-4 border border-gray-600 mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-300">Manual Skoolib Sync</span>
-                {formData.skoolib_url && (
-                  <span className="text-xs text-green-400 bg-green-900/20 px-2 py-1 rounded border border-green-500/50">
-                    Ready
-                  </span>
-                )}
-              </div>
-              <p className="text-sm text-gray-400 mb-4">
-                Manually trigger synchronization with your Skoolib library to import new books.
-                {!formData.skoolib_url && " Please configure your Skoolib URL first."}
-              </p>
-              <button
-                type="button"
-                onClick={handleManualSync}
-                disabled={syncLoading || !formData.skoolib_url}
-                data-testid="manual-sync-button"
-                className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md transition-colors"
-              >
-                {syncLoading ? 'Syncing...' : 'Sync Now'}
-              </button>
-            </div>
-
-            {/* Sync History */}
-            {syncHistory.length > 0 && (
-              <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
-                <h3 className="text-md font-semibold text-white mb-3">Recent Sync History</h3>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {syncHistory.map((sync: any, index: number) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-800 rounded">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <span className={`w-2 h-2 rounded-full ${sync.success ? 'bg-green-400' : 'bg-red-400'}`}></span>
-                          <span className="text-sm text-gray-300">
-                            {sync.source} sync - {sync.books_processed}/{sync.books_found} books
-                          </span>
-                        </div>
-                        {sync.error_details && (
-                          <div className="text-xs text-red-400 mt-1 ml-4">
-                            {sync.error_details[0]}
-                          </div>
-                        )}
+                <div className="booktarr-card-body">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="booktarr-form-label">
+                        Skoolib Share URL
+                      </label>
+                      <div className="flex space-x-2">
+                        <input
+                          type="url"
+                          value={formData.skoolib_url || ''}
+                          onChange={(e) => handleInputChange('skoolib_url', e.target.value)}
+                          placeholder="https://skoolib.com/share/..."
+                          data-testid="skoolib-url-input"
+                          className="booktarr-form-input flex-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleValidateUrl}
+                          disabled={validationLoading}
+                          data-testid="validate-url-button"
+                          className="booktarr-btn booktarr-btn-primary"
+                        >
+                          {validationLoading ? 'Validating...' : 'Validate'}
+                        </button>
                       </div>
-                      <span className="text-xs text-gray-400">
-                        {new Date(sync.timestamp).toLocaleString()}
-                      </span>
+                      <p className="text-sm text-booktarr-textSecondary mt-1">
+                        Enter your Skoolib library share URL to import your books
+                      </p>
+                      
+                      {validationResult && (
+                        <div className={`mt-2 p-3 rounded-md ${
+                          validationResult.valid ? 'booktarr-status-indicator booktarr-status-success' : 'booktarr-status-indicator booktarr-status-error'
+                        }`}>
+                          <p className="text-sm">
+                            {validationResult.valid ? (
+                              <>
+                                ✓ Valid URL! Found {validationResult.isbn_count || 0} books
+                                {validationResult.warning && (
+                                  <span className="block text-booktarr-warning mt-1">⚠ {validationResult.warning}</span>
+                                )}
+                              </>
+                            ) : (
+                              <>✗ {validationResult.error}</>
+                            )}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* Cache Management */}
-          <div>
-            <h2 className="text-lg font-semibold text-white mb-4">Cache Management</h2>
-            
-            <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
-              <div className="mb-4">
-                <h3 className="text-md font-semibold text-white mb-2">Cache Statistics</h3>
-                {cacheStats ? (
+              {/* API Configuration */}
+              <div className="booktarr-card">
+                <div className="booktarr-card-header">
+                  <h2 className="text-lg font-semibold text-booktarr-text">API Configuration</h2>
+                </div>
+                <div className="booktarr-card-body">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="booktarr-form-label">
+                        Google Books API Key (Optional)
+                      </label>
+                      <input
+                        type="password"
+                        value={formData.google_books_api_key || ''}
+                        onChange={(e) => handleInputChange('google_books_api_key', e.target.value)}
+                        placeholder="Enter your Google Books API key"
+                        data-testid="google-api-key-input"
+                        className="booktarr-form-input"
+                      />
+                      <p className="text-sm text-booktarr-textSecondary mt-1">
+                        Optional: Provides higher rate limits for Google Books API
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="booktarr-form-label">
+                        Open Library API Key (Optional)
+                      </label>
+                      <input
+                        type="password"
+                        value={formData.open_library_api_key || ''}
+                        onChange={(e) => handleInputChange('open_library_api_key', e.target.value)}
+                        placeholder="Enter your Open Library API key"
+                        data-testid="open-library-api-key-input"
+                        className="booktarr-form-input"
+                      />
+                      <p className="text-sm text-booktarr-textSecondary mt-1">
+                        Optional: Provides higher rate limits for Open Library API
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Application Settings */}
+              <div className="booktarr-card">
+                <div className="booktarr-card-header">
+                  <h2 className="text-lg font-semibold text-booktarr-text">Application Settings</h2>
+                </div>
+                <div className="booktarr-card-body">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="booktarr-form-label">
+                        Cache TTL (seconds)
+                      </label>
+                      <input
+                        type="number"
+                        min="60"
+                        max="86400"
+                        value={formData.cache_ttl || 3600}
+                        onChange={(e) => handleInputChange('cache_ttl', parseInt(e.target.value))}
+                        data-testid="cache-ttl-input"
+                        className="booktarr-form-input"
+                      />
+                      <p className="text-sm text-booktarr-textSecondary mt-1">
+                        How long to cache API responses (60-86400 seconds)
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="booktarr-form-label">
+                        Default Language
+                      </label>
+                      <select
+                        value={formData.default_language || 'en'}
+                        onChange={(e) => handleInputChange('default_language', e.target.value)}
+                        data-testid="default-language-select"
+                        className="booktarr-form-input"
+                      >
+                        <option value="en">English</option>
+                        <option value="fr">French</option>
+                        <option value="es">Spanish</option>
+                        <option value="de">German</option>
+                        <option value="it">Italian</option>
+                        <option value="pt">Portuguese</option>
+                        <option value="ja">Japanese</option>
+                        <option value="ko">Korean</option>
+                        <option value="zh">Chinese</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.enable_price_lookup || false}
+                          onChange={(e) => handleInputChange('enable_price_lookup', e.target.checked)}
+                          data-testid="enable-price-lookup-checkbox"
+                          className="booktarr-filter-checkbox"
+                        />
+                        <span className="text-sm font-medium text-booktarr-text">
+                          Enable price lookup
+                        </span>
+                      </label>
+                      <p className="text-sm text-booktarr-textSecondary mt-1 ml-6">
+                        Fetch pricing information from external sources
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sync Management */}
+              <div className="booktarr-card">
+                <div className="booktarr-card-header">
+                  <h2 className="text-lg font-semibold text-booktarr-text">Sync Management</h2>
+                </div>
+                <div className="booktarr-card-body space-y-4">
+                  <div className="bg-booktarr-surface2 rounded-lg p-4 border border-booktarr-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-booktarr-text">Manual Skoolib Sync</span>
+                      {formData.skoolib_url && (
+                        <span className="booktarr-status-indicator booktarr-status-success">
+                          Ready
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-booktarr-textSecondary mb-4">
+                      Manually trigger synchronization with your Skoolib library to import new books.
+                      {!formData.skoolib_url && " Please configure your Skoolib URL first."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleManualSync}
+                      disabled={syncLoading || !formData.skoolib_url}
+                      data-testid="manual-sync-button"
+                      className="booktarr-btn booktarr-btn-primary"
+                    >
+                      {syncLoading ? 'Syncing...' : 'Sync Now'}
+                    </button>
+                  </div>
+
+                  {/* Sync History */}
+                  {syncHistory.length > 0 && (
+                    <div className="bg-booktarr-surface2 rounded-lg p-4 border border-booktarr-border">
+                      <h3 className="text-md font-semibold text-booktarr-text mb-3">Recent Sync History</h3>
+                      <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-thin">
+                        {syncHistory.map((sync: any, index: number) => (
+                          <div key={index} className="flex items-center justify-between p-2 bg-booktarr-surface3 rounded">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2">
+                                <span className={`w-2 h-2 rounded-full ${sync.success ? 'bg-booktarr-success' : 'bg-booktarr-error'}`}></span>
+                                <span className="text-sm text-booktarr-text">
+                                  {sync.source} sync - {sync.books_processed}/{sync.books_found} books
+                                </span>
+                              </div>
+                              {sync.error_details && (
+                                <div className="text-xs text-booktarr-error mt-1 ml-4">
+                                  {sync.error_details[0]}
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-xs text-booktarr-textMuted">
+                              {new Date(sync.timestamp).toLocaleString()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Cache Management */}
+              <div className="booktarr-card">
+                <div className="booktarr-card-header">
+                  <h2 className="text-lg font-semibold text-booktarr-text">Cache Management</h2>
+                </div>
+                <div className="booktarr-card-body">
+                  <div className="mb-4">
+                    <h3 className="text-md font-semibold text-booktarr-text mb-2">Cache Statistics</h3>
+                    {cacheStats ? (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-booktarr-surface2 p-3 rounded border border-booktarr-border">
+                          <h4 className="text-sm font-medium text-booktarr-textSecondary mb-1">Book Cache</h4>
+                          <p className="text-booktarr-text text-lg">{cacheStats.book_cache.size} items</p>
+                          <p className="text-xs text-booktarr-textMuted">
+                            Hit rate: {(cacheStats.book_cache.hit_rate * 100).toFixed(1)}%
+                          </p>
+                        </div>
+                        <div className="bg-booktarr-surface2 p-3 rounded border border-booktarr-border">
+                          <h4 className="text-sm font-medium text-booktarr-textSecondary mb-1">API Cache</h4>
+                          <p className="text-booktarr-text text-lg">{cacheStats.api_cache.size} items</p>
+                          <p className="text-xs text-booktarr-textMuted">
+                            Hit rate: {(cacheStats.api_cache.hit_rate * 100).toFixed(1)}%
+                          </p>
+                        </div>
+                        <div className="bg-booktarr-surface2 p-3 rounded border border-booktarr-border">
+                          <h4 className="text-sm font-medium text-booktarr-textSecondary mb-1">Page Cache</h4>
+                          <p className="text-booktarr-text text-lg">{cacheStats.page_cache.size} items</p>
+                          <p className="text-xs text-booktarr-textMuted">
+                            Hit rate: {(cacheStats.page_cache.hit_rate * 100).toFixed(1)}%
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-booktarr-textSecondary text-sm">Loading cache statistics...</div>
+                    )}
+                  </div>
+
+                  <div className="border-t border-booktarr-border pt-4">
+                    <h3 className="text-md font-semibold text-booktarr-text mb-2">Clear Cache</h3>
+                    <p className="text-sm text-booktarr-textSecondary mb-3">
+                      Clear cached data to free up memory and force fresh data retrieval.
+                      Note: Search results cache persists until manually cleared here.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleClearCache()}
+                        disabled={cacheLoading}
+                        className="booktarr-btn booktarr-btn-danger text-sm"
+                      >
+                        {cacheLoading ? 'Clearing...' : 'Clear All Caches'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleClearCache('book')}
+                        disabled={cacheLoading}
+                        className="booktarr-btn booktarr-btn-secondary text-sm"
+                      >
+                        Clear Book Cache
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleClearCache('api')}
+                        disabled={cacheLoading}
+                        className="booktarr-btn booktarr-btn-secondary text-sm"
+                      >
+                        Clear API Cache
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleClearCache('page')}
+                        disabled={cacheLoading}
+                        className="booktarr-btn booktarr-btn-secondary text-sm"
+                      >
+                        Clear Page Cache
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Data Management */}
+              <div className="booktarr-card">
+                <div className="booktarr-card-header">
+                  <h2 className="text-lg font-semibold text-booktarr-text">Data Management</h2>
+                </div>
+                <div className="booktarr-card-body">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-gray-800 p-3 rounded">
-                      <h4 className="text-sm font-medium text-gray-400 mb-1">Book Cache</h4>
-                      <p className="text-white text-lg">{cacheStats.book_cache.size} items</p>
-                      <p className="text-xs text-gray-400">
-                        Hit rate: {(cacheStats.book_cache.hit_rate * 100).toFixed(1)}%
-                      </p>
+                    <button
+                      type="button"
+                      onClick={exportData}
+                      className="booktarr-btn booktarr-btn-primary flex items-center justify-center space-x-2 py-3"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <span>Export Data</span>
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={syncWithServer}
+                      className="booktarr-btn booktarr-btn-primary flex items-center justify-center space-x-2 py-3"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span>Sync with Server</span>
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => showToast('Performance metrics logged to console', 'info')}
+                      className="booktarr-btn booktarr-btn-secondary flex items-center justify-center space-x-2 py-3"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                      <span>Performance Info</span>
+                    </button>
+                  </div>
+                  
+                  <div className="mt-4 pt-4 border-t border-booktarr-border">
+                    <h3 className="text-md font-semibold text-booktarr-text mb-2">Keyboard Shortcuts</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-booktarr-textSecondary">Go to Library:</span>
+                        <span className="text-booktarr-text font-mono">Ctrl + L</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-booktarr-textSecondary">Go to Settings:</span>
+                        <span className="text-booktarr-text font-mono">Ctrl + S</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-booktarr-textSecondary">Add Books:</span>
+                        <span className="text-booktarr-text font-mono">Ctrl + N</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-booktarr-textSecondary">Focus Search:</span>
+                        <span className="text-booktarr-text font-mono">Ctrl + F</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-booktarr-textSecondary">Undo Action:</span>
+                        <span className="text-booktarr-text font-mono">Ctrl + Z</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-booktarr-textSecondary">Redo Action:</span>
+                        <span className="text-booktarr-text font-mono">Ctrl + Y</span>
+                      </div>
                     </div>
-                    <div className="bg-gray-800 p-3 rounded">
-                      <h4 className="text-sm font-medium text-gray-400 mb-1">API Cache</h4>
-                      <p className="text-white text-lg">{cacheStats.api_cache.size} items</p>
-                      <p className="text-xs text-gray-400">
-                        Hit rate: {(cacheStats.api_cache.hit_rate * 100).toFixed(1)}%
-                      </p>
-                    </div>
-                    <div className="bg-gray-800 p-3 rounded">
-                      <h4 className="text-sm font-medium text-gray-400 mb-1">Page Cache</h4>
-                      <p className="text-white text-lg">{cacheStats.page_cache.size} items</p>
-                      <p className="text-xs text-gray-400">
-                        Hit rate: {(cacheStats.page_cache.hit_rate * 100).toFixed(1)}%
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-gray-400 text-sm">Loading cache statistics...</div>
-                )}
-              </div>
-
-              <div className="border-t border-gray-600 pt-4">
-                <h3 className="text-md font-semibold text-white mb-2">Clear Cache</h3>
-                <p className="text-sm text-gray-400 mb-3">
-                  Clear cached data to free up memory and force fresh data retrieval.
-                  Note: Search results cache persists until manually cleared here.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleClearCache()}
-                    disabled={cacheLoading}
-                    className="bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors text-sm"
-                  >
-                    {cacheLoading ? 'Clearing...' : 'Clear All Caches'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleClearCache('book')}
-                    disabled={cacheLoading}
-                    className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-700 text-white px-4 py-2 rounded-md transition-colors text-sm"
-                  >
-                    Clear Book Cache
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleClearCache('api')}
-                    disabled={cacheLoading}
-                    className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-700 text-white px-4 py-2 rounded-md transition-colors text-sm"
-                  >
-                    Clear API Cache
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleClearCache('page')}
-                    disabled={cacheLoading}
-                    className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-700 text-white px-4 py-2 rounded-md transition-colors text-sm"
-                  >
-                    Clear Page Cache
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Data Management */}
-          <div>
-            <h2 className="text-lg font-semibold text-white mb-4">Data Management</h2>
-            
-            <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button
-                  type="button"
-                  onClick={exportData}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-md transition-colors flex items-center justify-center space-x-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <span>Export Data</span>
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={syncWithServer}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-md transition-colors flex items-center justify-center space-x-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  <span>Sync with Server</span>
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={() => showToast('Performance metrics logged to console', 'info')}
-                  className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-md transition-colors flex items-center justify-center space-x-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                  <span>Performance Info</span>
-                </button>
-              </div>
-              
-              <div className="mt-4 pt-4 border-t border-gray-600">
-                <h3 className="text-md font-semibold text-white mb-2">Keyboard Shortcuts</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Go to Library:</span>
-                    <span className="text-white font-mono">Ctrl + L</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Go to Settings:</span>
-                    <span className="text-white font-mono">Ctrl + S</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Add Books:</span>
-                    <span className="text-white font-mono">Ctrl + N</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Focus Search:</span>
-                    <span className="text-white font-mono">Ctrl + F</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Undo Action:</span>
-                    <span className="text-white font-mono">Ctrl + Z</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Redo Action:</span>
-                    <span className="text-white font-mono">Ctrl + Y</span>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Submit Button */}
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={loading}
-              data-testid="save-settings-button"
-              className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white px-6 py-2 rounded-md transition-colors"
-            >
-              {loading ? 'Saving...' : 'Save Settings'}
-            </button>
+              {/* Submit Button */}
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  data-testid="save-settings-button"
+                  className="booktarr-btn booktarr-btn-primary px-6"
+                >
+                  {loading ? 'Saving...' : 'Save Settings'}
+                </button>
+              </div>
+            </form>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

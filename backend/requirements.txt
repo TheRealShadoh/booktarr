@@ -12,3 +12,6 @@ selenium==4.15.0
 sqlalchemy==2.0.23
 alembic==1.12.1
 aiosqlite==0.19.0
+audible==0.10.0
+requests==2.31.0
+cryptography==41.0.8

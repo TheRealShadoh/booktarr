@@ -5,6 +5,37 @@
 /* Import Inter font */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+/* CSS Custom Properties for Dynamic Theming */
+:root {
+  /* Default theme colors - can be overridden by JavaScript */
+  --booktarr-bg: #1e1e1e;
+  --booktarr-surface: #252525;
+  --booktarr-surface2: #2f2f2f;
+  --booktarr-surface3: #3a3a3a;
+  --booktarr-border: #404040;
+  --booktarr-borderLight: #4a4a4a;
+  --booktarr-text: #ffffff;
+  --booktarr-textSecondary: #cccccc;
+  --booktarr-textMuted: #999999;
+  --booktarr-textDisabled: #666666;
+  --booktarr-accent: #f39c12;
+  --booktarr-accentHover: #e67e22;
+  --booktarr-success: #27ae60;
+  --booktarr-warning: #f39c12;
+  --booktarr-error: #e74c3c;
+  --booktarr-info: #3498db;
+  --booktarr-wanted: #e67e22;
+  --booktarr-monitored: #27ae60;
+  --booktarr-unmonitored: #95a5a6;
+  --booktarr-hover: #363636;
+  --booktarr-active: #404040;
+  --booktarr-focus: #f39c12;
+  
+  /* Typography */
+  --booktarr-font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --booktarr-font-mono: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+}
+
 /* Base styles */
 @layer base {
   * {
@@ -16,9 +47,9 @@
   }
   
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background-color: #1e1e1e;
-    color: #ffffff;
+    font-family: var(--booktarr-font-primary);
+    background-color: var(--booktarr-bg);
+    color: var(--booktarr-text);
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -119,6 +150,14 @@
   
   .booktarr-form-label {
     @apply block text-sm font-medium text-booktarr-text mb-2;
+  }
+
+  .booktarr-input {
+    @apply w-full px-4 py-3 bg-booktarr-surface2 border border-booktarr-border rounded-lg text-booktarr-text placeholder-booktarr-textMuted focus:border-booktarr-accent focus:ring-1 focus:ring-booktarr-accent;
+  }
+
+  .booktarr-select {
+    @apply w-full px-4 py-3 bg-booktarr-surface2 border border-booktarr-border rounded-lg text-booktarr-text focus:border-booktarr-accent focus:ring-1 focus:ring-booktarr-accent;
   }
   
   /* Book grid enhancements */

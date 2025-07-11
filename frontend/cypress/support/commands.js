@@ -99,3 +99,67 @@ Cypress.Commands.add('checkError', (message) => {
     .should('be.visible')
     .and('contain.text', message)
 })
+
+// Custom command to take screenshots with context
+Cypress.Commands.add('takeScreenshot', (name, description) => {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = `${name}_${timestamp}`;
+  cy.screenshot(filename, { 
+    capture: 'fullPage',
+    onAfterScreenshot: (el, props) => {
+      // Log screenshot taken
+      cy.log(`Screenshot taken: ${filename}${description ? ` - ${description}` : ''}`);
+    }
+  });
+})
+
+// Custom command to take screenshot after each click
+Cypress.Commands.add('clickAndScreenshot', (selector, screenshotName) => {
+  cy.get(selector).click();
+  cy.wait(500); // Wait for any animations
+  cy.takeScreenshot(screenshotName, `After clicking ${selector}`);
+})
+
+// Custom command to navigate and screenshot
+Cypress.Commands.add('navigateAndScreenshot', (page, screenshotName) => {
+  cy.navigateTo(page);
+  cy.wait(2000); // Wait for page to load
+  cy.takeScreenshot(screenshotName || `page_${page.toLowerCase()}`, `${page} page loaded`);
+})
+
+// Custom command to test all sidebar navigation with screenshots
+Cypress.Commands.add('testSidebarNavigation', () => {
+  const sidebarItems = [
+    'Library', 'Series', 'Authors', 'Enhancement', 'Wanted', 'Import', 
+    'Amazon Sync', 'Collections', 'Advanced Search', 'Recommendations', 
+    'Challenges', 'Share & Export', 'Reading Timeline', 'Settings', 
+    'Statistics', 'Analytics', 'Bulk Edit', 'Backup', 'System'
+  ];
+  
+  sidebarItems.forEach(item => {
+    cy.log(`Testing navigation to ${item}`);
+    cy.navigateAndScreenshot(item, `sidebar_${item.toLowerCase().replace(/\s+/g, '_')}`);
+  });
+})
+
+// Custom command to test all clickable elements on a page
+Cypress.Commands.add('testClickableElements', (pageName) => {
+  cy.get('button, a, [role="button"], [tabindex="0"]').each(($el, index) => {
+    const text = $el.text().trim() || $el.attr('title') || $el.attr('aria-label') || `element_${index}`;
+    const screenshotName = `${pageName}_clickable_${text.toLowerCase().replace(/\s+/g, '_')}_${index}`;
+    
+    // Only click if element is visible and enabled
+    if ($el.is(':visible') && !$el.is(':disabled')) {
+      cy.wrap($el).click({ force: true });
+      cy.wait(300);
+      cy.takeScreenshot(screenshotName, `Clicked ${text} on ${pageName}`);
+    }
+  });
+})
+
+// Custom command to wait for page to be fully loaded
+Cypress.Commands.add('waitForPageLoad', () => {
+  cy.get('body').should('be.visible');
+  cy.get('[data-testid="loading-spinner"]', { timeout: 10000 }).should('not.exist');
+  cy.wait(1000); // Additional wait for any animations
+})

@@ -8,6 +8,7 @@ from .routers import settings
 from .routers import search
 from .routers import reading_progress
 from .routers import series
+from .routers import amazon
 from .middleware import ErrorHandlingMiddleware, RequestLoggingMiddleware
 from .config import setup_logging, setup_colored_logging, get_logger
 from .database.connection import init_database, close_database
@@ -47,6 +48,7 @@ app.include_router(settings.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(reading_progress.router)
 app.include_router(series.router, prefix="/api")
+app.include_router(amazon.router)
 
 @app.get("/")
 def read_root():
