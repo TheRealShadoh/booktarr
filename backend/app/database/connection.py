@@ -11,8 +11,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Database URL configuration - using persistent file-based database
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///app/data/booktarr.db")
-SYNC_DATABASE_URL = os.getenv("SYNC_DATABASE_URL", "sqlite:///app/data/booktarr.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///data/booktarr.db")
+SYNC_DATABASE_URL = os.getenv("SYNC_DATABASE_URL", "sqlite:///data/booktarr.db")
 
 # Extract the data directory from the DATABASE_URL
 if "///app/data/" in DATABASE_URL:

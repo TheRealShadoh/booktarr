@@ -32,17 +32,6 @@ Cypress.on('window:before:load', (win) => {
   }
 })
 
-// Custom command to wait for API to be ready
-Cypress.Commands.add('waitForAPI', () => {
-  cy.request({
-    url: `${Cypress.env('apiUrl')}/health`,
-    timeout: 10000,
-    retryOnStatusCodeFailure: true,
-    retryOnNetworkFailure: true,
-  }).then((response) => {
-    expect(response.status).to.eq(200)
-  })
-})
 
 // Custom command to reset settings
 Cypress.Commands.add('resetSettings', () => {

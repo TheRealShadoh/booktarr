@@ -1,0 +1,8 @@
+{
+  "skoolib_url": null,
+  "google_books_api_key": null,
+  "open_library_api_key": null,
+  "cache_ttl": 3600,
+  "enable_price_lookup": true,
+  "default_language": "en"
+}

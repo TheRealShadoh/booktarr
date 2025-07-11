@@ -4,36 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Booktarr is a book library management system that imports books from Skoolib share links and displays them in a Sonarr-inspired interface with rich metadata and pricing information. The project evolves from a basic web UI to a mobile-capable progressive web app with barcode scanning functionality.
-Always use the INTEGRATION_ROADMAP.md file to see what you should be doing, and where you should be going. Update that file as you go with errors, status, workaround, features, needed additions to complete the goal, etc.
+Booktarr is a book library management system that imports books from Skoolib share links and displays them in a Sonarr-inspired interface with rich metadata and pricing information. The project is a complete Progressive Web App with barcode scanning and reading progress tracking.
 
-- During frontend and backend development run the npm server and backend locally for quicker fails/bugs/errors.
+**IMPORTANT**: Always use the INTEGRATION_ROADMAP.md file to see what phase to work on next. Update that file as you progress with errors, status, workarounds, and features.
 
-- For front end update speed and backend update speed run locally and not in container.
-- Once you think you have completes a step or phase, run all tests to ensure nothing broke, do a git commit with the information around that commit- then begin the next step/task/phase. This way you won't need my input, but I can roll back to different commits if needed.
+## Development Workflow
 
-## Tech Stack
-
-### Backend
-- **Framework**: FastAPI (Python 3.11+)
-- **Database**: SQLite with SQLAlchemy ORM
-- **Key Dependencies**: httpx, Pydantic v2, beautifulsoup4, lxml, playwright
-- **Testing**: pytest, pytest-asyncio, httpx (for test client)
-- **Documentation**: Auto-generated OpenAPI/Swagger UI
-
-### Frontend
-- **Framework**: React 18 with TypeScript
-- **Styling**: TailwindCSS (custom Sonarr-inspired dark theme)
-- **HTTP Client**: Axios with interceptors for error handling
-- **State Management**: React Context API (upgradeable to Redux if needed)
-- **Testing**: Jest + React Testing Library
-- **PWA**: Workbox for service workers
-
-### Infrastructure
-- **Database**: SQLite with volume persistence
-- **Reverse Proxy**: Nginx for frontend serving
-- **Development**: Hot-reload enabled for both services
-- **Production**: Optimized builds with caching headers
+1. **Run locally** for faster development cycles (not in containers)
+2. **Test after each phase** before committing
+3. **Commit after completing** each step/phase for rollback capability
+4. **Update INTEGRATION_ROADMAP.md** with progress and any issues encountered
 
 ## Common Development Commands
 
@@ -43,27 +23,23 @@ cd backend
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
-pip install -r requirements-dev.txt  # Development dependencies
+pip install -r requirements-dev.txt
 
 # Development server with auto-reload
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Run tests
 pytest -v                              # Run all tests
-pytest --cov=app --cov-report=html    # With coverage report
 pytest tests/test_specific.py -v      # Run specific test file
 pytest -k "test_function_name"        # Run specific test by name
 
 # Format code
-black app/          # Format code
-isort app/          # Sort imports
-flake8              # Linting
-
-# Type checking
-mypy app/
+black app/
+isort app/
+mypy app/                             # Type checking
 
 # Database migrations
-alembic upgrade head                               # Apply migrations
+alembic upgrade head                   # Apply migrations
 alembic revision --autogenerate -m "description"   # Create new migration
 ```
 
@@ -74,465 +50,132 @@ npm install
 
 # Development
 npm start           # Development server on port 3000
-npm run test        # Run test suite in watch mode
-npm run test:ci     # Single test run with coverage
-npm run test:e2e    # Open Cypress interactive mode
-npm run test:e2e:ci # Run Cypress headless
-npm run lint        # ESLint checking
-npm run format      # Prettier formatting
-
-# Production
-npm run build       # Production build
-npm run analyze     # Bundle size analysis
-npm run serve       # Serve production build locally
-```
-
-## Project Structure
-
-```
-booktarr/
-├── backend/               # FastAPI backend service
-│   ├── app/              # Main application code
-│   │   ├── config/       # Configuration and logging setup
-│   │   ├── database/     # SQLAlchemy models and DB services
-│   │   ├── middleware/   # Error handling and logging middleware
-│   │   ├── routers/      # API endpoints (books, settings, health)
-│   │   ├── services/     # Business logic (skoolib, metadata, cache)
-│   │   └── main.py       # FastAPI app initialization
-│   ├── alembic/          # Database migrations
-│   ├── tests/            # Backend test suite
-│   └── data/             # SQLite database storage
-├── frontend/             # React TypeScript frontend
-│   ├── src/
-│   │   ├── components/   # React components
-│   │   ├── pages/        # Page components (Library, Series, Authors, Settings)
-│   │   ├── services/     # API client and utilities
-│   │   ├── styles/       # Tailwind CSS and theme
-│   │   └── types/        # TypeScript definitions
-│   ├── cypress/          # E2E test suite
-│   └── public/           # Static assets
-└── INTEGRATION_ROADMAP.md # Project roadmap and status
+npm test           # Run test suite in watch mode
+npm run lint       # ESLint checking
+npm run build      # Production build
 ```
 
 ## Architecture Overview
 
 ### Service Communication Flow
-```mermaid
-graph LR
-    A[React Frontend] -->|REST API| B[FastAPI Backend]
-    B --> C[Cache Service]
-    B --> D[Skoolib Parser]
-    D --> E[Skoolib HTML]
-    B --> F[Google Books API]
-    B --> G[Open Library API]
-    B --> H[Price Comparison APIs]
+```
+React Frontend (3000) → Nginx Proxy → FastAPI Backend (8000)
+                                    ↓
+                         SQLite DB + External APIs
 ```
 
 ### Key API Endpoints
 
 #### Book Management
 - `GET /api/books` - Returns books grouped by series with enriched metadata
-- `GET /api/books/{isbn}` - Get specific book details
-- `POST /api/books/scan` - Add book via ISBN (Phase 4)
+- `POST /api/books/scan` - Add book via ISBN
 - `DELETE /api/books/{isbn}` - Remove book from library
-- `POST /api/books/sync` - Sync books from Skoolib (manual trigger)
+- `PUT /api/books/{isbn}/progress` - Update reading status
+- `GET /api/search/books` - Search external book APIs
+- `POST /api/books` - Add book to library
 
-#### Settings & Configuration
-- `GET /api/settings` - Retrieve current settings
-- `PUT /api/settings` - Update settings (including Skoolib URL, API keys)
-- `POST /api/settings/validate` - Test Skoolib URL validity
+#### Settings & Sync
+- `GET/PUT /api/settings` - Settings management
 - `POST /api/settings/sync-skoolib` - Manual Skoolib sync trigger
+- `POST /api/settings/validate` - Test Skoolib URL validity
 
-#### System
-- `GET /health` - Health check endpoint
-- `GET /api/docs` - OpenAPI documentation
-- `GET /api/stats` - Library statistics
+#### Statistics & Export
+- `GET /api/stats/reading` - Reading statistics
+- `GET /api/books/export` - Export library data
+- `POST /api/books/import` - Import library data
 
-### Data Models
+## Current Status (Phase 5.1 Complete)
 
-#### Book Model
-```python
-class Book(BaseModel):
-    isbn: str
-    title: str
-    authors: List[str]
-    series: Optional[str]
-    series_position: Optional[int]
-    publisher: Optional[str]
-    published_date: Optional[date]
-    page_count: Optional[int]
-    language: str = "en"
-    thumbnail_url: Optional[HttpUrl]
-    description: Optional[str]
-    categories: List[str] = []
-    pricing: List[PriceInfo] = []
-    metadata_source: str  # "skoolib", "google_books", "open_library"
-    added_date: datetime
-    last_updated: datetime
-```
+### Completed Features:
+- **Skoolib Integration**: Playwright-based parser for JavaScript SPAs
+- **Metadata Enrichment**: Google Books and Open Library APIs
+- **Sonarr-Inspired UI**: Dark theme with library, series, and authors pages
+- **Progressive Web App**: Full PWA with offline capabilities
+- **Barcode Scanner**: Camera integration with ZXing library
+- **Reading Progress**: Status tracking (unread/reading/read/wishlist/DNF)
+- **Search & Add**: External book search with visual feedback
+- **State Management**: Context API with optimistic updates
+- **Export/Import**: CSV/JSON export with backup functionality
 
-#### Response Structure
-```python
-{
-    "series": {
-        "Standalone": [...],     # Books without series
-        "Harry Potter": [...],   # Books in Harry Potter series
-        "Discworld": [...]       # Books in Discworld series
-    },
-    "total_books": 150,
-    "total_series": 25,
-    "last_sync": "2024-01-20T10:30:00Z"
-}
-```
+### Next Phase (5.2): Library Organization & Management
+See INTEGRATION_ROADMAP.md for detailed next steps.
 
-### Frontend Architecture
+## Skoolib Parser
 
-#### Component Hierarchy
-```
-App
-├── Layout
-│   ├── Header (with search)
-│   ├── Sidebar (navigation)
-│   └── MainContent
-├── Pages
-│   ├── Library
-│   │   ├── SearchBar
-│   │   ├── FilterPanel
-│   │   └── BookGrid
-│   │       ├── SeriesGroup
-│   │       └── BookCard
-│   ├── Settings
-│   │   ├── SkoolibConfig
-│   │   └── ThemeSettings
-│   └── Scanner (Phase 4)
-└── Common
-    ├── LoadingSpinner
-    ├── ErrorBoundary
-    └── Toast
-```
+The Skoolib parser uses Playwright for browser automation due to Skoolib being a JavaScript SPA:
 
-#### State Management
-```typescript
-interface AppState {
-    books: BooksBySeriesMap;
-    settings: AppSettings;
-    ui: {
-        loading: boolean;
-        error: string | null;
-        filters: FilterState;
-        viewMode: 'grid' | 'list';
-    };
-}
-```
-
-### Caching Strategy
-
-#### Backend Caching
-- **In-Memory Cache**: LRU cache with configurable TTL
-- **Cache Keys**: Based on ISBN for individual books, URL hash for Skoolib pages
-- **Cache Invalidation**: Manual refresh option + automatic TTL expiry
-- **Cache Warming**: Background task to pre-fetch popular books
-
-#### Frontend Caching
-- **Browser Storage**: IndexedDB for offline book data
-- **Service Worker**: Cache API responses for offline access
-- **Image Caching**: Progressive loading with lazy loading
-
-### External API Integration
-
-#### Integration Priority
-1. **Skoolib**: Primary source for user's book collection (manual sync via settings)
-2. **Google Books API**: Rich metadata (no key required for basic access)
-3. **Open Library API**: Fallback for missing metadata
-4. **Price APIs**: Multiple sources for price comparison
-
-#### API Response Caching
-- Google Books: 24 hours cache
-- Open Library: 48 hours cache
-- Skoolib parsing: 1 hour cache
-- Price data: 6 hours cache
-
-### Skoolib Parser Documentation
-
-#### Overview
-The Skoolib parser is a sophisticated system designed to extract book ISBNs from Skoolib library share pages. Due to Skoolib being a JavaScript Single Page Application (SPA), the parser uses Playwright for browser automation.
-
-#### Architecture
-```python
-# Two-tier parser system:
-1. SkoolibSPAParser - Basic HTML parsing (fallback)
-2. SkoolibPlaywrightParser - Full browser automation (primary)
-```
-
-#### Playwright Parser Features
-- **Headless Browser**: Uses Chromium via Playwright for JavaScript rendering
-- **Multi-Strategy Parsing**: Tries multiple CSS selectors to find book links
-- **Pagination Support**: Automatically handles paginated book lists
-- **ISBN Extraction**: Advanced ISBN detection from book detail pages
-- **Error Handling**: Comprehensive error handling with fallback mechanisms
-- **Rate Limiting**: Built-in delays and timeouts to avoid overwhelming Skoolib
-
-#### Parser Implementation
 ```python
 class SkoolibPlaywrightParser:
-    async def get_all_book_isbns(self, library_url: str) -> List[str]:
-        """Main entry point for parsing Skoolib library"""
-        
-    async def get_book_links_from_library(self, library_url: str) -> List[str]:
-        """Extract all book links from library page"""
-        
-    async def extract_isbn_from_book_page(self, book_url: str) -> Optional[str]:
-        """Extract ISBN from individual book page"""
-        
-    def validate_isbn(self, isbn: str) -> bool:
-        """Validate ISBN-10 or ISBN-13 with checksum"""
+    # Primary parser with browser automation
+    # Tries multiple CSS selectors to find book links
+    # Handles pagination automatically
+    # Validates ISBN-10/13 with checksums
 ```
 
-#### Selector Strategies
-The parser tries multiple strategies to find book links:
-1. `a[href*="/books/"]` - Direct book links
-2. `[data-book-id]` - Elements with book ID attributes
-3. `.book-item`, `.book-card` - Common book container classes
-4. `div[onclick*="book"]` - Clickable elements with book handlers
-5. Content parsing for URL patterns
-
-#### Current Status
-- ✅ Parser successfully loads Skoolib URLs
-- ✅ Playwright browser automation working
-- ✅ ISBN validation and normalization
-- ⚠️ No book links found (may require selector adjustments)
-- ✅ Fallback to test data when parsing fails
-
-#### Future Improvements
-- Add support for different Skoolib page layouts
-- Implement screenshot debugging for failed parses
-- Add configurable selectors via settings
-- Support for authenticated Skoolib pages
-
-#### Rate Limiting Strategy
-```python
-RATE_LIMITS = {
-    "google_books": {"calls": 1000, "period": "day"},
-    "open_library": {"calls": 100, "period": "hour"},
-    "price_api": {"calls": 50, "period": "minute"}
-}
-```
-
-## UI/UX Design Guidelines
-
-### Color Scheme
-```css
-:root {
-    /* Dark Theme Base */
-    --bg-primary: #0a0a0a;
-    --bg-secondary: #161616;
-    --bg-tertiary: #1f1f1f;
-    
-    /* Purple Accent Colors */
-    --purple-50: #faf5ff;
-    --purple-100: #f3e8ff;
-    --purple-200: #e9d5ff;
-    --purple-300: #d8b4fe;
-    --purple-400: #c084fc;
-    --purple-500: #a855f7;  /* Primary purple */
-    --purple-600: #9333ea;
-    --purple-700: #7e22ce;
-    --purple-800: #6b21a8;
-    --purple-900: #581c87;
-    
-    /* Status Colors */
-    --success: #10b981;
-    --warning: #f59e0b;
-    --error: #ef4444;
-    --info: #3b82f6;
-}
-```
-
-### Responsive Breakpoints
-- Mobile: < 640px
-- Tablet: 640px - 1024px
-- Desktop: > 1024px
-
-### Accessibility Requirements
-- WCAG 2.1 AA compliance
-- Keyboard navigation support
-- Screen reader announcements
-- Color contrast ratio ≥ 4.5:1
-
-## Configuration & Environment
-
-### Environment Variables
-
-#### Backend (.env)
-```bash
-# Application
-APP_NAME=Booktarr
-APP_VERSION=1.0.0
-DEBUG=false
-LOG_LEVEL=INFO
-
-# API Configuration
-API_PREFIX=/api
-CORS_ORIGINS=["http://localhost:3000"]
-
-# Cache Configuration
-CACHE_TTL=3600  # seconds
-CACHE_MAX_SIZE=1000
-
-# Database
-DATABASE_URL=sqlite:///./booktarr.db
-
-# External APIs (optional)
-GOOGLE_BOOKS_API_KEY=  # Optional for higher rate limits
-OPEN_LIBRARY_API_KEY=  # Optional for higher rate limits
-```
-
-#### Frontend (.env)
-```bash
-REACT_APP_API_URL=http://localhost:8000
-REACT_APP_VERSION=$npm_package_version
-REACT_APP_ENABLE_PWA=true
-REACT_APP_ENABLE_ANALYTICS=false
-```
-
-
-## Error Handling Patterns
-
-### Backend Error Handling
-```python
-class BooktarrException(Exception):
-    """Base exception for all Booktarr errors"""
-    
-class SkoolibParsingError(BooktarrException):
-    """Failed to parse Skoolib HTML"""
-    
-class ExternalAPIError(BooktarrException):
-    """External API request failed"""
-    
-class ValidationError(BooktarrException):
-    """Input validation failed"""
-```
-
-### Frontend Error Boundaries
-```typescript
-interface ErrorState {
-    hasError: boolean;
-    error: Error | null;
-    errorInfo: ErrorInfo | null;
-}
-
-// Global error handler
-window.addEventListener('unhandledrejection', (event) => {
-    logError(event.reason);
-    showToast('An unexpected error occurred', 'error');
-});
-```
-
-## Testing Strategy
-
-### Backend Testing
-- **Unit Tests**: Test individual functions and methods
-- **Integration Tests**: Test API endpoints with mocked external services
-- **E2E Tests**: Test full flow from Skoolib parsing to API response
-
-### Frontend Testing
-- **Component Tests**: Test individual React components
-- **Integration Tests**: Test component interactions
-- **E2E Tests**: Cypress for full user flows
-
-### Test Coverage Requirements
-- Backend: Minimum 80% coverage
-- Frontend: Minimum 70% coverage
-- Critical paths: 100% coverage
-
-## Performance Optimization
-
-### Backend Optimizations
-- Async/await for all I/O operations
-- Connection pooling for external APIs
-- Batch processing for multiple ISBNs
-- Gzip compression for responses
-
-### Frontend Optimizations
-- Code splitting with React.lazy()
-- Image lazy loading with Intersection Observer
-- Virtual scrolling for large book lists
-- Memoization for expensive computations
-
-## Security Considerations
-
-### API Security
-- Input validation on all endpoints
-- Rate limiting per IP
-- CORS properly configured
-- No sensitive data in logs
-
-### Frontend Security
-- Content Security Policy headers
-- XSS protection
-- HTTPS only in production
-- Sanitize user inputs
-
-## Troubleshooting Guide
-
-### Common Issues
-
-#### Backend
-1. **Skoolib parsing fails**: Check HTML structure hasn't changed
-2. **External API timeout**: Increase timeout values or implement retry
-3. **Cache memory issues**: Reduce cache size or implement Redis
-
-#### Frontend
-1. **Build fails**: Clear node_modules and package-lock.json
-2. **CORS errors**: Verify backend CORS configuration
-3. **PWA not updating**: Check service worker cache strategy
-
-## Development Best Practices
-
-### Code Style
-- Python: Follow PEP 8, use Black formatter
-- TypeScript: Follow Airbnb style guide
-- Commits: Use conventional commits format
-
-### Git Workflow
-```bash
-# Feature development
-git checkout -b feature/description
-# Make changes
-git commit -m "feat: add new feature"
-git push origin feature/description
-# Create pull request
-```
-
-### PR Requirements
-- All tests passing
-- Code coverage maintained
-- Documentation updated
-- Reviewed by at least one team member
+**Current Status**: Parser loads URLs but may need selector adjustments for specific Skoolib layouts.
 
 ## Database Schema
 
-### Core Tables
-- **books**: ISBN (PK), title, authors, series info, metadata
+### Core Tables (SQLAlchemy)
+- **books**: ISBN (PK), title, authors, series info, metadata, reading_status, progress
 - **settings**: Configuration for Skoolib URL, API keys, sync preferences
 - **sync_history**: Track Skoolib sync operations and results
-- **cache**: Generic key-value cache for API responses
 
-### Alembic Migrations
-Database schema is managed through Alembic migrations. Always create a migration when modifying models:
+Always use Alembic for schema changes:
 ```bash
 cd backend
-alembic revision --autogenerate -m "Add new field to book model"
-alembic upgrade head  # Apply migration
+alembic revision --autogenerate -m "description"
+alembic upgrade head
 ```
 
-## Integration Roadmap
+## State Management
 
-The project follows a phased approach documented in INTEGRATION_ROADMAP.md:
-- **Phase 1**: Basic MVP with Skoolib sync and metadata enrichment (COMPLETE)
-- **Phase 2**: UI enhancements and series management (CURRENT)
-- **Phase 3**: User accounts and reading progress
-- **Phase 4**: Mobile PWA with barcode scanning
-- **Phase 5**: Social features and recommendations
+Frontend uses React Context API with:
+- **BookContext**: Books data, loading states, CRUD operations
+- **SettingsContext**: App settings and preferences
+- **CacheContext**: Client-side caching with IndexedDB
 
-Always check INTEGRATION_ROADMAP.md for current status and next steps.
+## Testing Strategy
+
+- **Backend**: pytest with async support, aim for >80% coverage
+- **Frontend**: Jest + React Testing Library, aim for >70% coverage
+- Run tests before committing any phase
+
+## Key Implementation Details
+
+### Caching
+- Backend: LRU cache with configurable TTL
+- Frontend: IndexedDB for offline support
+- Service Worker: Cache-first strategy for PWA
+
+### Error Handling
+- Backend: Comprehensive middleware with structured logging
+- Frontend: Error boundaries and toast notifications
+
+### Performance
+- Debounced search operations
+- Lazy loading for images
+- Virtual scrolling for large lists
+- Optimistic UI updates
+
+## Environment Variables
+
+### Backend (.env)
+```bash
+DATABASE_URL=sqlite:///./data/booktarr.db
+LOG_LEVEL=INFO
+CACHE_TTL=3600
+```
+
+### Frontend (.env)
+```bash
+REACT_APP_API_URL=http://localhost:8000
+REACT_APP_ENABLE_PWA=true
+```
+
+## Important Notes
+
+- **Always check INTEGRATION_ROADMAP.md** for current phase and next steps
+- **Commit after each completed phase** for easy rollback
+- **Update roadmap** with any issues or deviations
+- **Run locally** for faster development iteration
