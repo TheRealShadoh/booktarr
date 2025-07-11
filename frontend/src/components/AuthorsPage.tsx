@@ -123,130 +123,150 @@ const AuthorsPage: React.FC<AuthorsPageProps> = ({ books, loading, error, onRefr
   }
 
   return (
-    <div className="space-y-6">
-      {/* Authors summary */}
+    <div className="space-y-8">
+      {/* Authors summary with enhanced visual hierarchy */}
       <div className="booktarr-card">
         <div className="booktarr-card-header">
-          <div className="flex items-center justify-between">
-            <h2 className="text-booktarr-text text-xl font-semibold">Authors Collection</h2>
-            <div className="flex items-center space-x-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-booktarr-text text-2xl font-bold mb-2">Authors Collection</h1>
+              <p className="text-booktarr-textSecondary text-sm">
+                Browse your library by author and discover your collection
+              </p>
+            </div>
+            <div className="flex items-center space-x-3 bg-booktarr-surface2 rounded-lg p-2">
               <button
                 onClick={() => setExpandedAuthors(new Set(authorGroups.map(group => group.name)))}
-                className="text-booktarr-accent hover:text-booktarr-accentHover text-sm transition-colors"
+                className="text-booktarr-accent hover:text-booktarr-accentHover text-sm font-medium transition-colors px-3 py-1 rounded hover:bg-booktarr-hover"
               >
                 Expand All
               </button>
-              <span className="text-booktarr-textMuted">|</span>
+              <div className="w-px h-4 bg-booktarr-border"></div>
               <button
                 onClick={() => setExpandedAuthors(new Set())}
-                className="text-booktarr-accent hover:text-booktarr-accentHover text-sm transition-colors"
+                className="text-booktarr-accent hover:text-booktarr-accentHover text-sm font-medium transition-colors px-3 py-1 rounded hover:bg-booktarr-hover"
               >
                 Collapse All
               </button>
             </div>
           </div>
-          <p className="text-booktarr-textSecondary text-sm mt-1">
-            Browse your library by author and discover your collection
-          </p>
         </div>
         
         <div className="booktarr-card-body">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-booktarr-accent">{totalAuthors}</div>
-              <div className="text-booktarr-textMuted">Authors</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center p-4 bg-booktarr-surface2 rounded-lg border border-booktarr-border">
+              <div className="text-3xl font-bold text-booktarr-accent mb-2">{totalAuthors}</div>
+              <div className="text-booktarr-textMuted text-sm uppercase tracking-wider">Authors</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-booktarr-accent">{totalBooks}</div>
-              <div className="text-booktarr-textMuted">Total Books</div>
+            <div className="text-center p-4 bg-booktarr-surface2 rounded-lg border border-booktarr-border">
+              <div className="text-3xl font-bold text-booktarr-accent mb-2">{totalBooks}</div>
+              <div className="text-booktarr-textMuted text-sm uppercase tracking-wider">Total Books</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-booktarr-accent">
+            <div className="text-center p-4 bg-booktarr-surface2 rounded-lg border border-booktarr-border">
+              <div className="text-3xl font-bold text-booktarr-accent mb-2">
                 {totalAuthors > 0 ? Math.round(totalBooks / totalAuthors) : 0}
               </div>
-              <div className="text-booktarr-textMuted">Avg Books per Author</div>
+              <div className="text-booktarr-textMuted text-sm uppercase tracking-wider">Avg per Author</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Author groups */}
-      <div className="space-y-6">
+      {/* Author groups with enhanced visual flow */}
+      <div className="space-y-5">
         {authorGroups.map((group) => (
-          <div key={group.name} className="booktarr-series-section">
+          <div key={group.name} className="booktarr-card">
             <div 
               onClick={() => handleAuthorClick(group.name)}
-              className="booktarr-series-header group cursor-pointer"
+              className="booktarr-card-header group cursor-pointer hover:bg-booktarr-hover transition-colors duration-200"
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-4">
                   <svg 
-                    className={`w-5 h-5 booktarr-series-toggle transition-transform duration-200 ${expandedAuthors.has(group.name) ? 'rotate-90' : ''}`}
+                    className={`w-5 h-5 text-booktarr-accent transition-transform duration-200 ${expandedAuthors.has(group.name) ? 'rotate-90' : ''}`}
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24"
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
-                  <div>
-                    <h3 className="booktarr-series-title text-lg">
-                      {group.name}
-                    </h3>
-                    {!expandedAuthors.has(group.name) && (
-                      <div className="text-xs text-booktarr-textMuted mt-1">
-                        {group.seriesCount} series • {group.bookCount} books
-                      </div>
-                    )}
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-booktarr-accent rounded-full flex items-center justify-center">
+                      <span className="text-white font-semibold text-sm">
+                        {group.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-booktarr-text group-hover:text-booktarr-accent transition-colors">
+                        {group.name}
+                      </h3>
+                      {!expandedAuthors.has(group.name) && (
+                        <div className="text-xs text-booktarr-textMuted mt-1">
+                          {group.seriesCount} series • {group.bookCount} books
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
-                <div className="flex items-center space-x-2">
-                  <span className="booktarr-series-count">
-                    {group.bookCount} book{group.bookCount !== 1 ? 's' : ''}
-                  </span>
-                  <span className="px-2 py-1 bg-booktarr-accent text-white text-xs rounded-full">
-                    {group.seriesCount} series
-                  </span>
+                <div className="flex items-center space-x-3">
+                  <div className="text-right">
+                    <div className="text-sm font-medium text-booktarr-text">
+                      {group.bookCount} book{group.bookCount !== 1 ? 's' : ''}
+                    </div>
+                    <div className="text-xs text-booktarr-textMuted">
+                      {group.seriesCount} series
+                    </div>
+                  </div>
+                  <div className="w-2 h-2 bg-booktarr-accent rounded-full opacity-50"></div>
                 </div>
               </div>
             </div>
             
             {expandedAuthors.has(group.name) && (
-              <div className="animate-slide-up">
-                <div className="booktarr-book-grid">
-                  {group.books.map(book => (
-                    <BookCard 
-                      key={book.isbn} 
-                      book={book} 
-                      onClick={handleBookClick}
-                      viewMode="grid"
-                    />
-                  ))}
-                </div>
-                
-                {/* Author summary */}
-                <div className="mt-6 p-4 bg-booktarr-surface2 rounded-lg border border-booktarr-border">
-                  <h4 className="text-sm font-semibold text-booktarr-text mb-2">Author Summary</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <span className="text-booktarr-textMuted">Total Books</span>
-                      <p className="text-booktarr-text font-medium">{group.bookCount}</p>
+              <div className="booktarr-card-body">
+                <div className="animate-slide-up space-y-6">
+                  {/* Author summary stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-booktarr-surface2 rounded-lg p-4 text-center border border-booktarr-border">
+                      <div className="text-lg font-bold text-booktarr-accent">{group.bookCount}</div>
+                      <div className="text-xs text-booktarr-textMuted uppercase tracking-wider">Books</div>
                     </div>
-                    <div>
-                      <span className="text-booktarr-textMuted">Series</span>
-                      <p className="text-booktarr-text font-medium">{group.seriesCount}</p>
+                    <div className="bg-booktarr-surface2 rounded-lg p-4 text-center border border-booktarr-border">
+                      <div className="text-lg font-bold text-booktarr-accent">{group.seriesCount}</div>
+                      <div className="text-xs text-booktarr-textMuted uppercase tracking-wider">Series</div>
                     </div>
-                    <div>
-                      <span className="text-booktarr-textMuted">Avg Pages</span>
-                      <p className="text-booktarr-text font-medium">
+                    <div className="bg-booktarr-surface2 rounded-lg p-4 text-center border border-booktarr-border">
+                      <div className="text-lg font-bold text-booktarr-accent">
                         {Math.round(group.books.reduce((sum, book) => sum + (book.page_count || 0), 0) / group.bookCount)}
-                      </p>
+                      </div>
+                      <div className="text-xs text-booktarr-textMuted uppercase tracking-wider">Avg Pages</div>
                     </div>
-                    <div>
-                      <span className="text-booktarr-textMuted">Categories</span>
-                      <p className="text-booktarr-text font-medium">
+                    <div className="bg-booktarr-surface2 rounded-lg p-4 text-center border border-booktarr-border">
+                      <div className="text-lg font-bold text-booktarr-accent">
                         {new Set(group.books.flatMap(book => book.categories)).size}
-                      </p>
+                      </div>
+                      <div className="text-xs text-booktarr-textMuted uppercase tracking-wider">Categories</div>
+                    </div>
+                  </div>
+                  
+                  {/* Books grid */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-booktarr-text mb-4 flex items-center">
+                      <svg className="w-4 h-4 text-booktarr-accent mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                      </svg>
+                      Books by {group.name}
+                    </h4>
+                    <div className="booktarr-book-grid">
+                      {group.books.map(book => (
+                        <BookCard 
+                          key={book.isbn} 
+                          book={book} 
+                          onClick={handleBookClick}
+                          viewMode="grid"
+                        />
+                      ))}
                     </div>
                   </div>
                 </div>

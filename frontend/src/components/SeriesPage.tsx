@@ -103,55 +103,57 @@ const SeriesPage: React.FC<SeriesPageProps> = ({ books, loading, error, onRefres
   }
 
   return (
-    <div className="space-y-6">
-      {/* Series summary */}
+    <div className="space-y-8">
+      {/* Series summary with enhanced visual hierarchy */}
       <div className="booktarr-card">
         <div className="booktarr-card-header">
-          <div className="flex items-center justify-between">
-            <h2 className="text-booktarr-text text-xl font-semibold">Series Collection</h2>
-            <div className="flex items-center space-x-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-booktarr-text text-2xl font-bold mb-2">Series Collection</h1>
+              <p className="text-booktarr-textSecondary text-sm">
+                Browse your book series and track reading progress
+              </p>
+            </div>
+            <div className="flex items-center space-x-3 bg-booktarr-surface2 rounded-lg p-2">
               <button
                 onClick={() => setExpandedSeries(new Set(seriesGroups.map(group => group.seriesName)))}
-                className="text-booktarr-accent hover:text-booktarr-accentHover text-sm transition-colors"
+                className="text-booktarr-accent hover:text-booktarr-accentHover text-sm font-medium transition-colors px-3 py-1 rounded hover:bg-booktarr-hover"
               >
                 Expand All
               </button>
-              <span className="text-booktarr-textMuted">|</span>
+              <div className="w-px h-4 bg-booktarr-border"></div>
               <button
                 onClick={() => setExpandedSeries(new Set())}
-                className="text-booktarr-accent hover:text-booktarr-accentHover text-sm transition-colors"
+                className="text-booktarr-accent hover:text-booktarr-accentHover text-sm font-medium transition-colors px-3 py-1 rounded hover:bg-booktarr-hover"
               >
                 Collapse All
               </button>
             </div>
           </div>
-          <p className="text-booktarr-textSecondary text-sm mt-1">
-            Browse your book series and track reading progress
-          </p>
         </div>
         
         <div className="booktarr-card-body">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-booktarr-accent">{totalSeries}</div>
-              <div className="text-booktarr-textMuted">Series</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center p-4 bg-booktarr-surface2 rounded-lg border border-booktarr-border">
+              <div className="text-3xl font-bold text-booktarr-accent mb-2">{totalSeries}</div>
+              <div className="text-booktarr-textMuted text-sm uppercase tracking-wider">Series</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-booktarr-accent">{totalBooks}</div>
-              <div className="text-booktarr-textMuted">Books in Series</div>
+            <div className="text-center p-4 bg-booktarr-surface2 rounded-lg border border-booktarr-border">
+              <div className="text-3xl font-bold text-booktarr-accent mb-2">{totalBooks}</div>
+              <div className="text-booktarr-textMuted text-sm uppercase tracking-wider">Books in Series</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-booktarr-accent">
+            <div className="text-center p-4 bg-booktarr-surface2 rounded-lg border border-booktarr-border">
+              <div className="text-3xl font-bold text-booktarr-accent mb-2">
                 {totalBooks > 0 ? Math.round(totalBooks / totalSeries) : 0}
               </div>
-              <div className="text-booktarr-textMuted">Avg Books per Series</div>
+              <div className="text-booktarr-textMuted text-sm uppercase tracking-wider">Avg per Series</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Series groups */}
-      <div className="space-y-6">
+      {/* Series groups with enhanced layout */}
+      <div className="space-y-5">
         {seriesGroups.map((group) => (
           <SeriesGroup
             key={group.seriesName}
@@ -160,6 +162,7 @@ const SeriesPage: React.FC<SeriesPageProps> = ({ books, loading, error, onRefres
             expanded={expandedSeries.has(group.seriesName)}
             onToggle={handleSeriesClick}
             onBookClick={handleBookClick}
+            gridSize="compact"
           />
         ))}
       </div>
