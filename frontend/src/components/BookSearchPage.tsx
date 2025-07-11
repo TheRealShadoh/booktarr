@@ -42,30 +42,6 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
   const [showReview, setShowReview] = useState(false);
   const [scannedISBNs, setScannedISBNs] = useState<string[]>([]);
 
-  // Auto-search with debouncing
-  useEffect(() => {
-    if (searchDebounce) {
-      clearTimeout(searchDebounce);
-    }
-
-    if (query.trim().length >= 3) {
-      const timeout = setTimeout(() => {
-        handleSearch(query);
-      }, 500);
-      setSearchDebounce(timeout);
-    } else if (query.trim().length === 0) {
-      setSearchResults([]);
-      setTotalFound(0);
-      setError(null);
-    }
-
-    return () => {
-      if (searchDebounce) {
-        clearTimeout(searchDebounce);
-      }
-    };
-  }, [query, searchDebounce]);
-
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -93,6 +69,30 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
       setLoading(false);
     }
   }, [searchWithCaching]);
+
+  // Auto-search with debouncing
+  useEffect(() => {
+    if (searchDebounce) {
+      clearTimeout(searchDebounce);
+    }
+
+    if (query.trim().length >= 3) {
+      const timeout = setTimeout(() => {
+        handleSearch(query);
+      }, 500);
+      setSearchDebounce(timeout);
+    } else if (query.trim().length === 0) {
+      setSearchResults([]);
+      setTotalFound(0);
+      setError(null);
+    }
+
+    return () => {
+      if (searchDebounce) {
+        clearTimeout(searchDebounce);
+      }
+    };
+  }, [query, handleSearch]);
 
   const handleAddBook = async (book: Book, source: string) => {
     setAddingBooks(prev => new Set(prev).add(book.isbn));

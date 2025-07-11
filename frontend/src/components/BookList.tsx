@@ -1,11 +1,15 @@
 /**
- * Enhanced BookList component with TypeScript and improved functionality
+ * Enhanced BookList component with Sonarr-style individual book display
  */
 import React, { useState, useMemo } from 'react';
 import SeriesGroup from './SeriesGroup';
+import BookCard from './BookCard';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
-import { BooksBySeriesMap } from '../types';
+import { BooksBySeriesMap, Book } from '../types';
+
+type ViewMode = 'grid' | 'list';
+type DisplayMode = 'series' | 'individual';
 
 interface BookListProps {
   books: BooksBySeriesMap;
@@ -16,6 +20,8 @@ interface BookListProps {
 
 const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh }) => {
   const [expandedSeries, setExpandedSeries] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('individual'); // Default to Sonarr-style
 
   // Convert books object to sorted array for display
   const seriesGroups = useMemo(() => {
@@ -40,6 +46,19 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh })
   const totalBooks = useMemo(() => {
     return seriesGroups.reduce((sum, group) => sum + group.bookCount, 0);
   }, [seriesGroups]);
+
+  // Flatten all books for individual display
+  const allBooks = useMemo(() => {
+    if (!books) return [];
+    
+    const flatBooks: Book[] = [];
+    Object.entries(books).forEach(([seriesName, bookList]) => {
+      flatBooks.push(...bookList);
+    });
+    
+    // Sort books by title
+    return flatBooks.sort((a, b) => a.title.localeCompare(b.title));
+  }, [books]);
 
   const handleToggleSeries = (seriesName: string) => {
     setExpandedSeries(prev => {
@@ -111,20 +130,79 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh })
             <h2 className="text-booktarr-text text-lg font-semibold">
               Your Library
             </h2>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handleExpandAll}
-                className="text-booktarr-accent hover:text-booktarr-accentHover text-sm transition-colors"
-              >
-                Expand All
-              </button>
-              <span className="text-booktarr-textMuted">|</span>
-              <button
-                onClick={handleCollapseAll}
-                className="text-booktarr-accent hover:text-booktarr-accentHover text-sm transition-colors"
-              >
-                Collapse All
-              </button>
+            <div className="flex items-center space-x-4">
+              {/* Display Mode Toggle */}
+              <div className="flex items-center space-x-2 bg-booktarr-surface2 rounded-lg p-1">
+                <button
+                  onClick={() => setDisplayMode('individual')}
+                  className={`px-3 py-1 text-sm rounded transition-colors ${
+                    displayMode === 'individual' 
+                      ? 'bg-booktarr-accent text-white' 
+                      : 'text-booktarr-textSecondary hover:text-booktarr-text'
+                  }`}
+                >
+                  Individual
+                </button>
+                <button
+                  onClick={() => setDisplayMode('series')}
+                  className={`px-3 py-1 text-sm rounded transition-colors ${
+                    displayMode === 'series' 
+                      ? 'bg-booktarr-accent text-white' 
+                      : 'text-booktarr-textSecondary hover:text-booktarr-text'
+                  }`}
+                >
+                  Series
+                </button>
+              </div>
+
+              {/* View Mode Toggle */}
+              <div className="flex items-center space-x-1 bg-booktarr-surface2 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-2 rounded transition-colors ${
+                    viewMode === 'grid' 
+                      ? 'bg-booktarr-accent text-white' 
+                      : 'text-booktarr-textSecondary hover:text-booktarr-text'
+                  }`}
+                  title="Grid View"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 rounded transition-colors ${
+                    viewMode === 'list' 
+                      ? 'bg-booktarr-accent text-white' 
+                      : 'text-booktarr-textSecondary hover:text-booktarr-text'
+                  }`}
+                  title="List View"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Series Controls (only show in series mode) */}
+              {displayMode === 'series' && (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={handleExpandAll}
+                    className="text-booktarr-accent hover:text-booktarr-accentHover text-sm transition-colors"
+                  >
+                    Expand All
+                  </button>
+                  <span className="text-booktarr-textMuted">|</span>
+                  <button
+                    onClick={handleCollapseAll}
+                    className="text-booktarr-accent hover:text-booktarr-accentHover text-sm transition-colors"
+                  >
+                    Collapse All
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -150,18 +228,37 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh })
         </div>
       </div>
 
-      {/* Series groups */}
-      <div className="space-y-6">
-        {seriesGroups.map((group) => (
-          <SeriesGroup
-            key={group.seriesName}
-            seriesName={group.seriesName}
-            books={group.books}
-            expanded={expandedSeries.has(group.seriesName)}
-            onToggle={handleToggleSeries}
-          />
-        ))}
-      </div>
+      {/* Content based on display mode */}
+      {displayMode === 'individual' ? (
+        /* Individual book cards - Sonarr style */
+        <div className={viewMode === 'grid' ? 'booktarr-book-grid' : 'space-y-4'}>
+          {allBooks.map((book) => (
+            <BookCard 
+              key={book.isbn} 
+              book={book} 
+              viewMode={viewMode}
+              onClick={(book) => {
+                // Handle book click - could open details modal
+                console.log('Book clicked:', book.title);
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        /* Series groups */
+        <div className="space-y-6">
+          {seriesGroups.map((group) => (
+            <SeriesGroup
+              key={group.seriesName}
+              seriesName={group.seriesName}
+              books={group.books}
+              expanded={expandedSeries.has(group.seriesName)}
+              onToggle={handleToggleSeries}
+              viewMode={viewMode}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };

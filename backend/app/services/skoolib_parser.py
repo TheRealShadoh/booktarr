@@ -1,230 +1,254 @@
-import re
+#!/usr/bin/env python3
+"""
+Skoolib ISBN Scraper
+Scrapes book ISBNs from a Skoolib library page
+"""
+
 import asyncio
-import httpx
-from typing import List, Optional
+import requests
 from bs4 import BeautifulSoup
+import json
+import time
+import re
 from urllib.parse import urljoin, urlparse
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
+import logging
+from typing import List, Optional
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 class SkoolibParsingError(Exception):
-    """Raised when Skoolib HTML parsing fails"""
+    """Raised when Skoolib parsing fails"""
     pass
 
 class SkoolibParser:
-    """HTML parser for extracting ISBNs from Skoolib share links"""
+    """Enhanced Skoolib parser with Selenium and requests fallback"""
     
     def __init__(self, timeout: int = 30, max_retries: int = 3):
         self.timeout = timeout
         self.max_retries = max_retries
-        self.session = None
+        self.base_url = "https://skoolib.net"
+        self.isbns = []
+        
+    def setup_driver(self):
+        """Set up Selenium WebDriver with options"""
+        from selenium.webdriver.chrome.options import Options
+        
+        chrome_options = Options()
+        chrome_options.add_argument('--headless')  # Run in background
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--disable-extensions')
+        chrome_options.add_argument('--disable-logging')
+        chrome_options.add_argument('--disable-web-security')
+        chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+        
+        try:
+            driver = webdriver.Chrome(options=chrome_options)
+            return driver
+        except Exception as e:
+            logger.error(f"Failed to initialize Chrome driver: {e}")
+            logger.info("Trying Firefox driver...")
+            from selenium.webdriver.firefox.options import Options as FirefoxOptions
+            firefox_options = FirefoxOptions()
+            firefox_options.add_argument('--headless')
+            firefox_options.add_argument('--no-sandbox')
+            return webdriver.Firefox(options=firefox_options)
     
-    async def __aenter__(self):
-        """Async context manager entry"""
-        self.session = httpx.AsyncClient(timeout=self.timeout)
-        return self
+    def extract_isbn_from_text(self, text):
+        """Extract ISBN-10 or ISBN-13 from text using regex"""
+        # ISBN-13 pattern
+        isbn13_pattern = r'(?:ISBN[-\s]?13[:\s]?)?(?:978|979)[-\s]?\d{1,5}[-\s]?\d{1,7}[-\s]?\d{1,6}[-\s]?\d'
+        # ISBN-10 pattern
+        isbn10_pattern = r'(?:ISBN[-\s]?10[:\s]?)?\d{1,5}[-\s]?\d{1,7}[-\s]?\d{1,6}[-\s]?[\dX]'
+        
+        # Try ISBN-13 first
+        match = re.search(isbn13_pattern, text, re.IGNORECASE)
+        if match:
+            isbn = re.sub(r'[-\s]', '', match.group())
+            if isbn.startswith('978') or isbn.startswith('979'):
+                return isbn[-13:]
+        
+        # Try ISBN-10
+        match = re.search(isbn10_pattern, text, re.IGNORECASE)
+        if match:
+            isbn = re.sub(r'[-\s]', '', match.group())
+            if len(isbn) >= 10:
+                return isbn[-10:]
+        
+        return None
     
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit"""
-        if self.session:
-            await self.session.aclose()
+    def scrape_with_selenium(self, library_url: str):
+        """Scrape using Selenium for JavaScript-rendered content"""
+        driver = None
+        try:
+            driver = self.setup_driver()
+            logger.info(f"Loading library page: {library_url}")
+            driver.get(library_url)
+            
+            # Wait for the page to load
+            wait = WebDriverWait(driver, 20)
+            
+            # Wait for book elements to load - adjust selector based on actual page structure
+            try:
+                book_elements = wait.until(
+                    EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a[href*='/book/'], .book-link, .book-item a"))
+                )
+            except TimeoutException:
+                # Try alternative selectors
+                book_elements = driver.find_elements(By.CSS_SELECTOR, "[class*='book'] a, [id*='book'] a")
+            
+            book_urls = []
+            for element in book_elements:
+                href = element.get_attribute('href')
+                if href and '/book/' in href:
+                    book_urls.append(href)
+            
+            logger.info(f"Found {len(book_urls)} book links")
+            
+            # Visit each book page
+            for i, book_url in enumerate(book_urls, 1):
+                try:
+                    logger.info(f"Processing book {i}/{len(book_urls)}: {book_url}")
+                    driver.get(book_url)
+                    time.sleep(2)  # Be respectful to the server
+                    
+                    # Get page source and look for ISBN
+                    page_source = driver.page_source
+                    
+                    # Try multiple methods to find ISBN
+                    isbn = None
+                    
+                    # Method 1: Look for specific ISBN elements
+                    try:
+                        isbn_elements = driver.find_elements(By.CSS_SELECTOR, 
+                            "[class*='isbn'], [id*='isbn'], span:contains('ISBN'), div:contains('ISBN')")
+                        
+                        for elem in isbn_elements:
+                            text = elem.text
+                            isbn = self.extract_isbn_from_text(text)
+                            if isbn:
+                                break
+                    except:
+                        pass
+                    
+                    # Method 2: Search in the entire page text
+                    if not isbn:
+                        isbn = self.extract_isbn_from_text(page_source)
+                    
+                    if isbn:
+                        logger.info(f"Found ISBN: {isbn}")
+                        self.isbns.append(isbn)
+                    else:
+                        logger.warning(f"No ISBN found for {book_url}")
+                        
+                except Exception as e:
+                    logger.error(f"Error processing book {book_url}: {e}")
+                    
+        except Exception as e:
+            logger.error(f"Selenium scraping failed: {e}")
+            raise SkoolibParsingError(f"Selenium scraping failed: {e}")
+        finally:
+            if driver:
+                driver.quit()
+    
+    def scrape_with_requests(self, library_url: str):
+        """Fallback scraping method using requests and BeautifulSoup"""
+        try:
+            logger.info("Trying requests-based scraping...")
+            
+            # Get the library page
+            response = requests.get(library_url, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }, timeout=self.timeout)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Find book links
+            book_links = soup.find_all('a', href=re.compile(r'/book/'))
+            
+            logger.info(f"Found {len(book_links)} book links")
+            
+            for i, link in enumerate(book_links, 1):
+                book_url = urljoin(self.base_url, link['href'])
+                logger.info(f"Processing book {i}/{len(book_links)}: {book_url}")
+                
+                try:
+                    book_response = requests.get(book_url, headers={
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    }, timeout=self.timeout)
+                    book_response.raise_for_status()
+                    
+                    book_soup = BeautifulSoup(book_response.content, 'html.parser')
+                    
+                    # Look for ISBN in various places
+                    isbn = None
+                    
+                    # Check meta tags
+                    isbn_meta = book_soup.find('meta', attrs={'name': 'isbn'}) or \
+                               book_soup.find('meta', attrs={'property': 'isbn'})
+                    if isbn_meta:
+                        isbn = isbn_meta.get('content')
+                    
+                    # Check for ISBN in text
+                    if not isbn:
+                        isbn = self.extract_isbn_from_text(book_soup.text)
+                    
+                    if isbn:
+                        logger.info(f"Found ISBN: {isbn}")
+                        self.isbns.append(isbn)
+                    else:
+                        logger.warning(f"No ISBN found for {book_url}")
+                    
+                    time.sleep(1)  # Be respectful
+                    
+                except Exception as e:
+                    logger.error(f"Error processing book {book_url}: {e}")
+                    
+        except Exception as e:
+            logger.error(f"Requests-based scraping failed: {e}")
+            raise SkoolibParsingError(f"Requests-based scraping failed: {e}")
+    
+    async def parse_library_url(self, library_url: str) -> List[str]:
+        """Main async parsing method"""
+        self.isbns = []  # Reset ISBNs
+        
+        # Try Selenium first for JavaScript-rendered content
+        try:
+            self.scrape_with_selenium(library_url)
+        except Exception as e:
+            logger.warning(f"Selenium method failed: {e}")
+        
+        # If no ISBNs found, try requests-based approach
+        if not self.isbns:
+            logger.info("No ISBNs found with Selenium, trying requests...")
+            try:
+                self.scrape_with_requests(library_url)
+            except Exception as e:
+                logger.warning(f"Requests method failed: {e}")
+        
+        if not self.isbns:
+            raise SkoolibParsingError("No ISBNs found with either scraping method")
+        
+        logger.info(f"Successfully scraped {len(self.isbns)} ISBNs")
+        return self.isbns
+    
+    # Legacy methods for backward compatibility
+    def extract_isbns(self, html: str) -> List[str]:
+        """Legacy method - extract ISBNs from HTML"""
+        return [isbn for isbn in [self.extract_isbn_from_text(html)] if isbn]
     
     async def fetch_html(self, url: str) -> str:
-        """Fetch HTML with retry logic"""
-        if not self.session:
-            raise SkoolibParsingError("Parser not initialized. Use async context manager.")
-        
-        last_exception = None
-        for attempt in range(self.max_retries):
-            try:
-                response = await self.session.get(url, follow_redirects=True)
-                response.raise_for_status()
-                return response.text
-            except httpx.HTTPError as e:
-                last_exception = e
-                if attempt < self.max_retries - 1:
-                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
-                continue
-        
-        raise SkoolibParsingError(f"Failed to fetch HTML after {self.max_retries} attempts: {last_exception}")
-    
-    def extract_isbns(self, html: str) -> List[str]:
-        """Extract ISBNs from Skoolib HTML"""
-        if not html:
-            return []
-        
-        soup = BeautifulSoup(html, 'lxml')
-        isbns = []
-        
-        # Common ISBN patterns
-        isbn_patterns = [
-            r'ISBN[:\s-]*(\d{1,5}[X\d]{1,7}[X\d]{1,7}[\dX])',  # ISBN-10
-            r'ISBN[:\s-]*(\d{3}[X\d]{1,5}[X\d]{1,7}[X\d]{1,7}[\dX])',  # ISBN-13
-            r'(\d{10}|\d{13})',  # Pure numeric ISBNs
-            r'(\d{1,5}[X\d]{1,7}[X\d]{1,7}[\dX])',  # ISBN-10 without prefix
-            r'(\d{3}[X\d]{1,5}[X\d]{1,7}[X\d]{1,7}[\dX])',  # ISBN-13 without prefix
-        ]
-        
-        # Strategy 1: Look for ISBN in text content
-        text_content = soup.get_text()
-        for pattern in isbn_patterns:
-            matches = re.findall(pattern, text_content, re.IGNORECASE)
-            for match in matches:
-                cleaned_isbn = self._clean_isbn(match)
-                if cleaned_isbn and self.validate_isbn(cleaned_isbn):
-                    isbns.append(cleaned_isbn)
-        
-        # Strategy 2: Look for ISBNs in data attributes
-        for element in soup.find_all(attrs={'data-isbn': True}):
-            isbn = element.get('data-isbn')
-            cleaned_isbn = self._clean_isbn(isbn)
-            if cleaned_isbn and self.validate_isbn(cleaned_isbn):
-                isbns.append(cleaned_isbn)
-        
-        # Strategy 3: Look for ISBNs in href attributes (Amazon links, etc.)
-        for link in soup.find_all('a', href=True):
-            href = link['href']
-            # Amazon ASIN/ISBN patterns
-            amazon_match = re.search(r'/dp/([B\d]{10})', href)
-            if amazon_match:
-                potential_isbn = amazon_match.group(1)
-                if potential_isbn.startswith('B'):
-                    continue  # Skip ASINs
-                cleaned_isbn = self._clean_isbn(potential_isbn)
-                if cleaned_isbn and self.validate_isbn(cleaned_isbn):
-                    isbns.append(cleaned_isbn)
-        
-        # Strategy 4: Look for ISBNs in specific HTML structures
-        # Common book listing structures
-        book_containers = soup.find_all(['div', 'li', 'tr'], class_=re.compile(r'book|item|row', re.I))
-        for container in book_containers:
-            container_text = container.get_text()
-            for pattern in isbn_patterns:
-                matches = re.findall(pattern, container_text, re.IGNORECASE)
-                for match in matches:
-                    cleaned_isbn = self._clean_isbn(match)
-                    if cleaned_isbn and self.validate_isbn(cleaned_isbn):
-                        isbns.append(cleaned_isbn)
-        
-        # Remove duplicates while preserving order
-        unique_isbns = []
-        seen = set()
-        for isbn in isbns:
-            if isbn not in seen:
-                unique_isbns.append(isbn)
-                seen.add(isbn)
-        
-        return unique_isbns
-    
-    def _clean_isbn(self, isbn: str) -> str:
-        """Clean and normalize ISBN string"""
-        if not isbn:
-            return ""
-        
-        # Remove common prefixes and suffixes
-        isbn = re.sub(r'^ISBN[:\s-]*', '', isbn, flags=re.IGNORECASE)
-        
-        # Remove all non-alphanumeric characters except X
-        isbn = re.sub(r'[^0-9X]', '', isbn, flags=re.IGNORECASE)
-        
-        # Ensure X is uppercase
-        isbn = isbn.upper()
-        
-        return isbn
-    
-    def validate_isbn(self, isbn: str) -> bool:
-        """Validate ISBN-10 or ISBN-13"""
-        if not isbn:
-            return False
-        
-        # Remove any remaining non-digit characters except X
-        isbn = re.sub(r'[^0-9X]', '', isbn.upper())
-        
-        if len(isbn) == 10:
-            return self._validate_isbn10(isbn)
-        elif len(isbn) == 13:
-            return self._validate_isbn13(isbn)
-        else:
-            return False
-    
-    def _validate_isbn10(self, isbn: str) -> bool:
-        """Validate ISBN-10 using check digit"""
-        if len(isbn) != 10:
-            return False
-        
-        try:
-            total = 0
-            for i in range(9):
-                if not isbn[i].isdigit():
-                    return False
-                total += int(isbn[i]) * (10 - i)
-            
-            # Check digit can be 0-9 or X (representing 10)
-            check_digit = isbn[9]
-            if check_digit == 'X':
-                check_digit_value = 10
-            elif check_digit.isdigit():
-                check_digit_value = int(check_digit)
-            else:
-                return False
-            
-            return (total + check_digit_value) % 11 == 0
-        except (ValueError, IndexError):
-            return False
-    
-    def _validate_isbn13(self, isbn: str) -> bool:
-        """Validate ISBN-13 using check digit"""
-        if len(isbn) != 13:
-            return False
-        
-        try:
-            total = 0
-            for i in range(12):
-                if not isbn[i].isdigit():
-                    return False
-                digit = int(isbn[i])
-                total += digit * (3 if i % 2 == 1 else 1)
-            
-            check_digit = int(isbn[12])
-            calculated_check = (10 - (total % 10)) % 10
-            
-            return check_digit == calculated_check
-        except (ValueError, IndexError):
-            return False
-    
-    def normalize_isbn(self, isbn: str) -> str:
-        """Convert ISBN-10 to ISBN-13 format"""
-        cleaned = self._clean_isbn(isbn)
-        
-        if len(cleaned) == 10 and self.validate_isbn(cleaned):
-            # Convert ISBN-10 to ISBN-13
-            isbn13_base = '978' + cleaned[:9]
-            
-            # Calculate ISBN-13 check digit
-            total = 0
-            for i, digit in enumerate(isbn13_base):
-                total += int(digit) * (3 if i % 2 == 1 else 1)
-            
-            check_digit = (10 - (total % 10)) % 10
-            return isbn13_base + str(check_digit)
-        
-        elif len(cleaned) == 13 and self.validate_isbn(cleaned):
-            return cleaned
-        
-        return ""
-    
-    async def get_isbns_from_url(self, url: str) -> List[str]:
-        """Main method to fetch and parse ISBNs from a Skoolib URL"""
-        try:
-            html = await self.fetch_html(url)
-            isbns = self.extract_isbns(html)
-            
-            # Normalize all ISBNs to ISBN-13 format
-            normalized_isbns = []
-            for isbn in isbns:
-                normalized = self.normalize_isbn(isbn)
-                if normalized:
-                    normalized_isbns.append(normalized)
-            
-            return normalized_isbns
-            
-        except Exception as e:
-            raise SkoolibParsingError(f"Failed to extract ISBNs from {url}: {str(e)}")
+        """Legacy method - fetch HTML"""
+        response = requests.get(url, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }, timeout=self.timeout)
+        response.raise_for_status()
+        return response.text

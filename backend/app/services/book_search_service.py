@@ -5,6 +5,7 @@ Provides unified search functionality across multiple book APIs
 import asyncio
 import logging
 import re
+import httpx
 from typing import List, Dict, Optional, Tuple, Any
 from datetime import datetime, date
 from dataclasses import dataclass
@@ -127,27 +128,51 @@ class BookSearchService:
         
         logger.info(f"Fetching book details for ISBN: {isbn}")
         
+        google_metadata = None
+        openlibrary_metadata = None
+        
         # Try Google Books first
         try:
-            metadata = await self.google_client.fetch_book_metadata(isbn)
-            if metadata:
-                book = self._metadata_to_book(metadata, isbn)
-                # Cache for 24 hours
-                cache_service.set_api_response(cache_key, book.dict(), ttl=86400)
-                return book
+            google_metadata = await self.google_client.fetch_book_metadata(isbn)
         except Exception as e:
             logger.warning(f"Google Books lookup failed for ISBN {isbn}: {e}")
         
-        # Fallback to Open Library
+        # Also try Open Library to get additional metadata, especially covers
         try:
-            metadata = await self.openlibrary_client.fetch_book_metadata(isbn)
-            if metadata:
-                book = self._metadata_to_book(metadata, isbn)
-                # Cache for 24 hours
-                cache_service.set_api_response(cache_key, book.dict(), ttl=86400)
-                return book
+            openlibrary_metadata = await self.openlibrary_client.fetch_book_metadata(isbn)
         except Exception as e:
             logger.warning(f"Open Library lookup failed for ISBN {isbn}: {e}")
+        
+        # If we got metadata from either source, create book with enhanced data
+        if google_metadata or openlibrary_metadata:
+            # Use Google Books as primary source, enhance with Open Library data
+            primary_metadata = google_metadata or openlibrary_metadata
+            book = self._metadata_to_book(primary_metadata, isbn)
+            
+            # Enhance with Open Library thumbnail if Google Books didn't provide one
+            if not book.thumbnail_url and openlibrary_metadata:
+                ol_book = self._metadata_to_book(openlibrary_metadata, isbn)
+                if ol_book.thumbnail_url:
+                    book.thumbnail_url = ol_book.thumbnail_url
+                    logger.info(f"Enhanced book {isbn} with Open Library thumbnail: {ol_book.thumbnail_url}")
+            
+            # If still no thumbnail, try Open Library covers API directly
+            if not book.thumbnail_url:
+                try:
+                    # Try Open Library covers API with ISBN
+                    covers_url = f"https://covers.openlibrary.org/b/isbn/{isbn}-L.jpg"
+                    # Test if the cover exists (Open Library returns 404 for missing covers)
+                    async with httpx.AsyncClient() as test_client:
+                        response = await test_client.head(covers_url, timeout=5)
+                        if response.status_code == 200:
+                            book.thumbnail_url = covers_url
+                            logger.info(f"Enhanced book {isbn} with Open Library covers API: {covers_url}")
+                except Exception as e:
+                    logger.debug(f"Open Library covers API check failed for {isbn}: {e}")
+            
+            # Cache for 24 hours
+            cache_service.set_api_response(cache_key, book.dict(), ttl=86400)
+            return book
         
         logger.warning(f"No book found for ISBN: {isbn}")
         return None

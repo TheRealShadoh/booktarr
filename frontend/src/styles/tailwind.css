@@ -230,6 +230,32 @@
   .booktarr-filter-checkbox-label {
     @apply text-sm text-booktarr-textSecondary;
   }
+  
+  /* Book grid layout */
+  .booktarr-book-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  @media (min-width: 640px) {
+    .booktarr-book-grid {
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .booktarr-book-grid {
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 2rem;
+    }
+  }
+  
+  @media (min-width: 1280px) {
+    .booktarr-book-grid {
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    }
+  }
 }
 
 /* Utility classes */

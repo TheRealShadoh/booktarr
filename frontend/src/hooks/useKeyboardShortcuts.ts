@@ -201,7 +201,7 @@ export const useKeyboardShortcuts = () => {
       const altMatch = shortcut.alt ? event.altKey : !event.altKey;
       const shiftMatch = shortcut.shift ? event.shiftKey : !event.shiftKey;
       const metaMatch = shortcut.meta ? event.metaKey : !event.metaKey;
-      const keyMatch = event.key.toLowerCase() === shortcut.key.toLowerCase();
+      const keyMatch = event.key && event.key.toLowerCase() === shortcut.key.toLowerCase();
 
       if (ctrlMatch && altMatch && shiftMatch && metaMatch && keyMatch) {
         // Special handling for certain keys even when input is active

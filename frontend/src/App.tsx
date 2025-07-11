@@ -159,40 +159,6 @@ const AppInner: React.FC = () => {
         />
       )}
 
-      {/* Undo/Redo Notification */}
-      {(state.canUndo || state.canRedo) && (
-        <div className="fixed bottom-4 right-4 z-50 bg-booktarr-surface border border-booktarr-border rounded-lg p-3 shadow-lg">
-          <div className="flex items-center space-x-2">
-            <span className="text-booktarr-textSecondary text-sm">
-              {state.canUndo && state.canRedo ? 'Undo/Redo available' : state.canUndo ? 'Undo available' : 'Redo available'}
-            </span>
-            <div className="flex space-x-1">
-              {state.canUndo && (
-                <button
-                  onClick={undo}
-                  className="p-1 text-booktarr-textMuted hover:text-booktarr-text transition-colors"
-                  title="Undo (Ctrl+Z)"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                  </svg>
-                </button>
-              )}
-              {state.canRedo && (
-                <button
-                  onClick={redo}
-                  className="p-1 text-booktarr-textMuted hover:text-booktarr-text transition-colors"
-                  title="Redo (Ctrl+Y)"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       <MainLayout
         currentPage={state.currentPage}
