@@ -4,7 +4,7 @@ This document outlines the complete implementation path for Booktarr, with order
 
 ## Status Update - Phase 2 Progress
 
-**Current Status**: 🚀 **PHASE 5 READY TO START** | Phases 1-4 complete with full PWA, barcode scanning, and UI features - ready for advanced library management
+**Current Status**: 🚀 **PHASE 5.4 IN PROGRESS** | Phases 1-5.3 complete with full PWA, barcode scanning, UI enhancements, and Wanted page - working on import features
 
 ### ✅ Completed Features:
 1. **Project Infrastructure**: Complete Docker setup, environment files, testing framework
@@ -40,6 +40,10 @@ This document outlines the complete implementation path for Booktarr, with order
 31. **Reading Progress Components**: Visual progress bars, star ratings, status badges, and progress tracking
 32. **Reading Statistics API**: Comprehensive reading analytics with yearly/monthly statistics and averages
 33. **Enhanced Book Cards**: Reading status, progress visualization, ratings, and read count display
+34. **Book Card Size Optimization**: Default card size reduced by ~50% with responsive scaling and size toggle
+35. **Greyscale Missing Books**: Re-enabled greyscale effects for missing book placeholders and books without covers
+36. **Enhanced Author & Series Pages**: Improved visual hierarchy, spacing, navigation, and card layouts
+37. **Wanted Page Implementation**: Complete Missing From Series detection and manual Wantlist functionality
 
 ### 🔄 Currently Working On:
 - **COMPLETED**: Phase 2 Sonarr-Inspired UI Enhancement - Full implementation complete
@@ -48,8 +52,10 @@ This document outlines the complete implementation path for Booktarr, with order
 - **COMPLETED**: Phase 4.2 Scanner Features - Batch scanning, history tracking, quick add modes
 - **COMPLETED**: Phase 4.3 Integration & Polish - Scanner workflow integrated with intelligent review page
 - **COMPLETED**: Phase 5.1 Reading Progress & Status Tracking - Full implementation with backend APIs and frontend UI
-- **READY**: Phase 5.2 Library Organization & Management - Next step for advanced collection features
-- **STATUS**: All phases through Phase 5.1 completed successfully, continuing with Phase 5 advanced features
+- **COMPLETED**: Phase 5.2 UI/UX Enhancements - Book card optimization, greyscale effects, Author/Series improvements
+- **COMPLETED**: Phase 5.3 Wanted Page Features - Missing From Series auto-detection and Wantlist management
+- **IN PROGRESS**: Phase 5.4 Import Features - CSV, Goodreads, Hardcover, HandyLib import capabilities
+- **STATUS**: Phase 5 advanced features nearly complete, focusing on import functionality
 
 ### 📋 Key Achievements:
 - **Enhanced Models**: Proper Book, Settings, PriceInfo models with validation
@@ -60,6 +66,10 @@ This document outlines the complete implementation path for Booktarr, with order
 - **Frontend-Backend Communication**: Nginx proxy configuration working correctly
 - **Settings Persistence**: File-based settings with validation and API endpoints
 - **External API Integration**: Google Books and Open Library with metadata enrichment
+- **UI/UX Optimization**: Book card size reduction, greyscale effects, enhanced navigation
+- **Author/Series Enhancement**: Improved visual hierarchy, avatars, better layouts
+- **Wanted Page Implementation**: Missing From Series detection and Wantlist management
+- **Git Worktrees**: Parallel development setup for independent feature branches
 
 ### 🔧 Technical Improvements Made:
 - ISBN-10 to ISBN-13 conversion
@@ -698,26 +708,92 @@ DELETE /api/sync/cancel - Cancel running sync
 
 ## Phase 5: Advanced Library Management & Social Features
 
-### 5.1 Reading Progress & Status Tracking
-**Timeline**: Days 66-69
+### 5.1 Reading Progress & Status Tracking ✅ COMPLETED
+**Timeline**: Days 66-69 (COMPLETED ✅)
 
-#### Tasks:
-- [ ] Add reading status fields to Book model (unread, reading, read, wishlist)
-- [ ] Implement reading progress tracking (pages read, percentage)
-- [ ] Create reading status UI components and filters
-- [ ] Add reading history and statistics
-- [ ] Implement reading goals and challenges
-- [ ] Add book ratings and personal notes
+#### Completed Tasks:
+- ✅ Add reading status fields to Book model (unread, reading, read, wishlist)
+- ✅ Implement reading progress tracking (pages read, percentage)
+- ✅ Create reading status UI components and filters
+- ✅ Add reading history and statistics
+- ✅ Implement reading goals and challenges
+- ✅ Add book ratings and personal notes
 
-#### Features:
+#### Features Delivered:
 - Reading status indicators on book cards
 - Progress bars for books currently being read
 - Reading statistics dashboard
 - Personal book reviews and notes
 - Reading goals tracking (books per year, pages per month)
 
-### 5.2 Library Organization & Management
-**Timeline**: Days 70-73
+### 5.2 UI/UX Enhancements ✅ COMPLETED
+**Timeline**: Days 70-72 (COMPLETED ✅)
+
+#### Completed Tasks:
+- ✅ Reduce book card size by ~50% with responsive scaling
+- ✅ Add size toggle (compact/large) for user preference
+- ✅ Re-enable greyscale effects for missing book placeholders
+- ✅ Apply greyscale to books without cover art
+- ✅ Enhance Author page visual hierarchy and spacing
+- ✅ Improve Series page layout and navigation
+- ✅ Add author avatars and better card layouts
+- ✅ Implement responsive design improvements
+
+#### Features Delivered:
+- **Book Card Optimization**: 50% smaller default size with toggle control
+- **Visual Consistency**: Greyscale effects for missing/placeholder books
+- **Enhanced Navigation**: Better spacing, typography, and visual hierarchy
+- **Responsive Design**: Improved layouts across all screen sizes
+- **Professional UI**: Author avatars, improved cards, better flow
+
+### 5.3 Wanted Page Features ✅ COMPLETED
+**Timeline**: Days 73-75 (COMPLETED ✅)
+
+#### Completed Tasks:
+- ✅ Create comprehensive Wanted page with dual functionality
+- ✅ Implement Missing From Series auto-detection algorithm
+- ✅ Build manual Wantlist management system
+- ✅ Add button to move missing series books to Wantlist
+- ✅ Create form for manual book addition with priorities
+- ✅ Implement tabbed interface with counters
+- ✅ Add priority-based color coding and statistics
+
+#### Features Delivered:
+- **Missing From Series**: Automatic gap detection in book series
+- **Wantlist Management**: Manual book wishlist with priorities
+- **Dual Storage**: Books can exist in both missing and wantlist
+- **Priority System**: High/Medium/Low priority with color coding
+- **Statistics Dashboard**: Real-time counts and visual feedback
+- **Comprehensive Forms**: ISBN, author, notes, series tracking
+
+### 5.4 Import Features (IN PROGRESS)
+**Timeline**: Days 76-79
+
+#### Tasks:
+- [ ] Implement CSV import with flexible field mapping
+- [ ] Add Goodreads CSV import (handle Excel formula format)
+- [ ] Create Hardcover GraphQL API integration
+- [ ] Build HandyLib tab-delimited import support
+- [ ] Add file upload functionality with progress tracking
+- [ ] Implement import preview and validation
+- [ ] Create field mapping interface for custom formats
+
+#### Features to Implement:
+- **CSV Import**: Generic CSV with flexible field mapping and preview
+- **Goodreads Import**: Handle "=value" format and standard columns
+- **Hardcover Import**: GraphQL API integration (CSV export not available)
+- **HandyLib Import**: Tab-delimited with TITLE as required field
+- **Import UI**: File upload, progress tracking, error handling
+- **Field Mapping**: Visual interface for mapping import fields
+
+#### Research Completed:
+- ✅ Goodreads export format analysis (CSV with Excel formulas)
+- ✅ Hardcover GraphQL API documentation review
+- ✅ HandyLib export format specifications
+- ✅ Common CSV field requirements and encoding considerations
+
+### 5.5 Advanced Library Organization & Management (PLANNED)
+**Timeline**: Days 80-83
 
 #### Tasks:
 - [ ] Implement custom book collections/shelves
@@ -725,7 +801,7 @@ DELETE /api/sync/cancel - Cancel running sync
 - [ ] Create advanced filtering and sorting options
 - [ ] Implement book lending tracking
 - [ ] Add book condition and location tracking
-- [ ] Create wishlist management
+- [ ] Enhanced collection management
 
 #### Features:
 - Custom collections (e.g., "To Read", "Favorites", "Loaned Out")
@@ -733,10 +809,10 @@ DELETE /api/sync/cancel - Cancel running sync
 - Advanced search with multiple criteria
 - Lending tracker with due dates and reminders
 - Physical book management (condition, location)
-- Wishlist with price tracking
+- Enhanced collection tools
 
-### 5.3 Social Features & Sharing
-**Timeline**: Days 74-77
+### 5.6 Social Features & Sharing (PLANNED)
+**Timeline**: Days 84-87
 
 #### Tasks:
 - [ ] Implement book recommendations engine
@@ -754,8 +830,8 @@ DELETE /api/sync/cancel - Cancel running sync
 - Book club features for group reading
 - Activity feed showing reading progress
 
-### 5.4 Data Management & Analytics
-**Timeline**: Days 78-81
+### 5.7 Data Management & Analytics (PLANNED)
+**Timeline**: Days 88-91
 
 #### Tasks:
 - [ ] Implement advanced backup and restore
