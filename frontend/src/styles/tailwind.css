@@ -143,11 +143,11 @@
   }
   
   .booktarr-book-info {
-    @apply p-4;
+    @apply p-3;
   }
   
   .booktarr-book-title {
-    @apply text-sm font-semibold text-booktarr-text line-clamp-2 mb-2;
+    @apply text-xs font-semibold text-booktarr-text line-clamp-2 mb-1;
   }
   
   .booktarr-book-author {
@@ -231,28 +231,54 @@
     @apply text-sm text-booktarr-textSecondary;
   }
   
-  /* Book grid layout */
+  /* Book grid layout - Reduced size by ~50% */
   .booktarr-book-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 1rem;
+  }
+  
+  @media (min-width: 640px) {
+    .booktarr-book-grid {
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .booktarr-book-grid {
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 1.25rem;
+    }
+  }
+  
+  @media (min-width: 1280px) {
+    .booktarr-book-grid {
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    }
+  }
+  
+  /* Size toggle options */
+  .booktarr-book-grid-large {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 1.5rem;
   }
   
   @media (min-width: 640px) {
-    .booktarr-book-grid {
+    .booktarr-book-grid-large {
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     }
   }
   
   @media (min-width: 1024px) {
-    .booktarr-book-grid {
+    .booktarr-book-grid-large {
       grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
       gap: 2rem;
     }
   }
   
   @media (min-width: 1280px) {
-    .booktarr-book-grid {
+    .booktarr-book-grid-large {
       grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     }
   }

@@ -12,6 +12,7 @@ interface SeriesGroupProps {
   expanded?: boolean;
   onToggle?: (seriesName: string) => void;
   viewMode?: 'grid' | 'list';
+  gridSize?: 'compact' | 'large';
   onBookClick?: (book: Book) => void;
 }
 
@@ -21,6 +22,7 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
   expanded = true,
   onToggle,
   viewMode = 'grid',
+  gridSize = 'compact',
   onBookClick
 }) => {
   const [isExpanded, setIsExpanded] = useState(expanded);
@@ -232,7 +234,7 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
       {isExpanded && (
         <div className="animate-slide-up">
           {viewMode === 'grid' ? (
-            <div className="booktarr-book-grid">
+            <div className={gridSize === 'compact' ? 'booktarr-book-grid' : 'booktarr-book-grid-large'}>
               {booksWithMissing.map((item, index) => 
                 item.type === 'book' ? (
                   <BookCard 

@@ -10,6 +10,7 @@ import { BooksBySeriesMap, Book } from '../types';
 
 type ViewMode = 'grid' | 'list';
 type DisplayMode = 'series' | 'individual';
+type GridSize = 'compact' | 'large';
 
 interface BookListProps {
   books: BooksBySeriesMap;
@@ -23,6 +24,7 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
   const [expandedSeries, setExpandedSeries] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [displayMode, setDisplayMode] = useState<DisplayMode>('individual'); // Default to Sonarr-style
+  const [gridSize, setGridSize] = useState<GridSize>('compact'); // Default to compact (50% smaller)
 
   // Convert books object to sorted array for display
   const seriesGroups = useMemo(() => {
@@ -186,6 +188,38 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
                 </button>
               </div>
 
+              {/* Grid Size Toggle (only show in grid mode) */}
+              {viewMode === 'grid' && (
+                <div className="flex items-center space-x-1 bg-booktarr-surface2 rounded-lg p-1">
+                  <button
+                    onClick={() => setGridSize('compact')}
+                    className={`p-2 rounded transition-colors ${
+                      gridSize === 'compact' 
+                        ? 'bg-booktarr-accent text-white' 
+                        : 'text-booktarr-textSecondary hover:text-booktarr-text'
+                    }`}
+                    title="Compact Size"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setGridSize('large')}
+                    className={`p-2 rounded transition-colors ${
+                      gridSize === 'large' 
+                        ? 'bg-booktarr-accent text-white' 
+                        : 'text-booktarr-textSecondary hover:text-booktarr-text'
+                    }`}
+                    title="Large Size"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
               {/* Series Controls (only show in series mode) */}
               {displayMode === 'series' && (
                 <div className="flex items-center space-x-2">
@@ -232,7 +266,10 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
       {/* Content based on display mode */}
       {displayMode === 'individual' ? (
         /* Individual book cards - Sonarr style */
-        <div className={viewMode === 'grid' ? 'booktarr-book-grid' : 'space-y-4'}>
+        <div className={viewMode === 'grid' ? 
+          (gridSize === 'compact' ? 'booktarr-book-grid' : 'booktarr-book-grid-large') : 
+          'space-y-4'
+        }>
           {allBooks.map((book) => (
             <BookCard 
               key={book.isbn} 
@@ -254,6 +291,7 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
               onToggle={handleToggleSeries}
               onBookClick={onBookClick}
               viewMode={viewMode}
+              gridSize={gridSize}
             />
           ))}
         </div>
