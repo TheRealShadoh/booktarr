@@ -18,6 +18,66 @@ from ..models import (
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+@router.get("/books/isbn/{isbn}")
+async def get_book_by_isbn(isbn: str):
+    """Get detailed book information by ISBN (temporary endpoint for book details page)"""
+    try:
+        logger.info(f"Fetching book details for ISBN: {isbn}")
+        
+        # Get book from database
+        books = await DatabaseIntegrationService.get_all_books_grouped()
+        
+        # Find the book with this ISBN
+        for series_name, book_list in books.items():
+            for book in book_list:
+                if book.isbn == isbn:
+                    # For now, return a mock book details structure with single edition
+                    book_details = {
+                        "id": book.isbn,  # Using ISBN as ID for now
+                        "title": book.title,
+                        "authors": book.authors,
+                        "series": book.series,
+                        "series_position": book.series_position,
+                        "categories": book.categories,
+                        "editions": [
+                            {
+                                "isbn": book.isbn,
+                                "isbn10": book.isbn10,
+                                "isbn13": book.isbn13,
+                                "publisher": book.publisher,
+                                "published_date": book.published_date.isoformat() if book.published_date else None,
+                                "page_count": book.page_count,
+                                "language": book.language,
+                                "edition_type": "unknown",  # We don't have this info yet
+                                "thumbnail_url": book.thumbnail_url,
+                                "description": book.description,
+                                "pricing": book.pricing,
+                                "added_date": book.added_date.isoformat(),
+                                "last_updated": book.last_updated.isoformat()
+                            }
+                        ],
+                        "ownership": {
+                            "owned_editions": [book.isbn],
+                            "selected_edition": book.isbn,
+                            "reading_status": book.reading_status,
+                            "reading_progress_pages": book.reading_progress_pages,
+                            "reading_progress_percentage": book.reading_progress_percentage,
+                            "date_started": book.date_started.isoformat() if book.date_started else None,
+                            "date_finished": book.date_finished.isoformat() if book.date_finished else None,
+                            "personal_rating": book.personal_rating,
+                            "personal_notes": book.personal_notes,
+                            "times_read": book.times_read
+                        }
+                    }
+                    return book_details
+        
+        raise HTTPException(status_code=404, detail=f"Book with ISBN {isbn} not found")
+        
+    except Exception as e:
+        logger.error(f"Error fetching book details for ISBN {isbn}: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to fetch book details")
+
 @router.get("/books", response_model=BooksResponse)
 async def get_books():
     """Get all books grouped by series from database"""

@@ -16,9 +16,10 @@ interface BookListProps {
   loading: boolean;
   error: string | null;
   onRefresh?: () => void;
+  onBookClick?: (book: Book) => void;
 }
 
-const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh }) => {
+const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, onBookClick }) => {
   const [expandedSeries, setExpandedSeries] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [displayMode, setDisplayMode] = useState<DisplayMode>('individual'); // Default to Sonarr-style
@@ -237,10 +238,7 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh })
               key={book.isbn} 
               book={book} 
               viewMode={viewMode}
-              onClick={(book) => {
-                // Handle book click - could open details modal
-                console.log('Book clicked:', book.title);
-              }}
+              onClick={onBookClick}
             />
           ))}
         </div>
@@ -254,6 +252,7 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh })
               books={group.books}
               expanded={expandedSeries.has(group.seriesName)}
               onToggle={handleToggleSeries}
+              onBookClick={onBookClick}
               viewMode={viewMode}
             />
           ))}

@@ -12,6 +12,7 @@ import Toast from './components/Toast';
 import MainLayout from './components/MainLayout';
 import MetadataEnhancementPage from './components/MetadataEnhancementPage';
 import BookSearchPage from './components/BookSearchPage';
+import BookDetailsPage from './components/BookDetailsPage';
 import StatsDashboard from './components/StatsDashboard';
 import BackupRestore from './components/BackupRestore';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -33,6 +34,8 @@ const AppInner: React.FC = () => {
     getPerformanceMetrics,
     cleanup
   } = useStateManager();
+
+  const [selectedBookISBN, setSelectedBookISBN] = React.useState<string | null>(null);
 
   // Handle uncaught errors
   useEffect(() => {
@@ -65,6 +68,16 @@ const AppInner: React.FC = () => {
     return () => clearInterval(interval);
   }, [getPerformanceMetrics]);
 
+  const handleBookClick = (book: any) => {
+    setSelectedBookISBN(book.isbn);
+    setCurrentPage('book-details');
+  };
+
+  const handleBackToLibrary = () => {
+    setSelectedBookISBN(null);
+    setCurrentPage('library');
+  };
+
   const renderCurrentPage = () => {
     switch (state.currentPage) {
       case 'library':
@@ -74,8 +87,21 @@ const AppInner: React.FC = () => {
             loading={state.loading}
             error={state.error}
             onRefresh={loadBooks}
+            onBookClick={handleBookClick}
           />
         );
+      case 'book-details':
+        if (selectedBookISBN) {
+          return (
+            <BookDetailsPage
+              isbn={selectedBookISBN}
+              onBack={handleBackToLibrary}
+            />
+          );
+        } else {
+          handleBackToLibrary();
+          return null;
+        }
       case 'series':
         return (
           <SeriesPage
