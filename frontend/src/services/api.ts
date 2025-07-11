@@ -24,7 +24,25 @@ import {
   ReadingStatus,
 } from '../types';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+// Dynamically determine API URL based on current hostname and environment
+const getApiBaseUrl = () => {
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // Check if we're in development (localhost) and use proxy
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    // Use relative path to leverage proxy in package.json
+    return '/api';
+  }
+  
+  // For production/remote access, use the same hostname with port 8000
+  const protocol = window.location.protocol;
+  return `${protocol}//${window.location.hostname}:8000/api`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
+console.log('🔧 Booktarr API URL:', API_BASE_URL);
 
 class BooktarrAPI {
   private api: AxiosInstance;

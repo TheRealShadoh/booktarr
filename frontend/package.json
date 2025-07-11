@@ -28,6 +28,8 @@
     "workbox-webpack-plugin": "^6.5.4"
   },
   "devDependencies": {
+    "@craco/craco": "^7.1.0",
+    "@cypress/react18": "^2.0.1",
     "autoprefixer": "^10.4.14",
     "cypress": "^13.6.0",
     "eslint": "^8.0.0",
@@ -43,6 +45,9 @@
     "test:ci": "react-scripts test --ci --coverage --watchAll=false",
     "test:e2e": "cypress open",
     "test:e2e:ci": "cypress run",
+    "test:component": "cypress open --component",
+    "test:component:ci": "cypress run --component",
+    "test:all": "npm run test:ci && npm run test:component:ci && npm run test:e2e:ci",
     "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
     "format": "prettier --write src/**/*.{js,jsx,ts,tsx,json,css,md}",
     "analyze": "npm run build && npx webpack-bundle-analyzer build/static/js/*.js",

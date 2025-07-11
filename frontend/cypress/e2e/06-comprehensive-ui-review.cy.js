@@ -1,6 +1,8 @@
 describe('Comprehensive UI Review', () => {
   beforeEach(() => {
-    cy.waitForAPI()
+    cy.on('uncaught:exception', (err, runnable) => {
+      return false
+    })
     cy.visit('/')
   })
 

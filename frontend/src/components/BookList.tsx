@@ -92,9 +92,10 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh })
         {onRefresh && (
           <button
             onClick={onRefresh}
+            data-testid="refresh-button"
             className="booktarr-btn booktarr-btn-primary"
           >
-            Refresh Library
+            Refresh
           </button>
         )}
       </div>

@@ -3,6 +3,7 @@
  * Now uses Context API with optimistic updates, caching, and keyboard shortcuts
  */
 import React, { useEffect } from 'react';
+import BookList from './components/BookList';
 import IndividualBooksPage from './components/IndividualBooksPage';
 import SettingsPage from './components/SettingsPage';
 import SeriesPage from './components/SeriesPage';
@@ -68,7 +69,7 @@ const AppInner: React.FC = () => {
     switch (state.currentPage) {
       case 'library':
         return (
-          <IndividualBooksPage
+          <BookList
             books={state.filteredBooks}
             loading={state.loading}
             error={state.error}

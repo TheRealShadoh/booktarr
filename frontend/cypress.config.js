@@ -1,6 +1,19 @@
 const { defineConfig } = require('cypress');
 
 module.exports = defineConfig({
+  component: {
+    devServer: {
+      framework: 'create-react-app',
+      bundler: 'webpack',
+    },
+    specPattern: 'src/**/*.cy.{js,jsx,ts,tsx}',
+    supportFile: 'cypress/support/component.js',
+    indexHtmlFile: 'cypress/support/component-index.html',
+    viewportWidth: 1280,
+    viewportHeight: 720,
+    video: false,
+    screenshotOnRunFailure: true,
+  },
   e2e: {
     baseUrl: 'http://localhost:3000',
     supportFile: 'cypress/support/e2e.js',

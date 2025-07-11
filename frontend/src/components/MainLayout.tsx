@@ -157,6 +157,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                   <input
                     type="text"
                     placeholder="Search books..."
+                    data-testid="search-input"
                     className="booktarr-form-input w-48 lg:w-64 pl-10"
                   />
                   <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-booktarr-textMuted" fill="none" stroke="currentColor" viewBox="0 0 24 24">

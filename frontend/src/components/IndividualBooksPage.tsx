@@ -109,7 +109,7 @@ const IndividualBooksPage: React.FC<IndividualBooksPageProps> = ({ books, loadin
             onClick={onRefresh}
             className="booktarr-btn booktarr-btn-primary"
           >
-            Refresh Library
+            Refresh
           </button>
         )}
       </div>
