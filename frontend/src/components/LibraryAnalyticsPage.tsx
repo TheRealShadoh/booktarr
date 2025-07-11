@@ -62,9 +62,9 @@ const LibraryAnalyticsPage: React.FC<LibraryAnalyticsPageProps> = ({
     const averagePages = booksWithPages.length > 0 ? Math.round(totalPages / booksWithPages.length) : 0;
 
     // Rating statistics
-    const booksWithRatings = allBooks.filter(book => book.rating && book.rating > 0);
+    const booksWithRatings = allBooks.filter(book => book.personal_rating && book.personal_rating > 0);
     const averageRating = booksWithRatings.length > 0 
-      ? booksWithRatings.reduce((sum, book) => sum + (book.rating || 0), 0) / booksWithRatings.length
+      ? booksWithRatings.reduce((sum, book) => sum + (book.personal_rating || 0), 0) / booksWithRatings.length
       : 0;
 
     // Reading progress
@@ -174,7 +174,7 @@ const LibraryAnalyticsPage: React.FC<LibraryAnalyticsPageProps> = ({
     }
     
     allBooks.forEach(book => {
-      const addedDate = new Date(book.date_added);
+      const addedDate = new Date(book.added_date);
       const monthKey = addedDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
       if (monthCounts.has(monthKey)) {
         monthCounts.set(monthKey, monthCounts.get(monthKey)! + 1);
@@ -224,15 +224,15 @@ const LibraryAnalyticsPage: React.FC<LibraryAnalyticsPageProps> = ({
     });
     
     allBooks.forEach(book => {
-      if (!book.rating || book.rating === 0) {
+      if (!book.personal_rating || book.personal_rating === 0) {
         ratingCounts.set('Unrated', ratingCounts.get('Unrated')! + 1);
-      } else if (book.rating <= 1) {
+      } else if (book.personal_rating <= 1) {
         ratingCounts.set('0-1', ratingCounts.get('0-1')! + 1);
-      } else if (book.rating <= 2) {
+      } else if (book.personal_rating <= 2) {
         ratingCounts.set('1-2', ratingCounts.get('1-2')! + 1);
-      } else if (book.rating <= 3) {
+      } else if (book.personal_rating <= 3) {
         ratingCounts.set('2-3', ratingCounts.get('2-3')! + 1);
-      } else if (book.rating <= 4) {
+      } else if (book.personal_rating <= 4) {
         ratingCounts.set('3-4', ratingCounts.get('3-4')! + 1);
       } else {
         ratingCounts.set('4-5', ratingCounts.get('4-5')! + 1);

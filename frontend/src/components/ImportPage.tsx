@@ -3,7 +3,7 @@
  */
 import React, { useState, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Book } from '../types';
+import { Book, ReadingStatus, MetadataSource } from '../types';
 import LoadingSpinner from './LoadingSpinner';
 
 interface ImportResult {
@@ -273,16 +273,17 @@ const ImportPage: React.FC = () => {
         published_date: '',
         page_count: 0,
         categories: [],
-        thumbnail: '',
+        thumbnail_url: '',
         language: 'en',
-        reading_status: 'unread',
-        reading_progress: 0,
-        rating: 0,
-        read_count: 0,
-        last_read_date: null,
-        date_added: new Date().toISOString(),
+        reading_status: ReadingStatus.UNREAD,
+        reading_progress_pages: 0,
+        reading_progress_percentage: 0,
+        personal_rating: 0,
+        times_read: 0,
+        added_date: new Date().toISOString(),
         last_updated: new Date().toISOString(),
-        metadata: {}
+        pricing: [],
+        metadata_source: MetadataSource.SKOOLIB
       };
 
       return book;

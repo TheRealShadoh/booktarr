@@ -68,10 +68,10 @@ const AdvancedSearchPage: React.FC<AdvancedSearchPageProps> = ({
   const filterOptions = useMemo(() => {
     const allBooks = Object.values(books).flat();
     
-    const authors = [...new Set(allBooks.flatMap(book => book.authors))].sort();
-    const series = [...new Set(allBooks.map(book => book.series).filter(Boolean))].sort();
-    const categories = [...new Set(allBooks.flatMap(book => book.categories))].sort();
-    const languages = [...new Set(allBooks.map(book => book.language))].sort();
+    const authors = Array.from(new Set(allBooks.flatMap(book => book.authors))).sort();
+    const series = Array.from(new Set(allBooks.map(book => book.series).filter(Boolean) as string[])).sort();
+    const categories = Array.from(new Set(allBooks.flatMap(book => book.categories))).sort();
+    const languages = Array.from(new Set(allBooks.map(book => book.language))).sort();
     const readingStatuses = ['unread', 'reading', 'read', 'wishlist', 'dnf'];
 
     return { authors, series, categories, languages, readingStatuses };
@@ -134,7 +134,7 @@ const AdvancedSearchPage: React.FC<AdvancedSearchPageProps> = ({
 
       // Rating filter
       if (filters.rating.min || filters.rating.max) {
-        const rating = book.rating || 0;
+        const rating = book.personal_rating || 0;
         if (filters.rating.min && rating < filters.rating.min) return false;
         if (filters.rating.max && rating > filters.rating.max) return false;
       }
@@ -153,14 +153,14 @@ const AdvancedSearchPage: React.FC<AdvancedSearchPageProps> = ({
 
       // Has cover filter
       if (filters.hasCover !== null) {
-        const hasCover = book.thumbnail && book.thumbnail.trim().length > 0;
+        const hasCover = book.thumbnail_url && book.thumbnail_url.trim().length > 0;
         if (filters.hasCover && !hasCover) return false;
         if (!filters.hasCover && hasCover) return false;
       }
 
       // Added date filter
       if (filters.addedDate.days) {
-        const addedDate = new Date(book.date_added);
+        const addedDate = new Date(book.added_date);
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - filters.addedDate.days);
         if (addedDate < cutoffDate) return false;
@@ -607,7 +607,6 @@ const AdvancedSearchPage: React.FC<AdvancedSearchPageProps> = ({
                   key={book.isbn}
                   book={book}
                   onClick={() => onBookClick?.(book)}
-                  showSeriesInfo={true}
                 />
               ))}
             </div>

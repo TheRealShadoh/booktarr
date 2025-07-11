@@ -109,14 +109,14 @@ const CollectionsPage: React.FC<CollectionsPageProps> = ({
         color: '#06B6D4',
         icon: 'clock',
         bookCount: allBooks.filter(book => {
-          const addedDate = new Date(book.date_added);
+          const addedDate = new Date(book.added_date);
           const thirtyDaysAgo = new Date();
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
           return addedDate > thirtyDaysAgo;
         }).length,
         isSystem: true,
         books: allBooks.filter(book => {
-          const addedDate = new Date(book.date_added);
+          const addedDate = new Date(book.added_date);
           const thirtyDaysAgo = new Date();
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
           return addedDate > thirtyDaysAgo;
@@ -409,7 +409,6 @@ const CollectionsPage: React.FC<CollectionsPageProps> = ({
                         key={book.isbn}
                         book={book}
                         onClick={() => onBookClick?.(book)}
-                        showSeriesInfo={true}
                       />
                     ))}
                   </div>

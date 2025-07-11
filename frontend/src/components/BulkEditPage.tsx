@@ -75,9 +75,9 @@ const BulkEditPage: React.FC<BulkEditPageProps> = ({
 
   // Get unique values for filter dropdowns
   const filterOptions = useMemo(() => {
-    const series = [...new Set(allBooks.map(book => book.series).filter(Boolean))].sort();
-    const authors = [...new Set(allBooks.flatMap(book => book.authors))].sort();
-    const categories = [...new Set(allBooks.flatMap(book => book.categories))].sort();
+    const series = Array.from(new Set(allBooks.map(book => book.series).filter(Boolean) as string[])).sort();
+    const authors = Array.from(new Set(allBooks.flatMap(book => book.authors))).sort();
+    const categories = Array.from(new Set(allBooks.flatMap(book => book.categories))).sort();
     
     return { series, authors, categories };
   }, [allBooks]);
@@ -475,7 +475,6 @@ const BulkEditPage: React.FC<BulkEditPageProps> = ({
                   <BookCard
                     book={book}
                     onClick={() => handleBookSelect(book.isbn, !selectedBooks.has(book.isbn))}
-                    showSeriesInfo={true}
                     className={selectedBooks.has(book.isbn) ? 'ring-2 ring-booktarr-accent' : ''}
                   />
                 </div>

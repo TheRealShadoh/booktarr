@@ -12,9 +12,10 @@ interface BookCardProps {
   book: Book;
   onClick?: (book: Book) => void;
   viewMode?: 'grid' | 'list';
+  className?: string;
 }
 
-const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid' }) => {
+const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid', className = '' }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -155,7 +156,7 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid' })
 
   return (
     <div 
-      className="booktarr-book-card group cursor-pointer"
+      className={`booktarr-book-card group cursor-pointer ${className}`}
       onClick={handleClick}
     >
       <div className="relative overflow-hidden rounded-t-lg">
