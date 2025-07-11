@@ -7,7 +7,7 @@ import { BooksBySeriesMap, Settings, Book } from '../types';
 import { booktarrAPI } from '../services/api';
 
 // Types
-export type CurrentPage = 'library' | 'settings' | 'series' | 'authors' | 'wanted' | 'activity' | 'logs' | 'enhancement' | 'add' | 'stats' | 'backup' | 'import' | 'book-details';
+export type CurrentPage = 'library' | 'settings' | 'series' | 'authors' | 'wanted' | 'activity' | 'logs' | 'enhancement' | 'add' | 'stats' | 'backup' | 'import' | 'collections' | 'advanced-search' | 'bulk-edit' | 'analytics' | 'book-details';
 
 export interface AppState {
   // Core data

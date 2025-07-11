@@ -10,6 +10,10 @@ import SeriesPage from './components/SeriesPage';
 import AuthorsPage from './components/AuthorsPage';
 import WantedPage from './components/WantedPage';
 import ImportPage from './components/ImportPage';
+import CollectionsPage from './components/CollectionsPage';
+import AdvancedSearchPage from './components/AdvancedSearchPage';
+import BulkEditPage from './components/BulkEditPage';
+import LibraryAnalyticsPage from './components/LibraryAnalyticsPage';
 import Toast from './components/Toast';
 import MainLayout from './components/MainLayout';
 import MetadataEnhancementPage from './components/MetadataEnhancementPage';
@@ -158,6 +162,43 @@ const AppInner: React.FC = () => {
         );
       case 'import':
         return <ImportPage />;
+      case 'collections':
+        return (
+          <CollectionsPage
+            books={state.filteredBooks}
+            loading={state.loading}
+            error={state.error}
+            onRefresh={loadBooks}
+            onBookClick={handleBookClick}
+          />
+        );
+      case 'advanced-search':
+        return (
+          <AdvancedSearchPage
+            books={state.filteredBooks}
+            loading={state.loading}
+            error={state.error}
+            onBookClick={handleBookClick}
+          />
+        );
+      case 'bulk-edit':
+        return (
+          <BulkEditPage
+            books={state.filteredBooks}
+            loading={state.loading}
+            error={state.error}
+            onRefresh={loadBooks}
+          />
+        );
+      case 'analytics':
+        return (
+          <LibraryAnalyticsPage
+            books={state.filteredBooks}
+            loading={state.loading}
+            error={state.error}
+            onRefresh={loadBooks}
+          />
+        );
       case 'activity':
       case 'logs':
         return (
