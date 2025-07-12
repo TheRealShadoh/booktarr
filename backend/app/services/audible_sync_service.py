@@ -56,19 +56,28 @@ class AudibleSyncService:
         username: str,
         password: str,
         marketplace: str = "us",
-        user_id: str = "default"
+        user_id: str = "default",
+        cvf_code: Optional[str] = None,
+        auth_session_id: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Authenticate with Audible using username/password"""
+        """Authenticate with Audible using username/password with 2FA support"""
         if not self._check_audible_available():
             return {'success': False, 'error': 'Audible library not available'}
         
         try:
-            # Create auth object for the specified marketplace
+            logger.info(f"Starting Audible authentication for {username} in {marketplace}")
+            
+            # Check if we're continuing a 2FA flow
+            if cvf_code and auth_session_id:
+                return await self._complete_2fa_authentication(auth_session_id, cvf_code, marketplace, user_id)
+            
+            # Create auth object for the specified marketplace with CVF callback
             auth = audible.Authenticator.from_login(
                 username=username,
                 password=password,
                 locale=marketplace,
-                with_username=False
+                with_username=False,
+                cvf_callback=self._cvf_callback
             )
             
             # Get the authentication data
@@ -101,8 +110,133 @@ class AudibleSyncService:
                 'customer_name': auth_data.get('customer_info', {}).get('name', 'Unknown')
             }
             
+        except (audible.exceptions.AuthFlowError, Exception) as e:
+            logger.error(f"Audible login failed: {e}")
+            error_msg = str(e)
+            
+            # Check for network connectivity issues
+            if "ssl:default" in error_msg.lower() or "network is unreachable" in error_msg.lower():
+                logger.error("Network connectivity issue detected - Amazon services not reachable")
+                logger.error("This may be due to environment restrictions. Trying alternative approach...")
+                
+                # Try with different user agent and timeout settings
+                try:
+                    import aiohttp
+                    logger.info("Attempting alternative connection to Amazon...")
+                    async with aiohttp.ClientSession(
+                        timeout=aiohttp.ClientTimeout(total=30),
+                        headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+                    ) as session:
+                        async with session.get('https://www.amazon.com', timeout=10) as resp:
+                            if resp.status == 200:
+                                logger.info("Alternative connection to Amazon succeeded")
+                except Exception as conn_test:
+                    logger.error(f"Alternative connection test also failed: {conn_test}")
+                
+                return {
+                    'success': False,
+                    'error': 'Cannot connect to Amazon servers. Network connectivity issue detected.',
+                    'network_error': True
+                }
+            
+            # Check if this is a CVF (2FA) requirement
+            if "CVF" in error_msg or "customer verification" in error_msg.lower() or "verification required" in error_msg.lower():
+                # Store partial auth state for CVF completion
+                session_id = await self._store_partial_auth_state(username, password, marketplace, user_id)
+                return {
+                    'success': False,
+                    'requires_2fa': True,
+                    'auth_session_id': session_id,
+                    'message': 'Please check your email and provide the verification code',
+                    'error': 'Two-factor authentication required'
+                }
+            
+            return {'success': False, 'error': error_msg}
+            
         except Exception as e:
             logger.error(f"Audible authentication failed: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def _cvf_callback(self):
+        """CVF callback for handling 2FA prompts"""
+        # This will be called when 2FA is required
+        # We'll handle this through the frontend instead
+        raise audible.exceptions.AuthFlowError("CVF verification required. Please use the frontend to complete 2FA.")
+    
+    async def _store_partial_auth_state(self, username: str, password: str, marketplace: str, user_id: str) -> str:
+        """Store partial authentication state for 2FA completion"""
+        import uuid
+        session_id = str(uuid.uuid4())
+        
+        # Store in memory or cache for now (in production, use Redis/database)
+        if not hasattr(self, '_partial_auth_states'):
+            self._partial_auth_states = {}
+        
+        self._partial_auth_states[session_id] = {
+            'username': username,
+            'password': password,
+            'marketplace': marketplace,
+            'user_id': user_id,
+            'timestamp': datetime.now()
+        }
+        
+        logger.info(f"Stored partial auth state for session {session_id}")
+        return session_id
+    
+    async def _complete_2fa_authentication(self, session_id: str, cvf_code: str, marketplace: str, user_id: str) -> Dict[str, Any]:
+        """Complete 2FA authentication with CVF code"""
+        try:
+            # Retrieve partial auth state
+            if not hasattr(self, '_partial_auth_states') or session_id not in self._partial_auth_states:
+                return {'success': False, 'error': 'Invalid or expired authentication session'}
+            
+            auth_state = self._partial_auth_states[session_id]
+            
+            # Real CVF authentication
+            logger.info(f"Attempting real Audible CVF authentication with code: {cvf_code[:3]}***")
+            auth = audible.Authenticator.from_login(
+                username=auth_state['username'],
+                password=auth_state['password'],
+                locale=marketplace,
+                with_username=False,
+                cvf_callback=lambda: cvf_code
+            )
+            
+            # Clean up partial state
+            del self._partial_auth_states[session_id]
+            
+            # Get the authentication data
+            auth_data = {
+                'access_token': auth.access_token,
+                'refresh_token': auth.refresh_token,
+                'device_private_key': auth.device_private_key,
+                'adp_token': auth.adp_token,
+                'device_info': auth.device_info,
+                'customer_info': auth.customer_info,
+                'expires': auth.expires.isoformat() if auth.expires else None,
+                'locale': auth.locale,
+                'username': auth_state['username']
+            }
+            
+            # Store encrypted credentials
+            auth_id = await amazon_auth_service.store_auth_credentials(
+                service='audible',
+                auth_data=auth_data,
+                marketplace=marketplace,
+                user_id=user_id
+            )
+            
+            logger.info(f"Successfully completed 2FA authentication for Audible user {auth_state['username']}")
+            
+            return {
+                'success': True,
+                'auth_id': auth_id,
+                'marketplace': marketplace,
+                'customer_name': auth_data.get('customer_info', {}).get('name', 'Unknown')
+            }
+            
+        except Exception as e:
+            logger.error(f"2FA authentication completion failed: {e}")
             return {'success': False, 'error': str(e)}
     
     async def get_audible_client(self, user_id: str = "default") -> Optional[audible.Client]:
@@ -451,6 +585,8 @@ class AudibleSyncService:
                 
         except Exception as e:
             logger.error(f"Failed to create/update edition: {e}")
+
+
 
 
 # Global service instance

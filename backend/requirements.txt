@@ -15,3 +15,4 @@ aiosqlite==0.19.0
 audible==0.10.0
 requests==2.31.0
 cryptography==41.0.8
+aiohttp==3.9.1

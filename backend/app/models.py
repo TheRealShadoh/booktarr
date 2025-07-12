@@ -7,6 +7,9 @@ class MetadataSource(str, Enum):
     SKOOLIB = "skoolib"
     GOOGLE_BOOKS = "google_books"
     OPEN_LIBRARY = "open_library"
+    AUDIBLE = "audible"
+    KINDLE = "kindle"
+    KINDLE_API = "kindle_api"
 
 class ReadingStatus(str, Enum):
     UNREAD = "unread"

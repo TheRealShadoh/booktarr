@@ -40,9 +40,26 @@ const AmazonSyncPage: React.FC = () => {
     password: '',
     marketplace: 'us'
   });
+  const [audible2FA, setAudible2FA] = useState({
+    required: false,
+    sessionId: '',
+    cvfCode: ''
+  });
+  
+  const [showKindleAuth, setShowKindleAuth] = useState(false);
+  const [kindleCredentials, setKindleCredentials] = useState({
+    username: '',
+    password: '',
+    marketplace: 'us'
+  });
+  const [kindle2FA, setKindle2FA] = useState({
+    required: false,
+    sessionId: '',
+    verificationCode: ''
+  });
   
   // Kindle import states
-  const [kindleImportType, setKindleImportType] = useState<'csv' | 'json' | 'device'>('csv');
+  const [kindleImportType, setKindleImportType] = useState<'auth' | 'csv' | 'json' | 'device'>('auth');
   const [kindleDevicePath, setKindleDevicePath] = useState('/media/kindle');
   const [kindleFile, setKindleFile] = useState<File | null>(null);
 
@@ -52,28 +69,44 @@ const AmazonSyncPage: React.FC = () => {
   }, []);
 
   const loadAuthStatus = async () => {
+    console.log('🔍 Loading Amazon auth status...');
     try {
       const response = await fetch('/api/amazon/status');
+      console.log('📡 Auth status response:', response.status, response.statusText);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ Auth status data:', data);
         setAuthStatus(data);
+      } else {
+        console.error('❌ Auth status request failed:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('❌ Error response body:', errorText);
       }
     } catch (error) {
-      console.error('Failed to load auth status:', error);
+      console.error('❌ Failed to load auth status:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const loadSyncJobs = async () => {
+    console.log('🔍 Loading sync jobs...');
     try {
       const response = await fetch('/api/amazon/sync-jobs?limit=20');
+      console.log('📡 Sync jobs response:', response.status, response.statusText);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ Sync jobs data:', data);
         setSyncJobs(data);
+      } else {
+        console.error('❌ Sync jobs request failed:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('❌ Error response body:', errorText);
       }
     } catch (error) {
-      console.error('Failed to load sync jobs:', error);
+      console.error('❌ Failed to load sync jobs:', error);
     }
   };
 
@@ -81,26 +114,52 @@ const AmazonSyncPage: React.FC = () => {
     e.preventDefault();
     setSyncing(true);
     
+    console.log('🎵 Starting Audible authentication...');
+    console.log('📝 Credentials:', { username: audibleCredentials.username, marketplace: audibleCredentials.marketplace, password: '[HIDDEN]' });
+    
     try {
+      const requestBody = {
+        ...audibleCredentials,
+        ...(audible2FA.required && {
+          cvf_code: audible2FA.cvfCode,
+          auth_session_id: audible2FA.sessionId
+        })
+      };
+      
+      console.log('📝 Request body:', { ...requestBody, password: '[HIDDEN]', cvf_code: audible2FA.cvfCode ? '[PROVIDED]' : undefined });
+      
       const response = await fetch('/api/amazon/audible/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(audibleCredentials)
+        body: JSON.stringify(requestBody)
       });
       
+      console.log('📡 Audible auth response:', response.status, response.statusText);
       const data = await response.json();
+      console.log('📊 Audible auth data:', data);
       
       if (data.success) {
+        console.log('✅ Audible authentication successful!');
         showToast(`Audible authentication successful! Welcome, ${data.customer_name || 'User'}`, 'success');
         setShowAudibleAuth(false);
         setAudibleCredentials({ username: '', password: '', marketplace: 'us' });
+        setAudible2FA({ required: false, sessionId: '', cvfCode: '' });
         await loadAuthStatus();
+      } else if (data.requires_2fa) {
+        console.log('🔐 2FA required for Audible authentication');
+        setAudible2FA({ 
+          required: true, 
+          sessionId: data.auth_session_id || '', 
+          cvfCode: '' 
+        });
+        showToast('Please check your email for a verification code', 'info');
       } else {
+        console.error('❌ Audible authentication failed:', data.error);
         showToast(data.error || 'Authentication failed', 'error');
       }
     } catch (error) {
+      console.error('❌ Audible authentication exception:', error);
       showToast('Authentication request failed', 'error');
-      console.error(error);
     } finally {
       setSyncing(false);
     }
@@ -109,22 +168,113 @@ const AmazonSyncPage: React.FC = () => {
   const handleAudibleSync = async () => {
     setSyncing(true);
     
+    console.log('🔄 Starting Audible library sync...');
+    
     try {
       const response = await fetch('/api/amazon/audible/sync', {
         method: 'POST'
       });
       
+      console.log('📡 Audible sync response:', response.status, response.statusText);
       const data = await response.json();
+      console.log('📊 Audible sync data:', data);
       
       if (data.success) {
+        console.log('✅ Audible sync started successfully, job ID:', data.job_id);
         showToast('Audible library sync started!', 'success');
         await loadSyncJobs();
       } else {
+        console.error('❌ Audible sync failed:', data.error);
         showToast(data.error || 'Sync failed to start', 'error');
       }
     } catch (error) {
+      console.error('❌ Audible sync exception:', error);
       showToast('Sync request failed', 'error');
-      console.error(error);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleKindleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSyncing(true);
+    
+    console.log('📚 Starting Kindle authentication...');
+    console.log('📝 Credentials:', { username: kindleCredentials.username, marketplace: kindleCredentials.marketplace, password: '[HIDDEN]' });
+    
+    try {
+      const requestBody = {
+        ...kindleCredentials,
+        ...(kindle2FA.required && {
+          verification_code: kindle2FA.verificationCode,
+          auth_session_id: kindle2FA.sessionId
+        })
+      };
+      
+      console.log('📝 Request body:', { ...requestBody, password: '[HIDDEN]', verification_code: kindle2FA.verificationCode ? '[PROVIDED]' : undefined });
+      
+      const response = await fetch('/api/amazon/kindle/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+      
+      console.log('📡 Kindle auth response:', response.status, response.statusText);
+      const data = await response.json();
+      console.log('📊 Kindle auth data:', data);
+      
+      if (data.success) {
+        console.log('✅ Kindle authentication successful!');
+        showToast(`Kindle authentication successful! Welcome, ${data.customer_name || 'User'}`, 'success');
+        setShowKindleAuth(false);
+        setKindleCredentials({ username: '', password: '', marketplace: 'us' });
+        setKindle2FA({ required: false, sessionId: '', verificationCode: '' });
+        await loadAuthStatus();
+      } else if (data.requires_2fa) {
+        console.log('🔐 2FA required for Kindle authentication');
+        setKindle2FA({ 
+          required: true, 
+          sessionId: data.auth_session_id || '', 
+          verificationCode: '' 
+        });
+        showToast('Please check your email/SMS for a verification code', 'info');
+      } else {
+        console.error('❌ Kindle authentication failed:', data.error);
+        showToast(data.error || 'Authentication failed', 'error');
+      }
+    } catch (error) {
+      console.error('❌ Kindle authentication exception:', error);
+      showToast('Authentication request failed', 'error');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleKindleSync = async () => {
+    setSyncing(true);
+    
+    console.log('🔄 Starting Kindle library sync...');
+    
+    try {
+      const response = await fetch('/api/amazon/kindle/sync', {
+        method: 'POST'
+      });
+      
+      console.log('📡 Kindle sync response:', response.status, response.statusText);
+      const data = await response.json();
+      console.log('📊 Kindle sync data:', data);
+      
+      if (data.success) {
+        console.log('✅ Kindle sync started successfully, job ID:', data.job_id);
+        showToast('Kindle library sync started!', 'success');
+        await loadSyncJobs();
+      } else {
+        console.error('❌ Kindle sync failed:', data.error);
+        showToast(data.error || 'Sync failed to start', 'error');
+      }
+    } catch (error) {
+      console.error('❌ Kindle sync exception:', error);
+      showToast('Sync request failed', 'error');
     } finally {
       setSyncing(false);
     }
@@ -134,16 +284,20 @@ const AmazonSyncPage: React.FC = () => {
     e.preventDefault();
     setSyncing(true);
     
+    console.log('📥 Starting Kindle import...', 'Type:', kindleImportType);
+    
     try {
       let response;
       
       if (kindleImportType === 'device') {
+        console.log('📱 Scanning Kindle device at:', kindleDevicePath);
         response = await fetch('/api/amazon/kindle/scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ device_path: kindleDevicePath })
         });
       } else if (kindleFile) {
+        console.log('📄 Uploading Kindle file:', kindleFile.name);
         const formData = new FormData();
         formData.append('file', kindleFile);
         
@@ -153,21 +307,26 @@ const AmazonSyncPage: React.FC = () => {
           body: formData
         });
       } else {
+        console.error('❌ No file selected for import');
         showToast('Please select a file to import', 'error');
         return;
       }
       
+      console.log('📡 Kindle import response:', response.status, response.statusText);
       const data = await response.json();
+      console.log('📊 Kindle import data:', data);
       
       if (data.success) {
+        console.log('✅ Kindle import started successfully');
         showToast(`Kindle import started! Found ${data.items_found} items`, 'success');
         await loadSyncJobs();
       } else {
+        console.error('❌ Kindle import failed:', data.error);
         showToast(data.error || 'Import failed', 'error');
       }
     } catch (error) {
+      console.error('❌ Kindle import exception:', error);
       showToast('Import request failed', 'error');
-      console.error(error);
     } finally {
       setSyncing(false);
     }
@@ -277,61 +436,93 @@ const AmazonSyncPage: React.FC = () => {
                 </button>
               ) : (
                 <form onSubmit={handleAudibleAuth} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-booktarr-text mb-1">
-                      Username/Email
-                    </label>
-                    <input
-                      type="text"
-                      value={audibleCredentials.username}
-                      onChange={(e) => setAudibleCredentials({...audibleCredentials, username: e.target.value})}
-                      className="booktarr-input"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-booktarr-text mb-1">
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      value={audibleCredentials.password}
-                      onChange={(e) => setAudibleCredentials({...audibleCredentials, password: e.target.value})}
-                      className="booktarr-input"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-booktarr-text mb-1">
-                      Marketplace
-                    </label>
-                    <select
-                      value={audibleCredentials.marketplace}
-                      onChange={(e) => setAudibleCredentials({...audibleCredentials, marketplace: e.target.value})}
-                      className="booktarr-select"
-                    >
-                      <option value="us">United States</option>
-                      <option value="uk">United Kingdom</option>
-                      <option value="de">Germany</option>
-                      <option value="fr">France</option>
-                      <option value="ca">Canada</option>
-                      <option value="au">Australia</option>
-                    </select>
-                  </div>
+                  {!audible2FA.required ? (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-booktarr-text mb-1">
+                          Username/Email
+                        </label>
+                        <input
+                          type="text"
+                          value={audibleCredentials.username}
+                          onChange={(e) => setAudibleCredentials({...audibleCredentials, username: e.target.value})}
+                          className="booktarr-input"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-booktarr-text mb-1">
+                          Password
+                        </label>
+                        <input
+                          type="password"
+                          value={audibleCredentials.password}
+                          onChange={(e) => setAudibleCredentials({...audibleCredentials, password: e.target.value})}
+                          className="booktarr-input"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-booktarr-text mb-1">
+                          Marketplace
+                        </label>
+                        <select
+                          value={audibleCredentials.marketplace}
+                          onChange={(e) => setAudibleCredentials({...audibleCredentials, marketplace: e.target.value})}
+                          className="booktarr-select"
+                        >
+                          <option value="us">United States</option>
+                          <option value="uk">United Kingdom</option>
+                          <option value="de">Germany</option>
+                          <option value="fr">France</option>
+                          <option value="ca">Canada</option>
+                          <option value="au">Australia</option>
+                        </select>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="bg-booktarr-surface2 p-4 rounded-lg">
+                      <h3 className="text-lg font-medium text-booktarr-text mb-2">Two-Factor Authentication Required</h3>
+                      <p className="text-sm text-booktarr-textSecondary mb-4">
+                        Please check your email for a verification code and enter it below.
+                      </p>
+                      <div className="bg-booktarr-info bg-opacity-20 border border-booktarr-info p-3 rounded mb-4">
+                        <p className="text-sm text-booktarr-info font-medium">
+                          🧪 <strong>Demo Mode:</strong> Use code <strong>DEMO123</strong>, <strong>TEST456</strong>, or <strong>123456</strong> to try the demo with sample books!
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-booktarr-text mb-1">
+                          Verification Code
+                        </label>
+                        <input
+                          type="text"
+                          value={audible2FA.cvfCode}
+                          onChange={(e) => setAudible2FA({...audible2FA, cvfCode: e.target.value})}
+                          className="booktarr-input"
+                          placeholder="Enter 6-digit code or DEMO123"
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="flex space-x-3">
                     <button
                       type="submit"
-                      disabled={syncing}
+                      disabled={syncing || (audible2FA.required && !audible2FA.cvfCode)}
                       className="booktarr-btn booktarr-btn-primary flex-1"
                     >
-                      {syncing ? 'Authenticating...' : 'Authenticate'}
+                      {syncing ? 'Authenticating...' : audible2FA.required ? 'Verify Code' : 'Authenticate'}
                     </button>
                     <button
                       type="button"
-                      onClick={() => setShowAudibleAuth(false)}
+                      onClick={() => {
+                        setShowAudibleAuth(false);
+                        setAudible2FA({ required: false, sessionId: '', cvfCode: '' });
+                      }}
                       className="booktarr-btn booktarr-btn-secondary"
                     >
                       Cancel
@@ -356,95 +547,312 @@ const AmazonSyncPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-booktarr-text mb-2">
-                Import Method
-              </label>
-              <div className="flex space-x-4">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="csv"
-                    checked={kindleImportType === 'csv'}
-                    onChange={(e) => setKindleImportType(e.target.value as 'csv')}
-                    className="mr-2"
-                  />
-                  CSV File
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="json"
-                    checked={kindleImportType === 'json'}
-                    onChange={(e) => setKindleImportType(e.target.value as 'json')}
-                    className="mr-2"
-                  />
-                  JSON File
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="device"
-                    checked={kindleImportType === 'device'}
-                    onChange={(e) => setKindleImportType(e.target.value as 'device')}
-                    className="mr-2"
-                  />
-                  Device Scan
-                </label>
+          {authStatus?.kindle_authenticated ? (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-booktarr-textSecondary">Last sync: {
+                  authStatus.kindle_last_sync 
+                    ? new Date(authStatus.kindle_last_sync).toLocaleString()
+                    : 'Never'
+                }</p>
+                <p className="text-sm text-booktarr-textSecondary">Status: {authStatus.kindle_sync_status || 'Unknown'}</p>
               </div>
-            </div>
-
-            <form onSubmit={handleKindleImport} className="space-y-4">
-              {kindleImportType === 'device' ? (
-                <div>
-                  <label className="block text-sm font-medium text-booktarr-text mb-1">
-                    Kindle Device Path
-                  </label>
-                  <input
-                    type="text"
-                    value={kindleDevicePath}
-                    onChange={(e) => setKindleDevicePath(e.target.value)}
-                    className="booktarr-input"
-                    placeholder="/media/kindle"
-                    required
-                  />
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-sm font-medium text-booktarr-text mb-1">
-                    Select {kindleImportType.toUpperCase()} File
-                  </label>
-                  <input
-                    type="file"
-                    accept={kindleImportType === 'csv' ? '.csv' : '.json'}
-                    onChange={(e) => setKindleFile(e.target.files?.[0] || null)}
-                    className="booktarr-input"
-                    required
-                  />
-                </div>
-              )}
-
+              
               <div className="flex space-x-3">
                 <button
-                  type="submit"
+                  onClick={handleKindleSync}
                   disabled={syncing}
                   className="booktarr-btn booktarr-btn-primary flex-1"
                 >
-                  {syncing ? 'Importing...' : 'Import Kindle Library'}
+                  {syncing ? 'Syncing...' : 'Sync Library'}
                 </button>
-                {authStatus?.kindle_authenticated && (
-                  <button
-                    type="button"
-                    onClick={() => handleRevokeAuth('kindle')}
-                    className="booktarr-btn booktarr-btn-danger"
-                  >
-                    Disconnect
-                  </button>
-                )}
+                <button
+                  onClick={() => handleRevokeAuth('kindle')}
+                  className="booktarr-btn booktarr-btn-danger"
+                >
+                  Disconnect
+                </button>
               </div>
-            </form>
-          </div>
+
+              {/* Alternative Import Methods */}
+              <div className="border-t border-booktarr-border pt-4">
+                <h3 className="text-sm font-medium text-booktarr-text mb-2">Alternative Import Methods</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-booktarr-text mb-2">
+                      Import Method
+                    </label>
+                    <div className="flex space-x-4">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          value="csv"
+                          checked={kindleImportType === 'csv'}
+                          onChange={(e) => setKindleImportType(e.target.value as 'csv')}
+                          className="mr-2"
+                        />
+                        CSV File
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          value="json"
+                          checked={kindleImportType === 'json'}
+                          onChange={(e) => setKindleImportType(e.target.value as 'json')}
+                          className="mr-2"
+                        />
+                        JSON File
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          value="device"
+                          checked={kindleImportType === 'device'}
+                          onChange={(e) => setKindleImportType(e.target.value as 'device')}
+                          className="mr-2"
+                        />
+                        Device Scan
+                      </label>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleKindleImport} className="space-y-4">
+                    {kindleImportType === 'device' ? (
+                      <div>
+                        <label className="block text-sm font-medium text-booktarr-text mb-1">
+                          Kindle Device Path
+                        </label>
+                        <input
+                          type="text"
+                          value={kindleDevicePath}
+                          onChange={(e) => setKindleDevicePath(e.target.value)}
+                          className="booktarr-input"
+                          placeholder="/media/kindle"
+                          required
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-sm font-medium text-booktarr-text mb-1">
+                          Select {kindleImportType.toUpperCase()} File
+                        </label>
+                        <input
+                          type="file"
+                          accept={kindleImportType === 'csv' ? '.csv' : '.json'}
+                          onChange={(e) => setKindleFile(e.target.files?.[0] || null)}
+                          className="booktarr-input"
+                          required
+                        />
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={syncing}
+                      className="booktarr-btn booktarr-btn-secondary w-full"
+                    >
+                      {syncing ? 'Importing...' : 'Import Additional Books'}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-booktarr-text mb-2">
+                  Connection Method
+                </label>
+                <div className="flex space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="auth"
+                      checked={kindleImportType === 'auth'}
+                      onChange={(e) => setKindleImportType(e.target.value as 'auth')}
+                      className="mr-2"
+                    />
+                    Amazon Account
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="csv"
+                      checked={kindleImportType === 'csv'}
+                      onChange={(e) => setKindleImportType(e.target.value as 'csv')}
+                      className="mr-2"
+                    />
+                    CSV File
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="json"
+                      checked={kindleImportType === 'json'}
+                      onChange={(e) => setKindleImportType(e.target.value as 'json')}
+                      className="mr-2"
+                    />
+                    JSON File
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="device"
+                      checked={kindleImportType === 'device'}
+                      onChange={(e) => setKindleImportType(e.target.value as 'device')}
+                      className="mr-2"
+                    />
+                    Device Scan
+                  </label>
+                </div>
+              </div>
+
+              {kindleImportType === 'auth' ? (
+                !showKindleAuth ? (
+                  <button
+                    onClick={() => setShowKindleAuth(true)}
+                    className="booktarr-btn booktarr-btn-primary w-full"
+                  >
+                    Connect Kindle Account
+                  </button>
+                ) : (
+                  <form onSubmit={handleKindleAuth} className="space-y-4">
+                    {!kindle2FA.required ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-booktarr-text mb-1">
+                            Username/Email
+                          </label>
+                          <input
+                            type="text"
+                            value={kindleCredentials.username}
+                            onChange={(e) => setKindleCredentials({...kindleCredentials, username: e.target.value})}
+                            className="booktarr-input"
+                            required
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-booktarr-text mb-1">
+                            Password
+                          </label>
+                          <input
+                            type="password"
+                            value={kindleCredentials.password}
+                            onChange={(e) => setKindleCredentials({...kindleCredentials, password: e.target.value})}
+                            className="booktarr-input"
+                            required
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-booktarr-text mb-1">
+                            Marketplace
+                          </label>
+                          <select
+                            value={kindleCredentials.marketplace}
+                            onChange={(e) => setKindleCredentials({...kindleCredentials, marketplace: e.target.value})}
+                            className="booktarr-select"
+                          >
+                            <option value="us">United States</option>
+                            <option value="uk">United Kingdom</option>
+                            <option value="de">Germany</option>
+                            <option value="fr">France</option>
+                            <option value="ca">Canada</option>
+                            <option value="au">Australia</option>
+                          </select>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="bg-booktarr-surface2 p-4 rounded-lg">
+                        <h3 className="text-lg font-medium text-booktarr-text mb-2">Two-Factor Authentication Required</h3>
+                        <p className="text-sm text-booktarr-textSecondary mb-4">
+                          Please check your email or SMS for a verification code and enter it below.
+                        </p>
+                        <div className="bg-booktarr-info bg-opacity-20 border border-booktarr-info p-3 rounded mb-4">
+                          <p className="text-sm text-booktarr-info font-medium">
+                            🧪 <strong>Demo Mode:</strong> Use code <strong>DEMO123</strong>, <strong>TEST456</strong>, or <strong>123456</strong> to try the demo with sample books!
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-booktarr-text mb-1">
+                            Verification Code
+                          </label>
+                          <input
+                            type="text"
+                            value={kindle2FA.verificationCode}
+                            onChange={(e) => setKindle2FA({...kindle2FA, verificationCode: e.target.value})}
+                            className="booktarr-input"
+                            placeholder="Enter verification code or DEMO123"
+                            required
+                          />
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="flex space-x-3">
+                      <button
+                        type="submit"
+                        disabled={syncing || (kindle2FA.required && !kindle2FA.verificationCode)}
+                        className="booktarr-btn booktarr-btn-primary flex-1"
+                      >
+                        {syncing ? 'Authenticating...' : kindle2FA.required ? 'Verify Code' : 'Authenticate'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowKindleAuth(false);
+                          setKindle2FA({ required: false, sessionId: '', verificationCode: '' });
+                        }}
+                        className="booktarr-btn booktarr-btn-secondary"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )
+              ) : (
+                <form onSubmit={handleKindleImport} className="space-y-4">
+                  {kindleImportType === 'device' ? (
+                    <div>
+                      <label className="block text-sm font-medium text-booktarr-text mb-1">
+                        Kindle Device Path
+                      </label>
+                      <input
+                        type="text"
+                        value={kindleDevicePath}
+                        onChange={(e) => setKindleDevicePath(e.target.value)}
+                        className="booktarr-input"
+                        placeholder="/media/kindle"
+                        required
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-sm font-medium text-booktarr-text mb-1">
+                        Select {kindleImportType.toUpperCase()} File
+                      </label>
+                      <input
+                        type="file"
+                        accept={kindleImportType === 'csv' ? '.csv' : '.json'}
+                        onChange={(e) => setKindleFile(e.target.files?.[0] || null)}
+                        className="booktarr-input"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={syncing}
+                    className="booktarr-btn booktarr-btn-primary w-full"
+                  >
+                    {syncing ? 'Importing...' : 'Import Kindle Library'}
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

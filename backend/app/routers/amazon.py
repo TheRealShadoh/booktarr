@@ -8,6 +8,7 @@ from datetime import datetime
 
 from app.services.audible_sync_service import audible_sync_service
 from app.services.kindle_sync_service import kindle_sync_service
+from app.services.kindle_api_service import kindle_api_service
 from app.services.amazon_auth_service import amazon_auth_service
 
 router = APIRouter(prefix="/api/amazon", tags=["amazon"])
@@ -18,6 +19,16 @@ class AudibleAuthRequest(BaseModel):
     username: str
     password: str
     marketplace: str = "us"
+    cvf_code: Optional[str] = None
+    auth_session_id: Optional[str] = None
+
+
+class KindleAuthRequest(BaseModel):
+    username: str
+    password: str
+    marketplace: str = "us"
+    verification_code: Optional[str] = None
+    auth_session_id: Optional[str] = None
 
 
 class KindleDeviceScanRequest(BaseModel):
@@ -30,6 +41,8 @@ class AuthResponse(BaseModel):
     auth_id: Optional[int] = None
     customer_name: Optional[str] = None
     error: Optional[str] = None
+    requires_2fa: Optional[bool] = None
+    auth_session_id: Optional[str] = None
 
 
 class SyncResponse(BaseModel):
@@ -68,12 +81,14 @@ class AuthStatusResponse(BaseModel):
 # Authentication Endpoints
 @router.post("/audible/auth", response_model=AuthResponse)
 async def authenticate_audible(request: AudibleAuthRequest):
-    """Authenticate with Audible using username/password"""
+    """Authenticate with Audible using username/password with 2FA support"""
     try:
         result = await audible_sync_service.authenticate_with_credentials(
             username=request.username,
             password=request.password,
-            marketplace=request.marketplace
+            marketplace=request.marketplace,
+            cvf_code=request.cvf_code,
+            auth_session_id=request.auth_session_id
         )
         
         return AuthResponse(
@@ -81,7 +96,34 @@ async def authenticate_audible(request: AudibleAuthRequest):
             message=result.get('message', 'Authentication successful' if result['success'] else 'Authentication failed'),
             auth_id=result.get('auth_id'),
             customer_name=result.get('customer_name'),
-            error=result.get('error')
+            error=result.get('error'),
+            requires_2fa=result.get('requires_2fa'),
+            auth_session_id=result.get('auth_session_id')
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Authentication error: {str(e)}")
+
+
+@router.post("/kindle/auth", response_model=AuthResponse)
+async def authenticate_kindle(request: KindleAuthRequest):
+    """Authenticate with Kindle using username/password with 2FA support"""
+    try:
+        result = await kindle_api_service.authenticate_with_credentials(
+            username=request.username,
+            password=request.password,
+            marketplace=request.marketplace,
+            verification_code=request.verification_code,
+            auth_session_id=request.auth_session_id
+        )
+        
+        return AuthResponse(
+            success=result['success'],
+            message=result.get('message', 'Authentication successful' if result['success'] else 'Authentication failed'),
+            auth_id=result.get('auth_id'),
+            customer_name=result.get('customer_name'),
+            error=result.get('error'),
+            requires_2fa=result.get('requires_2fa'),
+            auth_session_id=result.get('auth_session_id')
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Authentication error: {str(e)}")
@@ -156,6 +198,22 @@ async def sync_audible_library():
     """Sync complete Audible library"""
     try:
         result = await audible_sync_service.sync_audible_library()
+        
+        return SyncResponse(
+            success=result['success'],
+            message=result.get('message', 'Sync started'),
+            job_id=result.get('job_id'),
+            error=result.get('error')
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sync error: {str(e)}")
+
+
+@router.post("/kindle/sync", response_model=SyncResponse)
+async def sync_kindle_library():
+    """Sync complete Kindle library"""
+    try:
+        result = await kindle_api_service.sync_kindle_library()
         
         return SyncResponse(
             success=result['success'],
