@@ -1,281 +1,335 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import MainLayout from './components/MainLayout';
 import BookList from './components/BookList';
 import LoadingSpinner from './components/LoadingSpinner';
-import Toast from './components/Toast';
-import { Book, ToastMessage } from './types';
+import { BooksBySeriesMap, Book, ReadingStatus } from './types';
 import './styles/tailwind.css';
 
-// Sample data for demonstration
-const sampleBooks: Book[] = [
-  {
-    id: '1',
-    title: 'The Way of Kings',
-    authors: ['Brandon Sanderson'],
-    series: 'The Stormlight Archive',
-    seriesPosition: 1,
-    isbn: '9780765326355',
-    isbn13: '9780765326355',
-    coverUrl: 'https://images-na.ssl-images-amazon.com/images/I/71nFP5J-7EL.jpg',
-    publisher: 'Tor Books',
-    publishedDate: '2010-08-31',
-    pageCount: 1007,
-    description: 'The first book in the epic fantasy series by Brandon Sanderson.',
-    language: 'English',
-    genres: ['Fantasy', 'Epic Fantasy'],
-    rating: 4.6,
-    status: 'owned',
-    format: 'physical',
-    dateAdded: '2024-01-15',
-    condition: 'good'
-  },
-  {
-    id: '2',
-    title: 'Words of Radiance',
-    authors: ['Brandon Sanderson'],
-    series: 'The Stormlight Archive',
-    seriesPosition: 2,
-    isbn: '9780765326362',
-    isbn13: '9780765326362',
-    coverUrl: 'https://images-na.ssl-images-amazon.com/images/I/81xUMEF6qHL.jpg',
-    publisher: 'Tor Books',
-    publishedDate: '2014-03-04',
-    pageCount: 1087,
-    description: 'The second book in the epic fantasy series by Brandon Sanderson.',
-    language: 'English',
-    genres: ['Fantasy', 'Epic Fantasy'],
-    rating: 4.7,
-    status: 'owned',
-    format: 'physical',
-    dateAdded: '2024-01-20',
-    condition: 'good'
-  },
-  {
-    id: '3',
-    title: 'Oathbringer',
-    authors: ['Brandon Sanderson'],
-    series: 'The Stormlight Archive',
-    seriesPosition: 3,
-    isbn: '9780765326379',
-    isbn13: '9780765326379',
-    coverUrl: 'https://images-na.ssl-images-amazon.com/images/I/81XD6sYMsJL.jpg',
-    publisher: 'Tor Books',
-    publishedDate: '2017-11-14',
-    pageCount: 1248,
-    description: 'The third book in the epic fantasy series by Brandon Sanderson.',
-    language: 'English',
-    genres: ['Fantasy', 'Epic Fantasy'],
-    rating: 4.5,
-    status: 'owned',
-    format: 'physical',
-    dateAdded: '2024-01-25',
-    condition: 'good'
-  },
-  {
-    id: '4',
-    title: 'Rhythm of War',
-    authors: ['Brandon Sanderson'],
-    series: 'The Stormlight Archive',
-    seriesPosition: 4,
-    isbn: '9780765326386',
-    isbn13: '9780765326386',
-    coverUrl: 'https://images-na.ssl-images-amazon.com/images/I/81hNdRWG-7L.jpg',
-    publisher: 'Tor Books',
-    publishedDate: '2020-11-17',
-    pageCount: 1232,
-    description: 'The fourth book in the epic fantasy series by Brandon Sanderson.',
-    language: 'English',
-    genres: ['Fantasy', 'Epic Fantasy'],
-    rating: 4.4,
-    status: 'wanted',
-    format: 'physical',
-    dateAdded: '2024-02-01',
-    condition: 'new'
-  },
-  {
-    id: '5',
-    title: 'The Name of the Wind',
-    authors: ['Patrick Rothfuss'],
-    series: 'The Kingkiller Chronicle',
-    seriesPosition: 1,
-    isbn: '9780756404741',
-    isbn13: '9780756404741',
-    coverUrl: 'https://images-na.ssl-images-amazon.com/images/I/81vHgJK7ipL.jpg',
-    publisher: 'DAW Books',
-    publishedDate: '2007-03-27',
-    pageCount: 662,
-    description: 'The first book in The Kingkiller Chronicle by Patrick Rothfuss.',
-    language: 'English',
-    genres: ['Fantasy'],
-    rating: 4.5,
-    status: 'read',
-    format: 'ebook',
-    dateAdded: '2024-02-05',
-    condition: 'new'
-  }
-];
+// Sample data to demonstrate the UI
+const sampleBooks: BooksBySeriesMap = {
+  "The Stormlight Archive": [
+    {
+      isbn: "9780765326355",
+      isbn13: "9780765326355",
+      title: "The Way of Kings",
+      authors: ["Brandon Sanderson"],
+      series: "The Stormlight Archive",
+      series_position: 1,
+      publisher: "Tor Books",
+      published_date: "2010-08-31",
+      page_count: 1007,
+      language: "en",
+      thumbnail_url: "https://via.placeholder.com/300x450/f39c12/ffffff?text=Way+of+Kings",
+      description: "The first book in the epic fantasy series by Brandon Sanderson.",
+      categories: ["Fantasy", "Epic Fantasy"],
+      pricing: [{
+        source: "Amazon",
+        price: 9.99,
+        currency: "USD",
+        last_updated: "2024-01-15"
+      }],
+      metadata_source: "SKOOLIB" as any,
+      added_date: "2024-01-15",
+      last_updated: "2024-01-15",
+      reading_status: ReadingStatus.READ,
+      personal_rating: 5,
+      times_read: 2,
+      date_finished: "2023-12-20"
+    },
+    {
+      isbn: "9780765326362",
+      isbn13: "9780765326362", 
+      title: "Words of Radiance",
+      authors: ["Brandon Sanderson"],
+      series: "The Stormlight Archive",
+      series_position: 2,
+      publisher: "Tor Books",
+      published_date: "2014-03-04",
+      page_count: 1087,
+      language: "en",
+      thumbnail_url: "https://via.placeholder.com/300x450/3498db/ffffff?text=Words+of+Radiance",
+      description: "The second book in the epic fantasy series by Brandon Sanderson.",
+      categories: ["Fantasy", "Epic Fantasy"],
+      pricing: [{
+        source: "Amazon",
+        price: 11.99,
+        currency: "USD",
+        last_updated: "2024-01-15"
+      }],
+      metadata_source: "SKOOLIB" as any,
+      added_date: "2024-01-15",
+      last_updated: "2024-01-15",
+      reading_status: ReadingStatus.READING,
+      reading_progress_pages: 543,
+      reading_progress_percentage: 50,
+      times_read: 0,
+      date_started: "2024-01-10"
+    },
+    {
+      isbn: "9780765326379",
+      isbn13: "9780765326379",
+      title: "Oathbringer",
+      authors: ["Brandon Sanderson"],
+      series: "The Stormlight Archive",
+      series_position: 3,
+      publisher: "Tor Books",
+      published_date: "2017-11-14",
+      page_count: 1248,
+      language: "en",
+      thumbnail_url: "https://via.placeholder.com/300x450/27ae60/ffffff?text=Oathbringer",
+      description: "The third book in the epic fantasy series by Brandon Sanderson.",
+      categories: ["Fantasy", "Epic Fantasy"],
+      pricing: [{
+        source: "Amazon",
+        price: 12.99,
+        currency: "USD",
+        last_updated: "2024-01-15"
+      }],
+      metadata_source: "SKOOLIB" as any,
+      added_date: "2024-01-15",
+      last_updated: "2024-01-15",
+      reading_status: ReadingStatus.UNREAD,
+      times_read: 0
+    }
+  ],
+  "The Kingkiller Chronicle": [
+    {
+      isbn: "9780756404741",
+      isbn13: "9780756404741",
+      title: "The Name of the Wind",
+      authors: ["Patrick Rothfuss"],
+      series: "The Kingkiller Chronicle",
+      series_position: 1,
+      publisher: "DAW Books",
+      published_date: "2007-03-27",
+      page_count: 662,
+      language: "en",
+      thumbnail_url: "https://via.placeholder.com/300x450/9b59b6/ffffff?text=Name+of+the+Wind",
+      description: "The first book in The Kingkiller Chronicle by Patrick Rothfuss.",
+      categories: ["Fantasy"],
+      pricing: [{
+        source: "Amazon",
+        price: 8.99,
+        currency: "USD",
+        last_updated: "2024-01-15"
+      }],
+      metadata_source: "SKOOLIB" as any,
+      added_date: "2024-01-20",
+      last_updated: "2024-01-20",
+      reading_status: ReadingStatus.WISHLIST,
+      times_read: 0
+    }
+  ],
+  "Standalone": [
+    {
+      isbn: "9780062316110",
+      isbn13: "9780062316110",
+      title: "Sapiens: A Brief History of Humankind",
+      authors: ["Yuval Noah Harari"],
+      publisher: "Harper",
+      published_date: "2015-02-10",
+      page_count: 443,
+      language: "en",
+      thumbnail_url: "https://via.placeholder.com/300x450/e74c3c/ffffff?text=Sapiens",
+      description: "A groundbreaking narrative of humanity's creation and evolution.",
+      categories: ["History", "Science", "Anthropology"],
+      pricing: [{
+        source: "Amazon",
+        price: 14.99,
+        currency: "USD",
+        last_updated: "2024-01-15"
+      }],
+      metadata_source: "SKOOLIB" as any,
+      added_date: "2024-01-25",
+      last_updated: "2024-01-25",
+      reading_status: ReadingStatus.DNF,
+      reading_progress_pages: 150,
+      personal_notes: "Found it interesting but couldn't finish",
+      times_read: 0
+    }
+  ]
+};
 
-const App: React.FC = () => {
-  const [books, setBooks] = useState<Book[]>([]);
-  const [filteredBooks, setFilteredBooks] = useState<Book[]>([]);
-  const [currentPage, setCurrentPage] = useState('library');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-
-  useEffect(() => {
-    // Simulate loading data
-    const loadBooks = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        setBooks(sampleBooks);
-        setFilteredBooks(sampleBooks);
-        
-        showToast('Books loaded successfully!', 'success');
-      } catch (err) {
-        setError('Failed to load books. Please try again.');
-        showToast('Failed to load books', 'error');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadBooks();
-  }, []);
-
-  const showToast = (message: string, type: ToastMessage['type']) => {
-    const newToast: ToastMessage = {
-      id: Date.now().toString(),
-      message,
-      type,
-      duration: 5000
-    };
-    setToast(newToast);
-  };
+function App() {
+  const [currentPage, setCurrentPage] = React.useState<string>('library');
+  const [loading, setLoading] = React.useState(false);
+  const [books, setBooks] = React.useState<BooksBySeriesMap>(sampleBooks);
 
   const handleBookClick = (book: Book) => {
     console.log('Book clicked:', book);
-    showToast(`Opened ${book.title}`, 'info');
   };
 
-  const handleStatusChange = (book: Book, newStatus: string) => {
-    const updatedBooks = books.map(b => 
-      b.id === book.id ? { ...b, status: newStatus as any } : b
-    );
-    setBooks(updatedBooks);
-    setFilteredBooks(updatedBooks);
-    showToast(`Status changed to ${newStatus}`, 'success');
+  const handleFilterChange = (filteredBooks: Book[]) => {
+    // In a real app, this would filter the books
+    console.log('Filter changed:', filteredBooks.length);
   };
 
-  const handleRefresh = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      showToast('Books refreshed!', 'success');
-    }, 1000);
-  };
-
-  const handleFilterChange = (filtered: Book[]) => {
-    setFilteredBooks(filtered);
-  };
-
-  const renderCurrentPage = () => {
+  const renderContent = () => {
     switch (currentPage) {
       case 'library':
         return (
           <BookList
-            books={filteredBooks}
+            books={books}
             loading={loading}
-            error={error}
+            error={null}
             onBookClick={handleBookClick}
-            onStatusChange={handleStatusChange}
-            onRefresh={handleRefresh}
           />
         );
-      case 'search':
-        return (
-          <div className="flex flex-col items-center justify-center h-64 space-y-4">
-            <svg className="w-16 h-16 text-booktarr-textMuted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            <h3 className="text-booktarr-text text-xl font-semibold">Add Books</h3>
-            <p className="text-booktarr-textSecondary text-center max-w-md">
-              Search for books to add to your library. This feature will be connected to the backend soon.
-            </p>
-          </div>
-        );
       case 'series':
-        return (
-          <div className="flex flex-col items-center justify-center h-64 space-y-4">
-            <svg className="w-16 h-16 text-booktarr-textMuted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-            <h3 className="text-booktarr-text text-xl font-semibold">Series</h3>
-            <p className="text-booktarr-textSecondary text-center max-w-md">
-              Browse your books organized by series. Coming soon!
-            </p>
-          </div>
-        );
       case 'authors':
-        return (
-          <div className="flex flex-col items-center justify-center h-64 space-y-4">
-            <svg className="w-16 h-16 text-booktarr-textMuted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            <h3 className="text-booktarr-text text-xl font-semibold">Authors</h3>
-            <p className="text-booktarr-textSecondary text-center max-w-md">
-              Browse your books organized by author. Coming soon!
-            </p>
-          </div>
-        );
+      case 'settings':
+      case 'add':
       default:
         return (
           <div className="flex flex-col items-center justify-center h-64 space-y-4">
-            <svg className="w-16 h-16 text-booktarr-textMuted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-            <h3 className="text-booktarr-text text-xl font-semibold">
-              {currentPage.charAt(0).toUpperCase() + currentPage.slice(1)}
-            </h3>
-            <p className="text-booktarr-textSecondary text-center max-w-md">
-              This page is coming soon. Stay tuned for updates!
-            </p>
+            <div className="text-center">
+              <svg className="w-16 h-16 text-booktarr-textMuted mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              <h3 className="text-booktarr-text text-xl font-semibold mb-2">
+                {currentPage.charAt(0).toUpperCase() + currentPage.slice(1)}
+              </h3>
+              <p className="text-booktarr-textSecondary text-sm max-w-md">
+                This page is coming soon. Backend integration pending.
+              </p>
+            </div>
           </div>
         );
     }
   };
 
   return (
-    <ThemeProvider>
-      <div className="min-h-screen bg-booktarr-bg">
-        {/* Toast Notifications */}
-        {toast && (
-          <Toast
-            message={toast.message}
-            type={toast.type}
-            duration={toast.duration}
-            onClose={() => setToast(null)}
-            action={toast.action}
-          />
-        )}
+    <div className="min-h-screen" style={{ backgroundColor: '#1e1e1e', color: '#ffffff' }}>
+      <div style={{ display: 'flex', height: '100vh' }}>
+        {/* Sidebar */}
+        <div style={{ 
+          width: '256px', 
+          backgroundColor: '#252525', 
+          borderRight: '1px solid #404040',
+          padding: '1rem'
+        }}>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem', color: '#f39c12' }}>
+            Booktarr
+          </h2>
+          <nav>
+            <ul style={{ listStyle: 'none', padding: 0 }}>
+              <li style={{ marginBottom: '0.5rem' }}>
+                <button 
+                  onClick={() => setCurrentPage('library')}
+                  style={{ 
+                    color: currentPage === 'library' ? '#f39c12' : '#cccccc',
+                    background: 'none',
+                    border: 'none',
+                    padding: '0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '1rem'
+                  }}
+                >
+                  📚 Library
+                </button>
+              </li>
+              <li style={{ marginBottom: '0.5rem' }}>
+                <button 
+                  onClick={() => setCurrentPage('series')}
+                  style={{ 
+                    color: currentPage === 'series' ? '#f39c12' : '#cccccc',
+                    background: 'none',
+                    border: 'none',
+                    padding: '0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '1rem'
+                  }}
+                >
+                  📖 Series
+                </button>
+              </li>
+              <li style={{ marginBottom: '0.5rem' }}>
+                <button 
+                  onClick={() => setCurrentPage('settings')}
+                  style={{ 
+                    color: currentPage === 'settings' ? '#f39c12' : '#cccccc',
+                    background: 'none',
+                    border: 'none',
+                    padding: '0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '1rem'
+                  }}
+                >
+                  ⚙️ Settings
+                </button>
+              </li>
+            </ul>
+          </nav>
+        </div>
 
-        <MainLayout
-          currentPage={currentPage}
-          onPageChange={setCurrentPage}
-          books={books}
-          onFilterChange={handleFilterChange}
-        >
-          {renderCurrentPage()}
-        </MainLayout>
+        {/* Main Content */}
+        <div style={{ flex: 1, padding: '1rem', overflow: 'auto' }}>
+          <header style={{ marginBottom: '2rem' }}>
+            <h1 style={{ fontSize: '2rem', fontWeight: 'bold', textTransform: 'capitalize' }}>
+              {currentPage}
+            </h1>
+          </header>
+
+          {currentPage === 'library' && (
+            <div>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+                gap: '1rem' 
+              }}>
+                {Object.values(books).flat().map(book => (
+                  <div 
+                    key={book.isbn} 
+                    style={{ 
+                      backgroundColor: '#252525', 
+                      padding: '1rem', 
+                      borderRadius: '8px',
+                      border: '1px solid #404040'
+                    }}
+                  >
+                    <img 
+                      src={book.thumbnail_url} 
+                      alt={book.title}
+                      style={{ 
+                        width: '100%', 
+                        height: '200px', 
+                        objectFit: 'cover', 
+                        borderRadius: '4px',
+                        marginBottom: '0.5rem'
+                      }}
+                    />
+                    <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.25rem' }}>
+                      {book.title}
+                    </h3>
+                    <p style={{ color: '#cccccc', fontSize: '0.875rem' }}>
+                      {book.authors.join(', ')}
+                    </p>
+                    {book.series && (
+                      <p style={{ color: '#f39c12', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                        {book.series} #{book.series_position}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {currentPage !== 'library' && (
+            <div style={{ textAlign: 'center', padding: '2rem' }}>
+              <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>
+                {currentPage.charAt(0).toUpperCase() + currentPage.slice(1)} Page
+              </h2>
+              <p style={{ color: '#cccccc' }}>
+                This page is coming soon. Backend integration pending.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
-    </ThemeProvider>
+    </div>
   );
-};
+}
 
 export default App;

@@ -162,8 +162,27 @@
   
   /* Book grid enhancements */
   .booktarr-book-grid {
-    @apply grid gap-6;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    @apply grid gap-4;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+  
+  @media (min-width: 640px) {
+    .booktarr-book-grid {
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .booktarr-book-grid {
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1.5rem;
+    }
+  }
+  
+  @media (min-width: 1280px) {
+    .booktarr-book-grid {
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
   }
   
   .booktarr-book-card {

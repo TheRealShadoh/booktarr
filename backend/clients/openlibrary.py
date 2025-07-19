@@ -8,7 +8,7 @@ class OpenLibraryClient:
     BASE_URL = "https://openlibrary.org"
     
     def __init__(self):
-        self.client = httpx.AsyncClient()
+        self.client = httpx.AsyncClient(verify=False)  # Skip SSL verification for OpenLibrary
     
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     async def search_by_isbn(self, isbn: str) -> Optional[Dict[str, Any]]:
