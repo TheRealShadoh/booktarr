@@ -252,6 +252,35 @@ const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack 
     setReadingStartTime(null);
   };
 
+  const refreshMetadata = async () => {
+    if (!bookDetails?.series) {
+      // For individual books, we could refresh book metadata
+      alert('Book metadata refresh not yet implemented for individual books');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/series/${encodeURIComponent(bookDetails.series)}/refresh`, {
+        method: 'POST'
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        alert(`Series metadata refreshed successfully! Updated ${result.updated_volumes || 0} volumes.`);
+        // Optionally refetch book details
+        await fetchBookDetails();
+      } else {
+        throw new Error(`HTTP ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error refreshing metadata:', error);
+      alert('Failed to refresh metadata. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const addQuote = () => {
     if (!newQuoteText.trim()) return;
     
@@ -412,6 +441,15 @@ const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack 
           >
             <span>💭</span>
             <span>Add Quote</span>
+          </button>
+          
+          <button
+            onClick={refreshMetadata}
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-600 transition-colors"
+            title="Refresh book metadata from external sources"
+          >
+            <span>🔄</span>
+            <span>Refresh</span>
           </button>
         </div>
       </div>

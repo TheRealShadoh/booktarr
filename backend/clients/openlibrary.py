@@ -154,6 +154,11 @@ class OpenLibraryClient:
             result["description"] = work_data.get("description")
             if isinstance(result["description"], dict):
                 result["description"] = result["description"].get("value")
+        
+        # Extract series information
+        series_name, series_position = self._extract_series_info(result["title"], work_data)
+        result["series_name"] = series_name
+        result["series_position"] = series_position
                 
         return result
     
@@ -180,6 +185,11 @@ class OpenLibraryClient:
         if doc.get("cover_i"):
             result["cover_url"] = f"https://covers.openlibrary.org/b/id/{doc['cover_i']}-M.jpg"
         
+        # Extract series information
+        series_name, series_position = self._extract_series_info(result["title"])
+        result["series_name"] = series_name
+        result["series_position"] = series_position
+        
         return result
     
     def _parse_edition(self, edition: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -187,6 +197,60 @@ class OpenLibraryClient:
             return self._parse_book_data(edition)
         except:
             return None
+    
+    def _extract_series_info(self, title: str, work_data: Optional[Dict[str, Any]] = None) -> tuple[Optional[str], Optional[int]]:
+        """
+        Extract series name and position from OpenLibrary data.
+        Uses similar patterns to Google Books client.
+        """
+        import re
+        
+        if not title:
+            return None, None
+        
+        # Reuse the same series extraction patterns from Google Books
+        # Pattern 1: "Series Name, Vol. X" or "Series Name, Volume X"
+        pattern1 = re.compile(r'^(.+?),\s*(?:Vol|Volume)\.?\s*(\d+)', re.IGNORECASE)
+        match1 = pattern1.match(title)
+        if match1:
+            return match1.group(1).strip(), int(match1.group(2))
+        
+        # Pattern 2: "Series Name #X" or "Series Name: X"
+        pattern2 = re.compile(r'^(.+?)\s*(?:#|:)\s*(?:Volume\s*)?(\d+)', re.IGNORECASE)
+        match2 = pattern2.match(title)
+        if match2:
+            series_name = match2.group(1).strip()
+            # Remove trailing colon if present
+            if series_name.endswith(':'):
+                series_name = series_name[:-1].strip()
+            return series_name, int(match2.group(2))
+        
+        # Pattern 3: "Series Name (Book X)" or "Series Name (Vol X)"
+        pattern3 = re.compile(r'^(.+?)\s*\((?:Book|Vol|Volume)\s*(\d+)\)', re.IGNORECASE)
+        match3 = pattern3.match(title)
+        if match3:
+            return match3.group(1).strip(), int(match3.group(2))
+        
+        # Pattern 4: Look for common manga/light novel patterns
+        pattern4 = re.compile(r'^(.+?)\s+(?:Vol|Volume)\.?\s*(\d+)(?:\D|$)', re.IGNORECASE)
+        match4 = pattern4.match(title)
+        if match4:
+            return match4.group(1).strip(), int(match4.group(2))
+        
+        # Pattern 5: Japanese series with brackets "[Series Name]"
+        pattern5 = re.compile(r'^.*?\[(.+?)\].*?(?:Vol|Volume|#)\.?\s*(\d+)', re.IGNORECASE)
+        match5 = pattern5.match(title)
+        if match5:
+            return match5.group(1).strip(), int(match5.group(2))
+        
+        # Check work data for series information if available
+        if work_data and work_data.get("series"):
+            # OpenLibrary sometimes has explicit series data
+            series_data = work_data["series"][0] if isinstance(work_data["series"], list) else work_data["series"]
+            if isinstance(series_data, dict) and series_data.get("name"):
+                return series_data["name"], series_data.get("position")
+        
+        return None, None
     
     async def close(self):
         await self.client.aclose()

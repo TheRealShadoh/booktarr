@@ -405,9 +405,9 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
             />
           ))}
           {/* Add Standalone books as individual cards if they exist */}
-          {seriesGroups.find(group => group.seriesName === 'Standalone')?.books.map((book) => (
+          {seriesGroups.find(group => group.seriesName === 'Standalone')?.books.map((book, index) => (
             <BookCard 
-              key={book.isbn} 
+              key={`${book.isbn}-${index}`} 
               book={book} 
               viewMode={viewMode}
               onClick={onBookClick}

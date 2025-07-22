@@ -1,8 +1,14 @@
 from fastapi import APIRouter, HTTPException
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pydantic import BaseModel
+from datetime import datetime, timedelta
+import json
+import os
 
 router = APIRouter(prefix="/settings", tags=["settings"])
+
+# Path to settings file
+SETTINGS_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "settings.json")
 
 
 class SettingsResponse(BaseModel):
@@ -12,6 +18,44 @@ class SettingsResponse(BaseModel):
     cache_ttl: int = 3600
     enable_price_lookup: bool = True
     default_language: str = "en"
+    enable_external_metadata: bool = True
+    external_metadata_timeout_until: Optional[str] = None  # ISO datetime string
+
+
+def load_settings() -> Dict[str, Any]:
+    """Load settings from file."""
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, 'r') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+
+def save_settings(settings: Dict[str, Any]) -> None:
+    """Save settings to file."""
+    os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
+    with open(SETTINGS_FILE, 'w') as f:
+        json.dump(settings, f, indent=2)
+
+
+def is_external_metadata_enabled() -> bool:
+    """Check if external metadata is currently enabled."""
+    settings = load_settings()
+    
+    # Check if manually disabled
+    if not settings.get('enable_external_metadata', True):
+        return False
+    
+    # Check if temporarily disabled due to timeout
+    timeout_until = settings.get('external_metadata_timeout_until')
+    if timeout_until:
+        timeout_dt = datetime.fromisoformat(timeout_until)
+        if datetime.now() < timeout_dt:
+            return False
+    
+    return True
 
 
 @router.get("/")
@@ -19,8 +63,8 @@ async def get_settings() -> SettingsResponse:
     """
     Get current application settings.
     """
-    # Return default settings for now
-    return SettingsResponse()
+    saved_settings = load_settings()
+    return SettingsResponse(**saved_settings)
 
 
 @router.put("/")
@@ -28,11 +72,13 @@ async def update_settings(settings: SettingsResponse) -> Dict[str, Any]:
     """
     Update application settings.
     """
-    # For now, just return success
+    settings_dict = settings.dict()
+    save_settings(settings_dict)
+    
     return {
         "success": True,
         "message": "Settings updated successfully",
-        "settings": settings.dict()
+        "settings": settings_dict
     }
 
 
@@ -165,3 +211,72 @@ async def get_cache_stats() -> Dict[str, Any]:
             "total_requests": 180
         }
     }
+
+
+@router.post("/external-metadata/disable")
+async def disable_external_metadata(duration_minutes: int = 30) -> Dict[str, Any]:
+    """
+    Temporarily disable external metadata lookups.
+    """
+    settings = load_settings()
+    
+    # Set timeout
+    timeout_until = datetime.now() + timedelta(minutes=duration_minutes)
+    settings['external_metadata_timeout_until'] = timeout_until.isoformat()
+    
+    save_settings(settings)
+    
+    return {
+        "success": True,
+        "message": f"External metadata disabled for {duration_minutes} minutes",
+        "enabled": False,
+        "timeout_until": timeout_until.isoformat()
+    }
+
+
+@router.post("/external-metadata/enable")
+async def enable_external_metadata() -> Dict[str, Any]:
+    """
+    Enable external metadata lookups.
+    """
+    settings = load_settings()
+    
+    # Clear timeout and enable
+    settings['enable_external_metadata'] = True
+    settings['external_metadata_timeout_until'] = None
+    
+    save_settings(settings)
+    
+    return {
+        "success": True,
+        "message": "External metadata enabled",
+        "enabled": True
+    }
+
+
+@router.get("/external-metadata/status")
+async def get_external_metadata_status() -> Dict[str, Any]:
+    """
+    Get current external metadata status.
+    """
+    settings = load_settings()
+    enabled = is_external_metadata_enabled()
+    
+    response = {
+        "enabled": enabled,
+        "manually_disabled": not settings.get('enable_external_metadata', True)
+    }
+    
+    timeout_until = settings.get('external_metadata_timeout_until')
+    if timeout_until:
+        timeout_dt = datetime.fromisoformat(timeout_until)
+        if datetime.now() < timeout_dt:
+            response["timeout_active"] = True
+            response["timeout_until"] = timeout_until
+            response["minutes_remaining"] = int((timeout_dt - datetime.now()).total_seconds() / 60)
+        else:
+            response["timeout_active"] = False
+    else:
+        response["timeout_active"] = False
+    
+    return response

@@ -44,6 +44,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   const [cacheLoading, setCacheLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [metadataStatus, setMetadataStatus] = useState<any>(null);
+  const [metadataLoading, setMetadataLoading] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -54,11 +56,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         cache_ttl: settings.cache_ttl,
         enable_price_lookup: settings.enable_price_lookup,
         default_language: settings.default_language,
+        enable_external_metadata: settings.enable_external_metadata,
+        external_metadata_timeout_until: settings.external_metadata_timeout_until,
       });
       
       // Load sync history and cache stats
       loadSyncHistory();
       loadCacheStats();
+      loadMetadataStatus();
     }
   }, [settings]);
 
@@ -179,6 +184,98 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
       setToast({ message: 'Failed to start sync', type: 'error' });
     } finally {
       setSyncLoading(false);
+    }
+  };
+
+  const loadMetadataStatus = async () => {
+    try {
+      const response = await fetch('/api/settings/external-metadata/status');
+      if (response.ok) {
+        const data = await response.json();
+        setMetadataStatus(data);
+      }
+    } catch (error) {
+      console.error('Failed to load metadata status:', error);
+    }
+  };
+
+  const enableExternalMetadata = async () => {
+    setMetadataLoading(true);
+    try {
+      const response = await fetch('/api/settings/external-metadata/enable', {
+        method: 'POST',
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        setToast({ 
+          message: result.message || 'External metadata services enabled',
+          type: 'success' 
+        });
+        await loadMetadataStatus();
+      } else {
+        throw new Error('Failed to enable metadata services');
+      }
+    } catch (error) {
+      setToast({ 
+        message: 'Failed to enable external metadata services',
+        type: 'error' 
+      });
+    } finally {
+      setMetadataLoading(false);
+    }
+  };
+
+  const disableExternalMetadata = async () => {
+    setMetadataLoading(true);
+    try {
+      const response = await fetch('/api/settings/external-metadata/disable', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ duration_minutes: 30 }),
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        setToast({ 
+          message: result.message || 'External metadata services disabled for 30 minutes',
+          type: 'warning' 
+        });
+        await loadMetadataStatus();
+      } else {
+        throw new Error('Failed to disable metadata services');
+      }
+    } catch (error) {
+      setToast({ 
+        message: 'Failed to disable external metadata services',
+        type: 'error' 
+      });
+    } finally {
+      setMetadataLoading(false);
+    }
+  };
+
+  const ExternalMetadataStatus = () => {
+    if (!metadataStatus) {
+      return <span className="booktarr-status-indicator booktarr-status-loading">Loading...</span>;
+    }
+
+    if (metadataStatus.enabled) {
+      return <span className="booktarr-status-indicator booktarr-status-success">✓ Enabled</span>;
+    } else if (metadataStatus.timeout_active) {
+      const minutes = metadataStatus.minutes_remaining || 0;
+      return (
+        <div className="text-right">
+          <span className="booktarr-status-indicator booktarr-status-warning">⏳ Disabled</span>
+          <div className="text-xs text-booktarr-textMuted mt-1">
+            {minutes > 0 ? `${minutes} min remaining` : 'Timeout expired'}
+          </div>
+        </div>
+      );
+    } else {
+      return <span className="booktarr-status-indicator booktarr-status-error">❌ Disabled</span>;
     }
   };
 
@@ -438,6 +535,63 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                       <p className="text-sm text-booktarr-textSecondary mt-1 ml-6">
                         Fetch pricing information from external sources
                       </p>
+                    </div>
+
+                    <div>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.enable_external_metadata || true}
+                          onChange={(e) => handleInputChange('enable_external_metadata', e.target.checked)}
+                          data-testid="enable-external-metadata-checkbox"
+                          className="booktarr-filter-checkbox"
+                        />
+                        <span className="text-sm font-medium text-booktarr-text">
+                          Enable external metadata lookup
+                        </span>
+                      </label>
+                      <p className="text-sm text-booktarr-textSecondary mt-1 ml-6">
+                        Fetch book and series metadata from Google Books and OpenLibrary
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* External Metadata Management */}
+              <div className="booktarr-card">
+                <div className="booktarr-card-header">
+                  <h2 className="text-lg font-semibold text-booktarr-text">External Metadata Services</h2>
+                </div>
+                <div className="booktarr-card-body">
+                  <div className="space-y-4">
+                    <div className="bg-booktarr-surface2 rounded-lg p-4 border border-booktarr-border">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-booktarr-text">External Metadata Status</span>
+                        <ExternalMetadataStatus />
+                      </div>
+                      <p className="text-sm text-booktarr-textSecondary mb-4">
+                        External metadata services fetch complete book and series information from Google Books and OpenLibrary. 
+                        These services are automatically disabled for 30 minutes if API limits are reached.
+                      </p>
+                      <div className="flex space-x-2">
+                        <button
+                          type="button"
+                          onClick={enableExternalMetadata}
+                          disabled={metadataLoading}
+                          className="booktarr-btn booktarr-btn-primary text-sm"
+                        >
+                          {metadataLoading ? 'Loading...' : 'Enable Now'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={disableExternalMetadata}
+                          disabled={metadataLoading}
+                          className="booktarr-btn booktarr-btn-secondary text-sm"
+                        >
+                          {metadataLoading ? 'Loading...' : 'Disable for 30m'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

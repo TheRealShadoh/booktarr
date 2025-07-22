@@ -2,16 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-try:
-    # When running as a module from parent directory
-    from backend.database import init_db
-    from backend.routes import books_router, settings_router
-    from backend.routes.reading import router as reading_router
-except ImportError:
-    # When running directly from backend directory
-    from database import init_db
-    from routes import books_router, settings_router
-    from routes.reading import router as reading_router
+# Always use relative imports when in backend directory
+from database import init_db
+from routes import books_router, settings_router
+from routes.reading import router as reading_router
+from routes.series_simple import router as series_router
 
 
 @asynccontextmanager
@@ -42,6 +37,7 @@ app.add_middleware(
 app.include_router(books_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(reading_router, prefix="/api/reading")
+app.include_router(series_router, prefix="/api/series")
 
 
 @app.get("/")
@@ -73,4 +69,4 @@ async def redirect_settings():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)

@@ -74,6 +74,8 @@ export interface Settings {
   cache_ttl: number;
   enable_price_lookup: boolean;
   default_language: string;
+  enable_external_metadata?: boolean;
+  external_metadata_timeout_until?: string;
 }
 
 export interface SettingsResponse {
@@ -100,6 +102,8 @@ export interface SettingsUpdateRequest {
   cache_ttl?: number;
   enable_price_lookup?: boolean;
   default_language?: string;
+  enable_external_metadata?: boolean;
+  external_metadata_timeout_until?: string;
 }
 
 export interface SettingsInfo {
@@ -391,4 +395,70 @@ export interface BookMatch {
   matched_book?: Book;
   action: 'import' | 'skip' | 'create_new';
   user_notes?: string;
+}
+
+// Series API types
+export interface SeriesInfo {
+  id: number;
+  name: string;
+  description?: string;
+  total_books?: number;
+  author?: string;
+  publisher?: string;
+  first_published?: string;
+  last_published?: string;
+  status?: string;
+  genres: string[];
+  tags: string[];
+  cover_url?: string;
+  created_date: string;
+  last_updated: string;
+}
+
+export interface SeriesVolume {
+  position: number;
+  title: string;
+  subtitle?: string;
+  isbn_13?: string;
+  isbn_10?: string;
+  publisher?: string;
+  published_date?: string;
+  page_count?: number;
+  description?: string;
+  cover_url?: string;
+  status: 'owned' | 'wanted' | 'missing';
+  notes?: string;
+  date_acquired?: string;
+  owned_book?: {
+    id: number;
+    title: string;
+    authors: string[];
+    isbn?: string;
+  };
+}
+
+export interface SeriesDetailsResponse {
+  series: SeriesInfo;
+  volumes: SeriesVolume[];
+  stats: {
+    total_volumes: number;
+    owned_volumes: number;
+    wanted_volumes: number;
+    missing_volumes: number;
+    completion_percentage: number;
+  };
+}
+
+export interface UpdateVolumeStatusRequest {
+  status: 'owned' | 'wanted' | 'missing';
+}
+
+export interface UpdateVolumeStatusResponse {
+  success: boolean;
+  message: string;
+  volume: {
+    position: number;
+    title: string;
+    status: string;
+  };
 }

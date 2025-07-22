@@ -179,6 +179,57 @@ class BookSearchService:
                 )
                 session.add(edition)
                 session.commit()
+            
+            # Create/update series information if this book is part of a series
+            if book_data.get("series_name"):
+                await self._ensure_series_exists(book_data["series_name"], book_data.get("authors", []), session)
+    
+    async def _ensure_series_exists(self, series_name: str, authors: List[str], session: Session):
+        """Ensure series exists in database and trigger metadata fetch if needed"""
+        try:
+            # Import series models
+            try:
+                from backend.models import Series, SeriesVolume
+            except ImportError:
+                from models import Series, SeriesVolume
+            
+            # Check if series already exists
+            statement = select(Series).where(Series.name == series_name)
+            existing_series = session.exec(statement).first()
+            
+            if not existing_series:
+                # Create basic series record
+                author = authors[0] if authors else None
+                series = Series(
+                    name=series_name,
+                    author=author,
+                    status="unknown",
+                    total_books=1,  # Will be updated by metadata service
+                    created_date=datetime.now().date(),
+                    last_updated=datetime.now().date()
+                )
+                session.add(series)
+                session.commit()
+                
+                # Trigger background metadata fetch (async)
+                try:
+                    from backend.services.series_metadata import SeriesMetadataService
+                except ImportError:
+                    from services.series_metadata import SeriesMetadataService
+                    
+                # Note: In a production system, this would be a background task
+                # For now, we'll do it synchronously but with error handling
+                try:
+                    metadata_service = SeriesMetadataService()
+                    await metadata_service.fetch_and_update_series(series_name, author)
+                    await metadata_service.close()
+                except Exception as e:
+                    print(f"Warning: Failed to fetch series metadata for '{series_name}': {e}")
+                    # Continue without failing the book import
+                    
+        except Exception as e:
+            print(f"Error ensuring series exists: {e}")
+            # Don't fail the book import if series creation fails
     
     def _format_book_response(self, book_data: Dict[str, Any], user_id: int) -> Dict[str, Any]:
         # Get user status for editions
