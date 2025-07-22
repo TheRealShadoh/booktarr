@@ -14,6 +14,7 @@ interface SeriesGroupProps {
   viewMode?: 'grid' | 'list';
   gridSize?: 'compact' | 'large';
   onBookClick?: (book: Book) => void;
+  isAuthorGroup?: boolean;
 }
 
 const SeriesGroup: React.FC<SeriesGroupProps> = ({ 
@@ -23,7 +24,8 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
   onToggle,
   viewMode = 'grid',
   gridSize = 'compact',
-  onBookClick
+  onBookClick,
+  isAuthorGroup = false
 }) => {
   const [isExpanded, setIsExpanded] = useState(expanded);
   
@@ -53,111 +55,61 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
   } | null>(null);
   const [loadingSeriesInfo, setLoadingSeriesInfo] = useState(false);
 
-  // Fetch complete series information from database/API
+  // Skip API calls for now - just use owned books
   useEffect(() => {
-    const fetchSeriesInfo = async () => {
-      if (!books.length || loadingSeriesInfo) return;
-      
-      setLoadingSeriesInfo(true);
-      try {
-        const firstAuthor = books[0]?.authors[0];
-        const response = await fetch(
-          `http://localhost:8000/api/series-metadata/series/${encodeURIComponent(seriesName)}${firstAuthor ? `?author=${encodeURIComponent(firstAuthor)}` : ''}`
-        );
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log(`[DEBUG] SeriesGroup ${seriesName}: Fetched complete series info:`, data);
-          setSeriesInfo({
-            totalBooks: data.total_books,
-            knownBooks: data.books.map((book: any) => ({
-              position: book.position,
-              title: book.title,
-              author: book.authors?.[0] || firstAuthor || 'Unknown Author'
-            }))
-          });
-        } else {
-          console.log(`[DEBUG] SeriesGroup ${seriesName}: No complete series info found - showing only gaps`);
-          setSeriesInfo(null);
-        }
-      } catch (error) {
-        console.error(`[DEBUG] SeriesGroup ${seriesName}: Error fetching complete series info:`, error);
-        setSeriesInfo(null);
-      } finally {
-        setLoadingSeriesInfo(false);
-      }
-    };
+    setLoadingSeriesInfo(false);
+    setSeriesInfo(null); // No API data for now
+  }, [seriesName, books]);
 
-    fetchSeriesInfo();
-  }, [seriesName, books, loadingSeriesInfo]);
-
-  // Create a combined array of books and missing placeholders using complete series info
+  // Create a combined array of books and missing placeholders (fully dynamic)
   const getBooksWithMissing = (): BookItem[] => {
-    console.log(`[DEBUG] SeriesGroup ${seriesName}: Starting missing book detection`);
-    console.log(`[DEBUG] Books received:`, books);
-    console.log(`[DEBUG] Series info:`, seriesInfo);
+    console.log(`SeriesGroup ${seriesName}: Processing books for missing detection:`, books);
     
-    const booksWithPositions = books.filter(book => book.series_position !== null && book.series_position !== undefined);
-    console.log(`[DEBUG] Books with positions:`, booksWithPositions);
+    const booksWithPositions = books.filter(book => book.series_position);
+    console.log(`SeriesGroup ${seriesName}: Books with positions:`, booksWithPositions.map(b => ({ title: b.title, position: b.series_position })));
     
     if (booksWithPositions.length === 0) {
-      console.log(`[DEBUG] ${seriesName}: No books with positions, returning all books`);
+      console.log(`SeriesGroup ${seriesName}: No books with positions, returning all books`);
       return sortedBooks.map(book => ({ type: 'book' as const, book }));
     }
 
-    const ownedPositions = new Set(booksWithPositions.map(book => book.series_position!));
-    console.log(`[DEBUG] ${seriesName}: Owned positions:`, Array.from(ownedPositions));
+    const positions = booksWithPositions.map(book => book.series_position!).sort((a, b) => a - b);
+    const minPos = Math.min(...positions);
+    const maxPos = Math.max(...positions);
+    
+    // Use series info if available, otherwise just show gaps within owned books
+    let expectedMaxPos = maxPos;
+    if (seriesInfo && seriesInfo.totalBooks > maxPos) {
+      expectedMaxPos = seriesInfo.totalBooks;
+      console.log(`SeriesGroup ${seriesName}: Using series data - series has ${seriesInfo.totalBooks} total books`);
+    }
+    
+    console.log(`SeriesGroup ${seriesName}: Position range: ${minPos} to ${expectedMaxPos} (owned: ${minPos}-${maxPos})`);
     
     const result: BookItem[] = [];
     
-    if (seriesInfo && seriesInfo.knownBooks.length > 0) {
-      // Use complete series information
-      console.log(`[DEBUG] ${seriesName}: Using complete series info - ${seriesInfo.totalBooks} total books`);
-      
-      // Sort known books by position
-      const sortedKnownBooks = [...seriesInfo.knownBooks].sort((a, b) => a.position - b.position);
-      
-      for (const knownBook of sortedKnownBooks) {
-        const ownedBook = booksWithPositions.find(book => book.series_position === knownBook.position);
-        
-        if (ownedBook) {
-          console.log(`[DEBUG] ${seriesName}: Found owned book at position ${knownBook.position}: ${ownedBook.title}`);
-          result.push({ type: 'book', book: ownedBook });
-        } else {
-          console.log(`[DEBUG] ${seriesName}: MISSING BOOK at position ${knownBook.position}: ${knownBook.title}`);
-          result.push({ type: 'missing', position: knownBook.position, title: knownBook.title });
-        }
-      }
-    } else {
-      // Fallback to gap detection
-      console.log(`[DEBUG] ${seriesName}: No complete series info, using gap detection`);
-      
-      const positions = Array.from(ownedPositions).sort((a, b) => a - b);
-      const minPos = Math.min(...positions);
-      const maxPos = Math.max(...positions);
-      
-      for (let pos = minPos; pos <= maxPos; pos++) {
-        const bookAtPosition = booksWithPositions.find(book => book.series_position === pos);
-        if (bookAtPosition) {
-          console.log(`[DEBUG] ${seriesName}: Found book at position ${pos}: ${bookAtPosition.title}`);
-          result.push({ type: 'book', book: bookAtPosition });
-        } else {
-          console.log(`[DEBUG] ${seriesName}: MISSING BOOK at position ${pos}`);
-          result.push({ type: 'missing', position: pos });
-        }
+    for (let pos = minPos; pos <= expectedMaxPos; pos++) {
+      const bookAtPosition = booksWithPositions.find(book => book.series_position === pos);
+      if (bookAtPosition) {
+        console.log(`SeriesGroup ${seriesName}: Found book at position ${pos}: ${bookAtPosition.title}`);
+        result.push({ type: 'book', book: bookAtPosition });
+      } else {
+        // Find the book title from series info if available
+        const knownBook = seriesInfo?.knownBooks.find(book => book.position === pos);
+        const bookTitle = knownBook?.title;
+        console.log(`SeriesGroup ${seriesName}: Missing book at position ${pos}${bookTitle ? `: ${bookTitle}` : ''}`);
+        result.push({ type: 'missing', position: pos, title: bookTitle });
       }
     }
     
     // Add books without positions at the end
     const booksWithoutPositions = books.filter(book => !book.series_position);
     booksWithoutPositions.forEach(book => {
-      console.log(`[DEBUG] ${seriesName}: Adding book without position: ${book.title}`);
+      console.log(`SeriesGroup ${seriesName}: Adding book without position: ${book.title}`);
       result.push({ type: 'book', book });
     });
     
-    const missingCount = result.filter(r => r.type === 'missing').length;
-    console.log(`[DEBUG] ${seriesName}: Final result - Total items: ${result.length}, Missing: ${missingCount}`);
-    console.log(`[DEBUG] ${seriesName}: Full result array:`, result);
+    console.log(`SeriesGroup ${seriesName}: Final result with ${result.filter(r => r.type === 'missing').length} missing books:`, result);
     return result;
   };
 
@@ -256,9 +208,8 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
         <div className="animate-slide-up">
           {viewMode === 'grid' ? (
             <div className={gridSize === 'compact' ? 'booktarr-book-grid' : 'booktarr-book-grid-large'}>
-              {booksWithMissing.map((item, index) => {
-                console.log(`[DEBUG] Rendering item ${index}:`, item);
-                return item.type === 'book' ? (
+              {booksWithMissing.map((item, index) => 
+                item.type === 'book' ? (
                   <BookCard 
                     key={item.book.isbn} 
                     book={item.book} 
@@ -274,14 +225,13 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
                     viewMode={viewMode}
                     onClick={() => console.log(`Search for ${item.title || `${seriesName} #${item.position}`}`)}
                   />
-                );
-              })}
+                )
+              )}
             </div>
           ) : (
             <div className="space-y-2">
-              {booksWithMissing.map((item, index) => {
-                console.log(`[DEBUG] Rendering item ${index}:`, item);
-                return item.type === 'book' ? (
+              {booksWithMissing.map((item, index) => 
+                item.type === 'book' ? (
                   <BookCard 
                     key={item.book.isbn} 
                     book={item.book} 
@@ -297,8 +247,8 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
                     viewMode={viewMode}
                     onClick={() => console.log(`Search for ${item.title || `${seriesName} #${item.position}`}`)}
                   />
-                );
-              })}
+                )
+              )}
             </div>
           )}
           

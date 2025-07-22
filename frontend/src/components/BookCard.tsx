@@ -69,9 +69,9 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid', c
     return (
       <div className="booktarr-book-card flex p-4 space-x-4 hover:bg-booktarr-hover transition-colors cursor-pointer" onClick={handleClick}>
         <div className="flex-shrink-0 w-16 h-24 relative">
-          {book.thumbnail_url && !imageError ? (
+          {(book.cover_url || book.thumbnail_url) && !imageError ? (
             <img 
-              src={book.thumbnail_url} 
+              src={book.cover_url || book.thumbnail_url} 
               alt={book.title}
               className="w-full h-full object-cover rounded"
               onLoad={handleImageLoad}
@@ -160,10 +160,10 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid', c
       onClick={handleClick}
     >
       <div className="relative overflow-hidden rounded-t-lg">
-        {book.thumbnail_url && !imageError ? (
+        {(book.cover_url || book.thumbnail_url) && !imageError ? (
           <div className="relative">
             <img 
-              src={book.thumbnail_url} 
+              src={book.cover_url || book.thumbnail_url} 
               alt={book.title}
               className={`booktarr-book-cover transition-all duration-300 group-hover:scale-105 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
               onLoad={handleImageLoad}

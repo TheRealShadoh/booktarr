@@ -4,8 +4,14 @@ from collections import defaultdict
 from sqlmodel import Session, select
 import json
 
-from ..models import Book, Edition, UserEditionStatus
-from ..database import get_session
+try:
+    from backend.models import Book, Edition, UserEditionStatus
+except ImportError:
+    from models import Book, Edition, UserEditionStatus
+try:
+    from backend.database import get_session
+except ImportError:
+    from database import get_session
 
 
 class ReleaseCalendarService:

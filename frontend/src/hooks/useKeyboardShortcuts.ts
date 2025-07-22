@@ -43,31 +43,24 @@ export const useKeyboardShortcuts = () => {
       preventDefault: true
     },
     {
+      key: 'w',
+      ctrl: true,
+      action: () => setCurrentPage('wanted'),
+      description: 'Go to Wanted Books',
+      preventDefault: true
+    },
+    {
       key: 'r',
       ctrl: true,
-      action: () => setCurrentPage('series'),
-      description: 'Go to Series',
+      action: () => setCurrentPage('analytics'),
+      description: 'Go to Analytics & Stats',
       preventDefault: true
     },
     {
-      key: 'u',
+      key: 'c',
       ctrl: true,
-      action: () => setCurrentPage('authors'),
-      description: 'Go to Authors',
-      preventDefault: true
-    },
-    {
-      key: 't',
-      ctrl: true,
-      action: () => setCurrentPage('stats'),
-      description: 'Go to Statistics',
-      preventDefault: true
-    },
-    {
-      key: 'b',
-      ctrl: true,
-      action: () => setCurrentPage('backup'),
-      description: 'Go to Backup & Restore',
+      action: () => setCurrentPage('collections'),
+      description: 'Go to Collections',
       preventDefault: true
     },
     

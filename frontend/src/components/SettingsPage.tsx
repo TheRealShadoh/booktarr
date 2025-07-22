@@ -6,7 +6,13 @@ import { SettingsPageProps, Settings, SettingsUpdateRequest } from '../types';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import Toast from './Toast';
+import ImportPage from './ImportPage';
+import AmazonSyncPage from './AmazonSyncPage';
+import SharePage from './SharePage';
+import BackupRestore from './BackupRestore';
 import { useStateManager } from '../hooks/useStateManager';
+
+type SettingsTab = 'general' | 'import' | 'sync' | 'share' | 'backup';
 
 const SettingsPage: React.FC<SettingsPageProps> = ({
   settings: propsSettings,
@@ -37,6 +43,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   const [cacheStats, setCacheStats] = useState<any>(null);
   const [cacheLoading, setCacheLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
 
   useEffect(() => {
     if (settings) {
@@ -193,7 +200,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
   return (
     <div className="booktarr-main-content">
-      <div className="max-w-4xl mx-auto p-6 space-y-6">
+      <div className="max-w-6xl mx-auto p-6 space-y-6">
         {toast && (
           <Toast
             message={toast.message}
@@ -207,9 +214,66 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             <h1 className="text-2xl font-bold text-booktarr-text mb-2">Settings</h1>
             <p className="text-booktarr-textSecondary">Configure Booktarr settings and preferences</p>
           </div>
+          
+          {/* Tab Navigation */}
+          <div className="border-b border-booktarr-border">
+            <nav className="flex space-x-8 px-6" aria-label="Settings tabs">
+              <button
+                onClick={() => setActiveTab('general')}
+                className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'general'
+                    ? 'border-booktarr-accent text-booktarr-accent'
+                    : 'border-transparent text-booktarr-textSecondary hover:text-booktarr-text hover:border-booktarr-border'
+                }`}
+              >
+                General
+              </button>
+              <button
+                onClick={() => setActiveTab('import')}
+                className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'import'
+                    ? 'border-booktarr-accent text-booktarr-accent'
+                    : 'border-transparent text-booktarr-textSecondary hover:text-booktarr-text hover:border-booktarr-border'
+                }`}
+              >
+                Import
+              </button>
+              <button
+                onClick={() => setActiveTab('sync')}
+                className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'sync'
+                    ? 'border-booktarr-accent text-booktarr-accent'
+                    : 'border-transparent text-booktarr-textSecondary hover:text-booktarr-text hover:border-booktarr-border'
+                }`}
+              >
+                Amazon Sync
+              </button>
+              <button
+                onClick={() => setActiveTab('share')}
+                className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'share'
+                    ? 'border-booktarr-accent text-booktarr-accent'
+                    : 'border-transparent text-booktarr-textSecondary hover:text-booktarr-text hover:border-booktarr-border'
+                }`}
+              >
+                Share & Export
+              </button>
+              <button
+                onClick={() => setActiveTab('backup')}
+                className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'backup'
+                    ? 'border-booktarr-accent text-booktarr-accent'
+                    : 'border-transparent text-booktarr-textSecondary hover:text-booktarr-text hover:border-booktarr-border'
+                }`}
+              >
+                Backup & Restore
+              </button>
+            </nav>
+          </div>
+          
           <div className="booktarr-card-body">
-        
-            <form onSubmit={handleSubmit} className="space-y-6">
+            {activeTab === 'general' && (
+              <form onSubmit={handleSubmit} className="space-y-6">
               {/* Skoolib Configuration */}
               <div className="booktarr-card">
                 <div className="booktarr-card-header">
@@ -606,6 +670,27 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                 </button>
               </div>
             </form>
+            )}
+            
+            {activeTab === 'import' && (
+              <ImportPage />
+            )}
+            
+            {activeTab === 'sync' && (
+              <AmazonSyncPage />
+            )}
+            
+            {activeTab === 'share' && (
+              <SharePage
+                books={state.filteredBooks}
+                loading={state.loading}
+                error={state.error}
+              />
+            )}
+            
+            {activeTab === 'backup' && (
+              <BackupRestore />
+            )}
           </div>
         </div>
       </div>

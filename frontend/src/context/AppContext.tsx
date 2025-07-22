@@ -7,7 +7,7 @@ import { BooksBySeriesMap, Settings, Book } from '../types';
 import { booktarrAPI } from '../services/api';
 
 // Types
-export type CurrentPage = 'library' | 'settings' | 'series' | 'authors' | 'wanted' | 'activity' | 'logs' | 'enhancement' | 'add' | 'stats' | 'backup' | 'import' | 'collections' | 'advanced-search' | 'bulk-edit' | 'analytics' | 'book-details' | 'recommendations' | 'challenges' | 'share' | 'amazon-sync';
+export type CurrentPage = 'library' | 'settings' | 'wanted' | 'activity' | 'logs' | 'add' | 'collections' | 'advanced-search' | 'analytics' | 'book-details' | 'recommendations' | 'challenges';
 
 export interface AppState {
   // Core data
@@ -78,7 +78,7 @@ const initialState: AppState = {
     default_language: 'en',
   },
   currentPage: 'library',
-  loading: false,
+  loading: true,
   settingsLoading: false,
   error: null,
   toast: null,
@@ -416,14 +416,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   };
 
   // Initialize data on mount
-  // Commented out to avoid API calls when backend is not running
-  // useEffect(() => {
-  //   const initializeApp = async () => {
-  //     await Promise.all([loadBooks(), loadSettings()]);
-  //   };
-  //   
-  //   initializeApp();
-  // }, []);
+  useEffect(() => {
+    const initializeApp = async () => {
+      await Promise.all([loadBooks(), loadSettings()]);
+    };
+    
+    initializeApp();
+  }, []);
 
   // Context value
   const contextValue: AppContextType = {

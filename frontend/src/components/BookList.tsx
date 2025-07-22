@@ -3,13 +3,16 @@
  */
 import React, { useState, useMemo } from 'react';
 import SeriesGroup from './SeriesGroup';
+import SeriesCard from './SeriesCard';
+import SeriesDetailsPage from './SeriesDetailsPage';
 import BookCard from './BookCard';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
+import BulkEditPage from './BulkEditPage';
 import { BooksBySeriesMap, Book } from '../types';
 
 type ViewMode = 'grid' | 'list';
-type DisplayMode = 'series' | 'individual';
+type DisplayMode = 'series' | 'individual' | 'authors';
 type GridSize = 'compact' | 'large';
 
 interface BookListProps {
@@ -22,9 +25,12 @@ interface BookListProps {
 
 const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, onBookClick }) => {
   const [expandedSeries, setExpandedSeries] = useState<Set<string>>(new Set());
+  const [expandedAuthors, setExpandedAuthors] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [displayMode, setDisplayMode] = useState<DisplayMode>('individual'); // Default to Sonarr-style
+  const [selectedSeries, setSelectedSeries] = useState<string | null>(null);
   const [gridSize, setGridSize] = useState<GridSize>('compact'); // Default to compact (50% smaller)
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
 
   // Convert books object to sorted array for display
   const seriesGroups = useMemo(() => {
@@ -63,6 +69,36 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
     return flatBooks.sort((a, b) => a.title.localeCompare(b.title));
   }, [books]);
 
+  // Group books by author
+  const authorGroups = useMemo(() => {
+    if (!books) return [];
+    
+    const authorMap = new Map<string, Book[]>();
+    
+    Object.values(books).flat().forEach(book => {
+      book.authors.forEach(author => {
+        if (!authorMap.has(author)) {
+          authorMap.set(author, []);
+        }
+        authorMap.get(author)!.push(book);
+      });
+    });
+    
+    return Array.from(authorMap.entries())
+      .map(([author, bookList]) => ({
+        author,
+        books: bookList.sort((a, b) => {
+          // Sort by series first, then by position/title
+          if (a.series && b.series && a.series === b.series) {
+            return (a.series_position || 0) - (b.series_position || 0);
+          }
+          return a.title.localeCompare(b.title);
+        }),
+        bookCount: bookList.length
+      }))
+      .sort((a, b) => a.author.localeCompare(b.author));
+  }, [books]);
+
   const handleToggleSeries = (seriesName: string) => {
     setExpandedSeries(prev => {
       const newSet = new Set(prev);
@@ -75,12 +111,32 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
     });
   };
 
+  const handleToggleAuthor = (author: string) => {
+    setExpandedAuthors(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(author)) {
+        newSet.delete(author);
+      } else {
+        newSet.add(author);
+      }
+      return newSet;
+    });
+  };
+
   const handleExpandAll = () => {
-    setExpandedSeries(new Set(seriesGroups.map(group => group.seriesName)));
+    if (displayMode === 'series') {
+      setExpandedSeries(new Set(seriesGroups.map(group => group.seriesName)));
+    } else if (displayMode === 'authors') {
+      setExpandedAuthors(new Set(authorGroups.map(group => group.author)));
+    }
   };
 
   const handleCollapseAll = () => {
-    setExpandedSeries(new Set());
+    if (displayMode === 'series') {
+      setExpandedSeries(new Set());
+    } else if (displayMode === 'authors') {
+      setExpandedAuthors(new Set());
+    }
   };
 
   if (loading) {
@@ -156,6 +212,16 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
                 >
                   Series
                 </button>
+                <button
+                  onClick={() => setDisplayMode('authors')}
+                  className={`px-3 py-1 text-sm rounded transition-colors ${
+                    displayMode === 'authors' 
+                      ? 'bg-booktarr-accent text-white' 
+                      : 'text-booktarr-textSecondary hover:text-booktarr-text'
+                  }`}
+                >
+                  Authors
+                </button>
               </div>
 
               {/* View Mode Toggle */}
@@ -220,8 +286,8 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
                 </div>
               )}
 
-              {/* Series Controls (only show in series mode) */}
-              {displayMode === 'series' && (
+              {/* Expand/Collapse Controls (show in series and authors mode) */}
+              {(displayMode === 'series' || displayMode === 'authors') && !showBulkEdit && (
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={handleExpandAll}
@@ -237,6 +303,32 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
                     Collapse All
                   </button>
                 </div>
+              )}
+              
+              {/* Bulk Edit Button */}
+              {!showBulkEdit && (
+                <button
+                  onClick={() => setShowBulkEdit(true)}
+                  className="booktarr-btn booktarr-btn-secondary flex items-center space-x-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <span>Bulk Edit</span>
+                </button>
+              )}
+              
+              {/* Exit Bulk Edit Button */}
+              {showBulkEdit && (
+                <button
+                  onClick={() => setShowBulkEdit(false)}
+                  className="booktarr-btn booktarr-btn-primary flex items-center space-x-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span>Exit Bulk Edit</span>
+                </button>
               )}
             </div>
           </div>
@@ -264,7 +356,23 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
       </div>
 
       {/* Content based on display mode */}
-      {displayMode === 'individual' ? (
+      {showBulkEdit ? (
+        <BulkEditPage
+          books={books}
+          loading={loading}
+          error={error}
+          onRefresh={onRefresh}
+        />
+      ) : selectedSeries ? (
+        <SeriesDetailsPage
+          seriesName={selectedSeries}
+          ownedBooks={books[selectedSeries] || []}
+          onBack={() => setSelectedSeries(null)}
+          onBookClick={onBookClick}
+        />
+      ) : (
+        <>
+      {displayMode === 'individual' && (
         /* Individual book cards - Sonarr style */
         <div className={viewMode === 'grid' ? 
           (gridSize === 'compact' ? 'booktarr-book-grid' : 'booktarr-book-grid-large') : 
@@ -279,22 +387,54 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
             />
           ))}
         </div>
-      ) : (
-        /* Series groups */
-        <div className="space-y-6">
-          {seriesGroups.map((group) => (
-            <SeriesGroup
+      )}
+      
+      {displayMode === 'series' && (
+        /* Series cards - grid view with random art like individual books */
+        <div className={viewMode === 'grid' ? 
+          (gridSize === 'compact' ? 'booktarr-book-grid' : 'booktarr-book-grid-large') : 
+          'space-y-4'
+        }>
+          {seriesGroups.filter(group => group.seriesName !== 'Standalone').map((group) => (
+            <SeriesCard
               key={group.seriesName}
               seriesName={group.seriesName}
               books={group.books}
-              expanded={expandedSeries.has(group.seriesName)}
-              onToggle={handleToggleSeries}
-              onBookClick={onBookClick}
+              onClick={setSelectedSeries}
               viewMode={viewMode}
-              gridSize={gridSize}
+            />
+          ))}
+          {/* Add Standalone books as individual cards if they exist */}
+          {seriesGroups.find(group => group.seriesName === 'Standalone')?.books.map((book) => (
+            <BookCard 
+              key={book.isbn} 
+              book={book} 
+              viewMode={viewMode}
+              onClick={onBookClick}
             />
           ))}
         </div>
+      )}
+      
+      {displayMode === 'authors' && (
+        /* Author groups */
+        <div className="space-y-6">
+          {authorGroups.map((group) => (
+            <SeriesGroup
+              key={group.author}
+              seriesName={group.author}
+              books={group.books}
+              expanded={expandedAuthors.has(group.author)}
+              onToggle={handleToggleAuthor}
+              onBookClick={onBookClick}
+              viewMode={viewMode}
+              gridSize={gridSize}
+              isAuthorGroup={true}
+            />
+          ))}
+        </div>
+      )}
+        </>
       )}
     </div>
   );

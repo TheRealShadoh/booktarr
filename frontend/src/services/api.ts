@@ -13,9 +13,6 @@ import {
   SettingsInfo,
   SettingsHealth,
   APIError,
-  EnhancementRequest,
-  EnhancementResult,
-  BatchEnhancementResponse,
   CacheStatsResponse,
   MetadataSourcesResponse,
   UpdateReadingProgressRequest,
@@ -110,7 +107,7 @@ class BooktarrAPI {
 
   // Books API
   async getBooks(): Promise<BooksResponse> {
-    const response = await this.api.get<BooksResponse>('/books');
+    const response = await this.api.get<BooksResponse>('/books/');
     return response.data;
   }
 
@@ -119,26 +116,6 @@ class BooktarrAPI {
     return response.data;
   }
 
-  // Metadata Enhancement API
-  async enhanceAllBooksMetadata(request: EnhancementRequest = {}): Promise<BatchEnhancementResponse> {
-    const response = await this.api.post<BatchEnhancementResponse>('/books/enhance-metadata', request);
-    return response.data;
-  }
-
-  async enhanceBookMetadata(isbn: string, request: EnhancementRequest = {}): Promise<EnhancementResult> {
-    const response = await this.api.post<EnhancementResult>(`/books/${isbn}/enhance-metadata`, request);
-    return response.data;
-  }
-
-  async getEnhancementCacheStats(): Promise<CacheStatsResponse> {
-    const response = await this.api.get<CacheStatsResponse>('/books/enhancement/cache-stats');
-    return response.data;
-  }
-
-  async clearEnhancementCache(): Promise<{ message: string }> {
-    const response = await this.api.delete('/books/enhancement/cache');
-    return response.data;
-  }
 
   async getBookMetadataSources(isbn: string): Promise<MetadataSourcesResponse> {
     const response = await this.api.get<MetadataSourcesResponse>(`/books/${isbn}/metadata-sources`);
@@ -150,14 +127,39 @@ class BooktarrAPI {
     return response.data;
   }
 
+  // CSV Import API
+  async importCSV(file: File, formatType: string = 'handylib', userId: number = 1): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await this.api.post(`/books/import/csv?format_type=${formatType}&user_id=${userId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  }
+
+  async previewCSV(file: File, formatType: string = 'handylib', limit: number = 5): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await this.api.post(`/books/import/csv/preview?format_type=${formatType}&limit=${limit}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  }
+
   // Settings API
   async getSettings(): Promise<Settings> {
-    const response = await this.api.get<Settings>('/settings');
+    const response = await this.api.get<Settings>('/settings/');
     return response.data;
   }
 
   async updateSettings(settings: SettingsUpdateRequest): Promise<SettingsResponse> {
-    const response = await this.api.put<SettingsResponse>('/settings', settings);
+    const response = await this.api.put<SettingsResponse>('/settings/', settings);
     return response.data;
   }
 
@@ -251,5 +253,11 @@ export const updateSettings = (settings: SettingsUpdateRequest) =>
   booktarrAPI.updateSettings(settings);
 export const validateSkoolibUrl = (url: string) => 
   booktarrAPI.validateUrl({ url });
+
+// CSV Import functions
+export const importCSV = (file: File, formatType: string = 'handylib') =>
+  booktarrAPI.importCSV(file, formatType);
+export const previewCSV = (file: File, formatType: string = 'handylib', limit: number = 5) =>
+  booktarrAPI.previewCSV(file, formatType, limit);
 
 export default booktarrAPI;

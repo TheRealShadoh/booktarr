@@ -218,3 +218,48 @@ Implement an async FastAPI endpoint or function:
 ---
 
 Let me know if you'd like this prompt scaffolded into a working repository with endpoints and tests, or if you'd like a diagram or visual flowchart of the backend architecture.
+
+---
+
+## 🚧 Missing Backend Functionality
+
+The frontend expects the following API endpoints that need to be implemented in the new backend:
+
+### Books API Endpoints
+- **GET /api/books** - Fetch all books in the collection
+- **GET /api/books/test** - Fetch test books data
+- **GET /api/books/{isbn}/metadata-sources** - Get metadata sources for a book
+- **GET /api/books/enrich/{isbn}** - Legacy endpoint for metadata enrichment
+
+### Settings API Endpoints
+- **GET /api/settings** - Get current settings
+- **PUT /api/settings** - Update settings
+- **POST /api/settings/validate-url** - Validate URLs (e.g., Skoolib)
+- **POST /api/settings/reset** - Reset to default settings
+- **POST /api/settings/backup** - Backup current settings
+- **POST /api/settings/restore** - Restore settings from backup
+- **GET /api/settings/info** - Get settings information
+- **GET /api/settings/health** - Check settings health
+
+### Reading Progress API Endpoints
+- **PUT /api/reading/progress** - Update reading progress
+- **GET /api/reading/stats** - Get reading statistics
+- **GET /api/reading/books/status/{status}** - Get books by reading status
+- **POST /api/reading/books/{isbn}/start-reading** - Mark book as currently reading
+- **POST /api/reading/books/{isbn}/finish-reading** - Mark book as finished (with optional rating)
+- **POST /api/reading/books/{isbn}/add-to-wishlist** - Add book to wishlist
+
+### General Endpoints
+- **GET /api/health** - Health check endpoint (already implemented)
+
+### Backend Issues
+- Import path issues in the backend preventing it from starting properly
+- The backend uses relative imports that are causing `ImportError: attempted relative import beyond top-level package`
+- Need to fix import paths in:
+  - `/backend/services/book_search.py`
+  - Other service and route files
+
+### Frontend Configuration
+- Frontend is configured to proxy API requests from `/api` to `http://localhost:8000`
+- Frontend expects all API endpoints to be prefixed with `/api`
+- CORS is enabled in the backend for all origins (should be restricted in production)

@@ -1,30 +1,21 @@
 /**
  * Enhanced BookDetailsPage - Comprehensive book management with all the bells and whistles
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Book } from '../types';
 import LoadingSpinner from './LoadingSpinner';
 
 interface BookEdition {
-  isbn: string;
-  isbn10?: string;
-  isbn13?: string;
+  id: number;
+  isbn_13?: string;
+  isbn_10?: string;
+  format?: string;
   publisher?: string;
-  published_date?: string;
-  page_count?: number;
-  language: string;
-  edition_type: 'hardcover' | 'paperback' | 'ebook' | 'audiobook' | 'mass_market' | 'trade_paperback' | 'board_book' | 'unknown';
-  thumbnail_url?: string;
-  description?: string;
-  pricing: Array<{
-    source: string;
-    price: number;
-    currency: string;
-    url?: string;
-    last_updated: string;
-  }>;
-  added_date: string;
-  last_updated: string;
+  release_date?: string;
+  cover_url?: string;
+  price?: number;
+  status?: 'own' | 'want' | 'missing';
+  notes?: string;
 }
 
 interface ReadingSession {
@@ -51,33 +42,42 @@ interface BookDetails {
   authors: string[];
   series?: string;
   series_position?: number;
+  isbn: string;
+  publisher?: string;
+  published_date?: string;
+  page_count?: number;
+  language: string;
+  thumbnail_url?: string;
+  description?: string;
   categories: string[];
   editions: BookEdition[];
+  
+  // Reading progress and ownership
   ownership?: {
-    owned_editions: string[];
+    status: 'own' | 'want' | 'missing';
     selected_edition?: string;
-    reading_status: string;
+    purchase_date?: string;
+    purchase_price?: number;
+    location?: string;
+    condition?: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
     reading_progress_pages?: number;
     reading_progress_percentage?: number;
+    personal_rating?: number;
+    personal_review?: string;
     date_started?: string;
     date_finished?: string;
-    personal_rating?: number;
-    personal_notes?: string;
-    times_read: number;
-    reading_goal_id?: string;
-    estimated_reading_time?: number;
-    actual_reading_time?: number;
+    times_read?: number;
   };
+  
+  // Enhanced features
   reading_sessions?: ReadingSession[];
   quotes?: BookQuote[];
-  custom_tags?: string[];
-  similar_books?: Array<{
-    isbn: string;
-    title: string;
-    authors: string[];
-    thumbnail_url?: string;
-    similarity_score: number;
-  }>;
+  tags?: string[];
+  collections?: string[];
+  
+  // Metadata
+  added_date: string;
+  last_updated: string;
 }
 
 interface BookDetailsPageProps {
@@ -85,6 +85,16 @@ interface BookDetailsPageProps {
   isbn?: string;
   onBack: () => void;
 }
+
+const STAR_RATINGS = [1, 2, 3, 4, 5];
+
+const TAB_CONFIG = [
+  { key: 'overview', label: 'Overview', icon: '📖' },
+  { key: 'progress', label: 'Reading Progress', icon: '📊' },
+  { key: 'quotes', label: 'Quotes & Notes', icon: '💭' },
+  { key: 'stats', label: 'Reading Stats', icon: '📈' },
+  { key: 'editions', label: 'Editions', icon: '📚' }
+];
 
 const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack }) => {
   const [bookDetails, setBookDetails] = useState<BookDetails | null>(null);
@@ -119,11 +129,7 @@ const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack 
 
   const progressRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    fetchBookDetails();
-  }, [bookId, isbn]);
-
-  const fetchBookDetails = async () => {
+  const fetchBookDetails = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -167,45 +173,48 @@ const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack 
         quotes: [
           {
             id: '1',
-            text: "Not all those who wander are lost.",
-            page_number: 167,
-            chapter: "Chapter 10",
-            date_added: '2025-07-10T15:45:00Z',
-            tags: ['wisdom', 'journey']
+            text: 'The best time to plant a tree was 20 years ago. The second best time is now.',
+            page_number: 45,
+            chapter: 'Chapter 3',
+            date_added: '2025-07-10T16:00:00Z',
+            tags: ['wisdom', 'motivation']
           }
         ],
-        custom_tags: ['fantasy', 'epic', 'classic', 'reread'],
-        similar_books: [
-          {
-            isbn: '9780547928210',
-            title: 'The Two Towers',
-            authors: ['J.R.R. Tolkien'],
-            thumbnail_url: 'https://books.google.com/books/content?id=AY9yyAEACAAJ&printsec=frontcover&img=1&zoom=1&source=gbs_api',
-            similarity_score: 0.95
-          },
-          {
-            isbn: '9780345391803',
-            title: 'The Hobbit',
-            authors: ['J.R.R. Tolkien'],
-            thumbnail_url: 'https://books.google.com/books/content?id=LLSpngEACAAJ&printsec=frontcover&img=1&zoom=1&source=gbs_api',
-            similarity_score: 0.85
-          }
-        ]
+        tags: ['fantasy', 'adventure', 'favorite'],
+        collections: ['2025 Reading Challenge', 'Must Read'],
+        ownership: {
+          status: data.editions?.[0]?.status || 'own',
+          selected_edition: data.editions?.[0]?.isbn_13,
+          reading_progress_pages: 67,
+          reading_progress_percentage: 45,
+          personal_rating: 4,
+          personal_review: 'Really enjoying this series so far!',
+          times_read: 1
+        }
       };
       
       setBookDetails(enhancedData);
-      setCustomTags(enhancedData.custom_tags || []);
-      setPersonalRating(enhancedData.ownership?.personal_rating || 0);
-      setPersonalReview(enhancedData.ownership?.personal_notes || '');
       
       if (enhancedData.ownership?.selected_edition) {
         setSelectedEdition(enhancedData.ownership.selected_edition);
       } else if (enhancedData.editions?.length > 0) {
-        setSelectedEdition(enhancedData.editions[0].isbn);
+        setSelectedEdition(enhancedData.editions[0].isbn_13 || enhancedData.editions[0].id.toString());
       }
       
       if (enhancedData.ownership?.reading_progress_pages) {
         setCurrentPage(enhancedData.ownership.reading_progress_pages);
+      }
+      
+      if (enhancedData.ownership?.personal_rating) {
+        setPersonalRating(enhancedData.ownership.personal_rating);
+      }
+      
+      if (enhancedData.ownership?.personal_review) {
+        setPersonalReview(enhancedData.ownership.personal_review);
+      }
+      
+      if (enhancedData.tags) {
+        setCustomTags(enhancedData.tags);
       }
       
     } catch (err) {
@@ -213,7 +222,11 @@ const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack 
     } finally {
       setLoading(false);
     }
-  };
+  }, [bookId, isbn]);
+
+  useEffect(() => {
+    fetchBookDetails();
+  }, [fetchBookDetails]);
 
   const startReadingSession = () => {
     setIsReading(true);
@@ -227,35 +240,16 @@ const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack 
     const duration = endTime.getTime() - readingStartTime.getTime();
     const pagesRead = currentPage - (bookDetails?.ownership?.reading_progress_pages || 0);
     
-    // In a real app, this would save to the backend
+    // Here you would typically save the reading session to the backend
     console.log('Reading session ended:', {
-      duration: duration / 1000 / 60, // minutes
+      duration: Math.round(duration / 1000 / 60), // minutes
       pagesRead,
-      currentPage
+      startTime: readingStartTime,
+      endTime
     });
     
     setIsReading(false);
     setReadingStartTime(null);
-  };
-
-  const updateReadingProgress = async (pages: number, percentage?: number) => {
-    setCurrentPage(pages);
-    
-    // In a real app, this would update the backend
-    try {
-      const response = await fetch(`/api/books/${bookDetails?.id}/progress`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pages,
-          percentage,
-          timestamp: new Date().toISOString()
-        })
-      });
-      // Handle response
-    } catch (err) {
-      console.error('Failed to update progress:', err);
-    }
   };
 
   const addQuote = () => {
@@ -263,294 +257,343 @@ const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack 
     
     const newQuote: BookQuote = {
       id: Date.now().toString(),
-      text: newQuoteText,
+      text: newQuoteText.trim(),
       page_number: newQuotePage,
       date_added: new Date().toISOString(),
       tags: []
     };
     
-    // In a real app, this would save to backend
-    setBookDetails(prev => prev ? {
-      ...prev,
-      quotes: [...(prev.quotes || []), newQuote]
-    } : prev);
+    // Here you would typically save to backend
+    console.log('Adding quote:', newQuote);
     
     setNewQuoteText('');
     setNewQuotePage(undefined);
     setShowQuoteForm(false);
   };
 
-  const addCustomTag = () => {
-    if (!newTag.trim() || customTags.includes(newTag)) return;
+  const addTag = () => {
+    if (!newTag.trim() || customTags.includes(newTag.trim())) return;
     
-    const updatedTags = [...customTags, newTag];
-    setCustomTags(updatedTags);
+    setCustomTags([...customTags, newTag.trim()]);
     setNewTag('');
-    
-    // In a real app, save to backend
   };
 
   const removeTag = (tagToRemove: string) => {
-    const updatedTags = customTags.filter(tag => tag !== tagToRemove);
-    setCustomTags(updatedTags);
-    // In a real app, save to backend
+    setCustomTags(customTags.filter(tag => tag !== tagToRemove));
   };
 
-  const saveRatingAndReview = async () => {
-    try {
-      const response = await fetch(`/api/books/${bookDetails?.id}/review`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rating: personalRating,
-          review: personalReview
-        })
-      });
-      setEditingReview(false);
-    } catch (err) {
-      console.error('Failed to save review:', err);
+  const updateReadingProgress = (pages: number) => {
+    setCurrentPage(pages);
+    
+    if (bookDetails?.page_count) {
+      const percentage = Math.round((pages / bookDetails.page_count) * 100);
+      // Here you would typically update the backend
+      console.log('Progress updated:', { pages, percentage });
     }
   };
 
-  const calculateReadingStats = () => {
+  // Memoized calculations
+  const selectedEditionDetails = useMemo(() => 
+    bookDetails?.editions.find(e => e.isbn_13 === selectedEdition || e.id.toString() === selectedEdition), 
+    [bookDetails?.editions, selectedEdition]
+  );
+
+  const readingStats = useMemo(() => {
     if (!bookDetails?.reading_sessions) return null;
     
-    const sessions = bookDetails.reading_sessions;
-    const totalTime = sessions.reduce((acc, session) => {
-      if (session.end_time) {
-        return acc + (new Date(session.end_time).getTime() - new Date(session.start_time).getTime());
-      }
-      return acc;
-    }, 0);
-    
-    const totalPages = sessions.reduce((acc, session) => acc + session.pages_read, 0);
-    const avgPagesPerHour = totalTime > 0 ? (totalPages / (totalTime / 1000 / 60 / 60)) : 0;
+    const totalPages = bookDetails.reading_sessions.reduce((sum, session) => sum + session.pages_read, 0);
+    const totalSessions = bookDetails.reading_sessions.length;
+    const avgPagesPerSession = totalPages / totalSessions;
     
     return {
-      totalTime: totalTime / 1000 / 60, // minutes
       totalPages,
-      avgPagesPerHour: Math.round(avgPagesPerHour),
-      sessionsCount: sessions.length
+      totalSessions,
+      avgPagesPerSession: Math.round(avgPagesPerSession)
     };
-  };
-
-  const formatAuthors = (authors: string[]) => {
-    if (authors.length === 0) return 'Unknown Author';
-    if (authors.length === 1) return authors[0];
-    if (authors.length === 2) return `${authors[0]} & ${authors[1]}`;
-    return `${authors[0]} et al.`;
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Unknown';
-    try {
-      return new Date(dateString).getFullYear().toString();
-    } catch {
-      return dateString;
-    }
-  };
+  }, [bookDetails?.reading_sessions]);
 
   const getEditionTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
-      hardcover: 'Hardcover',
-      paperback: 'Paperback',
-      ebook: 'E-book',
-      audiobook: 'Audiobook',
-      mass_market: 'Mass Market Paperback',
-      trade_paperback: 'Trade Paperback',
-      board_book: 'Board Book',
-      unknown: 'Unknown Format'
+      'hardcover': 'Hardcover',
+      'paperback': 'Paperback', 
+      'ebook': 'E-book',
+      'audiobook': 'Audiobook',
+      'mass_market': 'Mass Market',
+      'trade_paperback': 'Trade Paperback'
     };
     return labels[type] || type;
   };
 
-  const getReadingMoodIcon = (mood?: string) => {
+  const getReadingMoodIcon = (mood: string) => {
     const icons: Record<string, string> = {
-      excited: '🤩',
-      engaged: '😊',
-      neutral: '😐',
-      bored: '😴',
-      frustrated: '😤'
+      'excited': '🤩',
+      'engaged': '😊',
+      'neutral': '😐',
+      'bored': '😴',
+      'frustrated': '😤'
     };
-    return icons[mood || 'neutral'];
+    return icons[mood] || '📖';
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-96">
-        <LoadingSpinner size="large" />
+      <div className="flex justify-center items-center min-h-screen bg-booktarr-bg">
+        <LoadingSpinner />
       </div>
     );
   }
 
-  if (error || !bookDetails) {
+  if (error) {
     return (
-      <div className="booktarr-card">
-        <div className="booktarr-card-body text-center">
-          <div className="text-red-500 mb-4">
-            <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <h3 className="text-lg font-semibold mb-2">Failed to Load Book</h3>
-            <p className="text-sm">{error || 'Book not found'}</p>
-          </div>
-          <button onClick={onBack} className="booktarr-btn booktarr-btn-primary">
-            Go Back
+      <div className="max-w-4xl mx-auto p-6 bg-booktarr-bg min-h-screen">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-800">Error: {error}</p>
+          <button 
+            onClick={onBack}
+            className="mt-4 bg-booktarr-accent text-white px-4 py-2 rounded hover:bg-booktarr-accent/90 transition-colors"
+          >
+            Back to Library
           </button>
         </div>
       </div>
     );
   }
 
-  const selectedEditionDetails = bookDetails.editions.find(e => e.isbn === selectedEdition);
-  const stats = calculateReadingStats();
+  if (!bookDetails) {
+    return (
+      <div className="max-w-4xl mx-auto p-6 bg-booktarr-bg min-h-screen">
+        <div className="text-center text-booktarr-textMuted">
+          No book details available
+          <button 
+            onClick={onBack}
+            className="block mt-4 mx-auto bg-booktarr-accent text-white px-4 py-2 rounded hover:bg-booktarr-accent/90 transition-colors"
+          >
+            Back to Library
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Enhanced Header with Quick Actions */}
-      <div className="booktarr-card">
-        <div className="booktarr-card-header">
-          <div className="flex items-center justify-between">
-            <button 
-              onClick={onBack}
-              className="flex items-center text-booktarr-textSecondary hover:text-booktarr-text"
+    <div className="max-w-6xl mx-auto p-6 bg-booktarr-bg min-h-screen">
+      {/* Header with back button and quick actions */}
+      <div className="mb-6 flex items-center justify-between">
+        <button 
+          onClick={onBack}
+          className="flex items-center space-x-2 text-booktarr-textMuted hover:text-booktarr-text transition-colors"
+        >
+          <span className="text-xl">←</span>
+          <span>Back to Library</span>
+        </button>
+        
+        <div className="flex items-center space-x-3">
+          {!isReading ? (
+            <button
+              onClick={startReadingSession}
+              className="bg-green-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-600 transition-colors"
             >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to Library
+              <span>📖</span>
+              <span>Start Reading</span>
             </button>
-            
-            <div className="flex items-center space-x-3">
-              {/* Reading Session Controls */}
-              {!isReading ? (
-                <button
-                  onClick={startReadingSession}
-                  className="booktarr-btn booktarr-btn-primary"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m2-10a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Start Reading
-                </button>
-              ) : (
-                <button
-                  onClick={endReadingSession}
-                  className="booktarr-btn bg-red-600 text-white hover:bg-red-700"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9l6 6m0-6l-6 6" />
-                  </svg>
-                  End Session
-                </button>
-              )}
-              
-              {/* Quick Actions Menu */}
-              <div className="flex items-center space-x-2">
-                <button className="p-2 text-booktarr-textMuted hover:text-booktarr-text hover:bg-booktarr-surface2 rounded" title="Share Book">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
-                  </svg>
-                </button>
-                <button className="p-2 text-booktarr-textMuted hover:text-booktarr-text hover:bg-booktarr-surface2 rounded" title="Export Data">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </button>
-                <button className="p-2 text-booktarr-textMuted hover:text-booktarr-text hover:bg-booktarr-surface2 rounded" title="More Options">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
-                  </svg>
-                </button>
-              </div>
-              
-              {bookDetails.ownership && (
-                <div className="flex items-center text-green-600">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  In Your Library
-                </div>
-              )}
-            </div>
-          </div>
+          ) : (
+            <button
+              onClick={endReadingSession}
+              className="bg-red-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-red-600 transition-colors"
+            >
+              <span>⏹️</span>
+              <span>Stop Reading</span>
+            </button>
+          )}
+          
+          <button
+            onClick={() => setShowQuoteForm(!showQuoteForm)}
+            className="bg-booktarr-accent text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-booktarr-accent/90 transition-colors"
+          >
+            <span>💭</span>
+            <span>Add Quote</span>
+          </button>
         </div>
       </div>
 
-      {/* Enhanced Main Book Information */}
-      <div className="booktarr-card">
-        <div className="booktarr-card-body">
-          <div className="flex gap-8">
-            {/* Book Cover with Overlay Info */}
-            <div className="flex-shrink-0 relative">
-              <div className="w-56 h-80">
-                {selectedEditionDetails?.thumbnail_url ? (
-                  <img
-                    src={selectedEditionDetails.thumbnail_url}
+      {/* Main Book Info Header */}
+      <div className="booktarr-card mb-6">
+        <div className="booktarr-card-content">
+          <div className="grid md:grid-cols-4 gap-6">
+            {/* Book Cover */}
+            <div className="md:col-span-1">
+              <div className="aspect-[2/3] bg-booktarr-cardBg rounded-lg overflow-hidden shadow-lg">
+                {selectedEditionDetails?.cover_url ? (
+                  <img 
+                    src={selectedEditionDetails.cover_url} 
                     alt={bookDetails.title}
-                    className="w-full h-full object-cover rounded-lg shadow-xl"
+                    className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full bg-booktarr-surface2 border border-booktarr-border rounded-lg flex items-center justify-center">
-                    <svg className="w-20 h-20 text-booktarr-textMuted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
+                  <div className="w-full h-full flex items-center justify-center text-booktarr-textMuted">
+                    <span className="text-4xl">📚</span>
                   </div>
                 )}
               </div>
               
-              {/* Reading Status Overlay */}
-              {bookDetails.ownership && (
-                <div className="absolute top-3 right-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    bookDetails.ownership.reading_status === 'reading' ? 'bg-blue-100 text-blue-800' :
-                    bookDetails.ownership.reading_status === 'read' ? 'bg-green-100 text-green-800' :
-                    bookDetails.ownership.reading_status === 'wishlist' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {bookDetails.ownership.reading_status}
-                  </span>
-                </div>
-              )}
-              
               {/* Quick Progress Update */}
-              {isReading && (
-                <div className="absolute bottom-3 left-3 right-3 bg-black bg-opacity-75 text-white p-2 rounded">
-                  <div className="text-xs text-center">
-                    📖 Reading Session Active
-                    <div className="text-xs opacity-75">
-                      {readingStartTime && `Started ${readingStartTime.toLocaleTimeString()}`}
+              {bookDetails.ownership?.status === 'own' && (
+                <div className="mt-4 p-3 bg-booktarr-cardBg rounded-lg">
+                  <label className="block text-sm font-medium text-booktarr-text mb-2">
+                    Current Page
+                  </label>
+                  <input
+                    type="number"
+                    value={currentPage}
+                    onChange={(e) => updateReadingProgress(parseInt(e.target.value) || 0)}
+                    className="w-full px-3 py-2 border border-booktarr-border rounded-md focus:outline-none focus:ring-2 focus:ring-booktarr-accent bg-booktarr-bg text-booktarr-text"
+                    min="0"
+                    max={bookDetails.page_count || 999}
+                  />
+                  {bookDetails.page_count && (
+                    <div className="mt-2 text-xs text-booktarr-textMuted">
+                      of {bookDetails.page_count} pages ({Math.round((currentPage / bookDetails.page_count) * 100)}%)
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Enhanced Book Details */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h1 className="text-4xl font-bold text-booktarr-text mb-3">{bookDetails.title}</h1>
-                  <p className="text-xl text-booktarr-textSecondary mb-2">by {formatAuthors(bookDetails.authors)}</p>
-                  
-                  {bookDetails.series && (
-                    <div className="flex items-center space-x-4 mb-4">
-                      <p className="text-lg text-booktarr-accent font-medium">
-                        {bookDetails.series}
-                        {bookDetails.series_position && ` #${bookDetails.series_position}`}
-                      </p>
-                      <button className="text-sm text-booktarr-textMuted hover:text-booktarr-accent">
-                        View Series →
+            {/* Book Details */}
+            <div className="md:col-span-2 space-y-4">
+              <div>
+                <h1 className="text-3xl font-bold text-booktarr-text mb-2">{bookDetails.title}</h1>
+                <p className="text-lg text-booktarr-textMuted">
+                  by {bookDetails.authors.join(', ')}
+                </p>
+                {bookDetails.series && (
+                  <p className="text-sm text-booktarr-textMuted mt-1">
+                    <span className="font-medium">Series:</span> {bookDetails.series}
+                    {bookDetails.series_position && ` #${bookDetails.series_position}`}
+                  </p>
+                )}
+              </div>
+
+              {/* Basic Info Grid */}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-booktarr-text">Publisher:</span>
+                  <p className="text-booktarr-textMuted">{bookDetails.publisher || 'Unknown'}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-booktarr-text">Published:</span>
+                  <p className="text-booktarr-textMuted">
+                    {bookDetails.published_date ? new Date(bookDetails.published_date).getFullYear() : 'Unknown'}
+                  </p>
+                </div>
+                <div>
+                  <span className="font-medium text-booktarr-text">Pages:</span>
+                  <p className="text-booktarr-textMuted">{bookDetails.page_count || 'Unknown'}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-booktarr-text">Language:</span>
+                  <p className="text-booktarr-textMuted">{bookDetails.language || 'Unknown'}</p>
+                </div>
+              </div>
+
+              {/* Description */}
+              {bookDetails.description && (
+                <div>
+                  <h3 className="font-medium text-booktarr-text mb-2">Description</h3>
+                  <p className="text-sm text-booktarr-textMuted leading-relaxed">
+                    {bookDetails.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Tags */}
+              <div>
+                <h3 className="font-medium text-booktarr-text mb-2">Tags</h3>
+                <div className="flex flex-wrap gap-2">
+                  {customTags.map((tag, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-booktarr-accent/10 text-booktarr-accent border border-booktarr-accent/20"
+                    >
+                      {tag}
+                      <button
+                        onClick={() => removeTag(tag)}
+                        className="ml-1 text-booktarr-accent/70 hover:text-booktarr-accent"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  {newTag && (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        value={newTag}
+                        onChange={(e) => setNewTag(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && addTag()}
+                        className="px-2 py-1 text-xs border border-booktarr-border rounded focus:outline-none focus:ring-1 focus:ring-booktarr-accent bg-booktarr-bg text-booktarr-text"
+                        placeholder="New tag..."
+                      />
+                      <button
+                        onClick={addTag}
+                        className="text-xs bg-booktarr-accent text-white px-2 py-1 rounded hover:bg-booktarr-accent/90"
+                      >
+                        Add
                       </button>
                     </div>
                   )}
+                  <button
+                    onClick={() => setNewTag(' ')}
+                    className="inline-flex items-center px-2 py-1 rounded-full text-xs border border-dashed border-booktarr-textMuted text-booktarr-textMuted hover:border-booktarr-accent hover:text-booktarr-accent"
+                  >
+                    + Add Tag
+                  </button>
                 </div>
+              </div>
+            </div>
+
+            {/* Ownership & Rating */}
+            <div className="md:col-span-1 space-y-4">
+              {/* Ownership Status */}
+              <div className="p-4 bg-booktarr-cardBg rounded-lg">
+                <h3 className="font-medium text-booktarr-text mb-3">Ownership</h3>
+                <div className="space-y-2">
+                  <div className={`px-3 py-2 rounded-full text-sm text-center ${
+                    bookDetails.ownership?.status === 'own' 
+                      ? 'bg-green-100 text-green-800 border border-green-200' 
+                      : bookDetails.ownership?.status === 'want'
+                      ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                      : 'bg-gray-100 text-gray-800 border border-gray-200'
+                  }`}>
+                    {bookDetails.ownership?.status === 'own' ? '✓ Owned' : 
+                     bookDetails.ownership?.status === 'want' ? '⭐ Wanted' : '❌ Missing'}
+                  </div>
+                  
+                  {bookDetails.ownership?.reading_progress_percentage && (
+                    <div className="mt-3">
+                      <div className="flex justify-between text-xs text-booktarr-textMuted mb-1">
+                        <span>Progress</span>
+                        <span>{bookDetails.ownership.reading_progress_percentage}%</span>
+                      </div>
+                      <div className="w-full bg-booktarr-border rounded-full h-2">
+                        <div 
+                          className="bg-booktarr-accent h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${bookDetails.ownership.reading_progress_percentage}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Rating */}
+              <div className="p-4 bg-booktarr-cardBg rounded-lg">
+                <h3 className="font-medium text-booktarr-text mb-3">Your Rating</h3>
                 
                 {/* Star Rating - Interactive */}
                 <div className="text-right">
                   <div className="flex items-center space-x-1 mb-2">
-                    {[1, 2, 3, 4, 5].map((star) => (
+                    {STAR_RATINGS.map((star) => (
                       <button
                         key={star}
                         onClick={() => setPersonalRating(star)}
@@ -571,112 +614,117 @@ const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack 
                       </button>
                     ))}
                   </div>
-                  <p className="text-sm text-booktarr-textMuted">Your Rating</p>
-                  {personalRating > 0 && (
-                    <button
-                      onClick={saveRatingAndReview}
-                      className="text-xs text-booktarr-accent hover:underline"
-                    >
-                      Save Rating
-                    </button>
-                  )}
+                  <p className="text-xs text-booktarr-textMuted">
+                    {personalRating > 0 ? `${personalRating}/5 stars` : 'No rating yet'}
+                  </p>
                 </div>
-              </div>
 
-              {/* Quick Stats Row */}
-              {selectedEditionDetails && (
-                <div className="grid grid-cols-4 gap-6 mb-6 p-4 bg-booktarr-surface2 rounded-lg">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-booktarr-text">{selectedEditionDetails.page_count || '???'}</div>
-                    <div className="text-xs text-booktarr-textMuted">Pages</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-booktarr-text">{formatDate(selectedEditionDetails.published_date)}</div>
-                    <div className="text-xs text-booktarr-textMuted">Published</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-booktarr-text">{stats?.totalTime ? Math.round(stats.totalTime) : 0}</div>
-                    <div className="text-xs text-booktarr-textMuted">Minutes Read</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-booktarr-text">{bookDetails.ownership?.times_read || 0}</div>
-                    <div className="text-xs text-booktarr-textMuted">Times Read</div>
-                  </div>
-                </div>
-              )}
-
-              {/* Custom Tags */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-booktarr-text">Your Tags</h3>
-                  <button
-                    onClick={() => setNewTag('')}
-                    className="text-xs text-booktarr-accent hover:underline"
-                  >
-                    + Add Tag
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {customTags.map((tag, index) => (
-                    <span 
-                      key={index}
-                      className="group flex items-center px-3 py-1 bg-booktarr-accent/10 text-booktarr-accent text-sm rounded-full border border-booktarr-accent/20"
-                    >
-                      {tag}
-                      <button
-                        onClick={() => removeTag(tag)}
-                        className="ml-2 opacity-0 group-hover:opacity-100 text-xs hover:text-red-500"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                  {newTag !== null && (
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="text"
-                        value={newTag}
-                        onChange={(e) => setNewTag(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && addCustomTag()}
-                        placeholder="New tag..."
-                        className="px-2 py-1 text-sm border border-booktarr-border rounded"
+                {/* Personal Review */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-booktarr-text mb-2">
+                    Your Review
+                  </label>
+                  {editingReview ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={personalReview}
+                        onChange={(e) => setPersonalReview(e.target.value)}
+                        className="w-full px-3 py-2 border border-booktarr-border rounded-md focus:outline-none focus:ring-2 focus:ring-booktarr-accent bg-booktarr-bg text-booktarr-text"
+                        rows={3}
+                        placeholder="What did you think of this book?"
                       />
-                      <button
-                        onClick={addCustomTag}
-                        className="text-xs text-booktarr-accent hover:underline"
-                      >
-                        Add
-                      </button>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => setEditingReview(false)}
+                          className="px-3 py-1 bg-booktarr-accent text-white text-sm rounded hover:bg-booktarr-accent/90"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingReview(false)}
+                          className="px-3 py-1 bg-booktarr-border text-booktarr-textMuted text-sm rounded hover:bg-booktarr-border/80"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => setEditingReview(true)}
+                      className="min-h-[60px] p-2 border border-booktarr-border rounded-md cursor-pointer hover:border-booktarr-accent transition-colors bg-booktarr-bg"
+                    >
+                      {personalReview ? (
+                        <p className="text-sm text-booktarr-text">{personalReview}</p>
+                      ) : (
+                        <p className="text-sm text-booktarr-textMuted italic">Click to add your review...</p>
+                      )}
                     </div>
                   )}
                 </div>
               </div>
-
-              {/* Enhanced Description */}
-              {selectedEditionDetails?.description && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-booktarr-text mb-3">Description</h3>
-                  <div className="prose prose-sm max-w-none text-booktarr-textSecondary">
-                    <p className="leading-relaxed">{selectedEditionDetails.description}</p>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
       </div>
 
+      {/* Quick Quote Form */}
+      {showQuoteForm && (
+        <div className="booktarr-card mb-6">
+          <div className="booktarr-card-header">
+            <h3 className="text-lg font-semibold text-booktarr-text">Add Quote</h3>
+          </div>
+          <div className="booktarr-card-content">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-booktarr-text mb-2">
+                  Quote Text
+                </label>
+                <textarea
+                  value={newQuoteText}
+                  onChange={(e) => setNewQuoteText(e.target.value)}
+                  className="w-full px-3 py-2 border border-booktarr-border rounded-md focus:outline-none focus:ring-2 focus:ring-booktarr-accent bg-booktarr-bg text-booktarr-text"
+                  rows={3}
+                  placeholder="Enter the quote..."
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-booktarr-text mb-2">
+                    Page Number (optional)
+                  </label>
+                  <input
+                    type="number"
+                    value={newQuotePage || ''}
+                    onChange={(e) => setNewQuotePage(parseInt(e.target.value) || undefined)}
+                    className="w-full px-3 py-2 border border-booktarr-border rounded-md focus:outline-none focus:ring-2 focus:ring-booktarr-accent bg-booktarr-bg text-booktarr-text"
+                    placeholder="Page number"
+                  />
+                </div>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={addQuote}
+                  className="bg-booktarr-accent text-white px-4 py-2 rounded-lg hover:bg-booktarr-accent/90 transition-colors"
+                >
+                  Add Quote
+                </button>
+                <button
+                  onClick={() => setShowQuoteForm(false)}
+                  className="bg-booktarr-border text-booktarr-textMuted px-4 py-2 rounded-lg hover:bg-booktarr-border/80 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Enhanced Tab Navigation */}
       <div className="booktarr-card">
         <div className="booktarr-card-header border-b border-booktarr-border">
           <nav className="flex space-x-8">
-            {[
-              { key: 'overview', label: 'Overview', icon: '📖' },
-              { key: 'progress', label: 'Reading Progress', icon: '📊' },
-              { key: 'quotes', label: 'Quotes & Notes', icon: '💭' },
-              { key: 'stats', label: 'Reading Stats', icon: '📈' },
-              { key: 'editions', label: 'Editions', icon: '📚' }
-            ].map((tab) => (
+            {TAB_CONFIG.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key as any)}
@@ -693,526 +741,357 @@ const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack 
           </nav>
         </div>
 
-        <div className="booktarr-card-body">
-          {/* Overview Tab */}
+        <div className="booktarr-card-content">
+          {/* Tab Content */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              {/* Categories and Publisher Info */}
-              <div className="grid grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-lg font-semibold text-booktarr-text mb-4">Book Overview</h3>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium text-booktarr-text mb-2">Metadata</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-booktarr-textMuted">ISBN:</span>
+                        <span className="text-booktarr-text">{bookDetails.isbn}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-booktarr-textMuted">Added:</span>
+                        <span className="text-booktarr-text">
+                          {new Date(bookDetails.added_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-booktarr-textMuted">Last Updated:</span>
+                        <span className="text-booktarr-text">
+                          {new Date(bookDetails.last_updated).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-medium text-booktarr-text mb-2">Categories</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {bookDetails.categories?.length > 0 ? (
+                        bookDetails.categories.map((category, index) => (
+                          <span
+                            key={index}
+                            className="px-2 py-1 bg-booktarr-accent/10 text-booktarr-accent text-xs rounded-full border border-booktarr-accent/20"
+                          >
+                            {category}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-booktarr-textMuted text-sm">No categories assigned</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {bookDetails.collections && bookDetails.collections.length > 0 && (
                 <div>
-                  <h4 className="font-medium text-booktarr-text mb-3">Categories</h4>
+                  <h4 className="font-medium text-booktarr-text mb-2">Collections</h4>
                   <div className="flex flex-wrap gap-2">
-                    {bookDetails.categories.map((category, index) => (
-                      <span 
-                        key={index} 
-                        className="px-3 py-1 bg-booktarr-surface2 text-booktarr-textSecondary text-sm rounded-full border border-booktarr-border"
+                    {bookDetails.collections.map((collection, index) => (
+                      <span
+                        key={index}
+                        className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full border border-blue-200"
                       >
-                        {category}
+                        📚 {collection}
                       </span>
                     ))}
                   </div>
                 </div>
-                
-                <div>
-                  <h4 className="font-medium text-booktarr-text mb-3">Publication Details</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-booktarr-textMuted">Publisher:</span>
-                      <span className="text-booktarr-text">{selectedEditionDetails?.publisher || 'Unknown'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-booktarr-textMuted">Language:</span>
-                      <span className="text-booktarr-text">{selectedEditionDetails?.language?.toUpperCase() || 'EN'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-booktarr-textMuted">Format:</span>
-                      <span className="text-booktarr-text">{getEditionTypeLabel(selectedEditionDetails?.edition_type || 'unknown')}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Similar Books */}
-              {bookDetails.similar_books && bookDetails.similar_books.length > 0 && (
-                <div>
-                  <h4 className="font-medium text-booktarr-text mb-3">Similar Books</h4>
-                  <div className="grid grid-cols-3 gap-4">
-                    {bookDetails.similar_books.map((similarBook) => (
-                      <div key={similarBook.isbn} className="border border-booktarr-border rounded-lg p-3 hover:border-booktarr-accent transition-colors cursor-pointer">
-                        <div className="flex items-start space-x-3">
-                          <div className="w-12 h-16 flex-shrink-0">
-                            {similarBook.thumbnail_url ? (
-                              <img
-                                src={similarBook.thumbnail_url}
-                                alt={similarBook.title}
-                                className="w-full h-full object-cover rounded"
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-booktarr-surface2 rounded flex items-center justify-center">
-                                <svg className="w-6 h-6 text-booktarr-textMuted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                </svg>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h5 className="text-sm font-medium text-booktarr-text line-clamp-2">{similarBook.title}</h5>
-                            <p className="text-xs text-booktarr-textMuted">{formatAuthors(similarBook.authors)}</p>
-                            <div className="mt-1">
-                              <span className="text-xs text-booktarr-accent">{Math.round(similarBook.similarity_score * 100)}% match</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               )}
-
-              {/* Personal Review */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium text-booktarr-text">Your Review</h4>
-                  <button
-                    onClick={() => setEditingReview(!editingReview)}
-                    className="text-sm text-booktarr-accent hover:underline"
-                  >
-                    {editingReview ? 'Cancel' : personalReview ? 'Edit' : 'Add Review'}
-                  </button>
-                </div>
-                
-                {editingReview ? (
-                  <div className="space-y-3">
-                    <textarea
-                      value={personalReview}
-                      onChange={(e) => setPersonalReview(e.target.value)}
-                      placeholder="Write your thoughts about this book..."
-                      className="w-full h-32 p-3 border border-booktarr-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-booktarr-accent"
-                    />
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        onClick={() => setEditingReview(false)}
-                        className="booktarr-btn booktarr-btn-secondary"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={saveRatingAndReview}
-                        className="booktarr-btn booktarr-btn-primary"
-                      >
-                        Save Review
-                      </button>
-                    </div>
-                  </div>
-                ) : personalReview ? (
-                  <div className="bg-booktarr-surface2 p-4 rounded-lg border border-booktarr-border">
-                    <p className="text-booktarr-text">{personalReview}</p>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-booktarr-textMuted">
-                    <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                    </svg>
-                    <p>No review yet. Share your thoughts!</p>
-                  </div>
-                )}
-              </div>
             </div>
           )}
 
-          {/* Reading Progress Tab */}
           {activeTab === 'progress' && (
             <div className="space-y-6">
-              {/* Current Progress */}
-              <div className="bg-gradient-to-r from-booktarr-accent/10 to-booktarr-accent/5 p-6 rounded-lg border border-booktarr-accent/20">
-                <h4 className="font-medium text-booktarr-text mb-4">Current Progress</h4>
-                
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-booktarr-accent">{currentPage}</div>
-                      <div className="text-xs text-booktarr-textMuted">Current Page</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-booktarr-accent">
-                        {selectedEditionDetails?.page_count && currentPage ? 
-                          Math.round((currentPage / selectedEditionDetails.page_count) * 100) : 0}%
-                      </div>
-                      <div className="text-xs text-booktarr-textMuted">Complete</div>
-                    </div>
+              <h3 className="text-lg font-semibold text-booktarr-text mb-4">Reading Progress</h3>
+              
+              {/* Progress Overview */}
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="p-4 bg-booktarr-cardBg rounded-lg">
+                  <div className="text-2xl font-bold text-booktarr-accent">
+                    {bookDetails.ownership?.reading_progress_pages || 0}
                   </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="number"
-                      value={currentPage}
-                      onChange={(e) => setCurrentPage(parseInt(e.target.value) || 0)}
-                      className="w-20 px-2 py-1 text-sm border border-booktarr-border rounded"
-                      placeholder="Page"
-                    />
-                    <button
-                      onClick={() => updateReadingProgress(currentPage)}
-                      className="booktarr-btn booktarr-btn-primary booktarr-btn-sm"
-                    >
-                      Update
-                    </button>
-                  </div>
+                  <div className="text-sm text-booktarr-textMuted">Pages Read</div>
                 </div>
-                
-                {/* Progress Bar */}
-                <div className="w-full bg-booktarr-surface2 rounded-full h-3 mb-4">
-                  <div 
-                    className="bg-gradient-to-r from-booktarr-accent to-booktarr-accent/80 h-3 rounded-full transition-all duration-300"
-                    style={{ 
-                      width: selectedEditionDetails?.page_count && currentPage ? 
-                        `${Math.min((currentPage / selectedEditionDetails.page_count) * 100, 100)}%` : '0%' 
-                    }}
-                  ></div>
+                <div className="p-4 bg-booktarr-cardBg rounded-lg">
+                  <div className="text-2xl font-bold text-booktarr-accent">
+                    {bookDetails.ownership?.reading_progress_percentage || 0}%
+                  </div>
+                  <div className="text-sm text-booktarr-textMuted">Complete</div>
                 </div>
-                
-                {/* Reading Goals */}
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-booktarr-text">
-                      {selectedEditionDetails?.page_count ? selectedEditionDetails.page_count - currentPage : '?'}
-                    </div>
-                    <div className="text-xs text-booktarr-textMuted">Pages Left</div>
+                <div className="p-4 bg-booktarr-cardBg rounded-lg">
+                  <div className="text-2xl font-bold text-booktarr-accent">
+                    {bookDetails.ownership?.times_read || 0}
                   </div>
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-booktarr-text">
-                      {stats?.avgPagesPerHour || 0}
-                    </div>
-                    <div className="text-xs text-booktarr-textMuted">Pages/Hour</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-booktarr-text">
-                      {selectedEditionDetails?.page_count && stats?.avgPagesPerHour && currentPage < selectedEditionDetails.page_count ?
-                        Math.round((selectedEditionDetails.page_count - currentPage) / stats.avgPagesPerHour * 60) : 0}
-                    </div>
-                    <div className="text-xs text-booktarr-textMuted">Min. to Finish</div>
-                  </div>
+                  <div className="text-sm text-booktarr-textMuted">Times Read</div>
                 </div>
               </div>
 
               {/* Reading Sessions */}
               <div>
-                <h4 className="font-medium text-booktarr-text mb-4">Recent Reading Sessions</h4>
-                <div className="space-y-3">
-                  {bookDetails.reading_sessions?.map((session) => (
-                    <div key={session.id} className="flex items-center justify-between p-4 border border-booktarr-border rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <div className="text-2xl">
-                          {getReadingMoodIcon(session.mood)}
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium text-booktarr-text">
-                            {new Date(session.start_time).toLocaleDateString()}
+                <h4 className="font-medium text-booktarr-text mb-3">Recent Reading Sessions</h4>
+                {bookDetails.reading_sessions && bookDetails.reading_sessions.length > 0 ? (
+                  <div className="space-y-3">
+                    {bookDetails.reading_sessions.map((session) => (
+                      <div key={session.id} className="p-3 bg-booktarr-cardBg rounded-lg border border-booktarr-border">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <span className="text-lg">
+                              {session.mood ? getReadingMoodIcon(session.mood) : '📖'}
+                            </span>
+                            <div>
+                              <div className="text-sm font-medium text-booktarr-text">
+                                {session.pages_read} pages read
+                              </div>
+                              <div className="text-xs text-booktarr-textMuted">
+                                {new Date(session.start_time).toLocaleDateString()} at{' '}
+                                {new Date(session.start_time).toLocaleTimeString()}
+                                {session.end_time && (
+                                  <> - {new Date(session.end_time).toLocaleTimeString()}</>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-xs text-booktarr-textMuted">
-                            {new Date(session.start_time).toLocaleTimeString()} - {session.end_time ? new Date(session.end_time).toLocaleTimeString() : 'In Progress'}
-                          </div>
-                          {session.notes && (
-                            <div className="text-xs text-booktarr-textSecondary mt-1 italic">"{session.notes}"</div>
+                          {session.end_time && (
+                            <div className="text-xs text-booktarr-textMuted">
+                              {Math.round(
+                                (new Date(session.end_time).getTime() - new Date(session.start_time).getTime()) / 
+                                (1000 * 60)
+                              )} min
+                            </div>
                           )}
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-medium text-booktarr-text">{session.pages_read} pages</div>
-                        <div className="text-xs text-booktarr-textMuted">
-                          {session.end_time ? 
-                            `${Math.round((new Date(session.end_time).getTime() - new Date(session.start_time).getTime()) / 1000 / 60)} min` :
-                            'Active'
-                          }
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {(!bookDetails.reading_sessions || bookDetails.reading_sessions.length === 0) && (
-                    <div className="text-center py-8 text-booktarr-textMuted">
-                      <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                      </svg>
-                      <p>No reading sessions yet. Start reading to track your progress!</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Quotes Tab */}
-          {activeTab === 'quotes' && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium text-booktarr-text">Your Quotes & Highlights</h4>
-                <button
-                  onClick={() => setShowQuoteForm(!showQuoteForm)}
-                  className="booktarr-btn booktarr-btn-primary"
-                >
-                  + Add Quote
-                </button>
-              </div>
-
-              {/* Add Quote Form */}
-              {showQuoteForm && (
-                <div className="border border-booktarr-border rounded-lg p-4 bg-booktarr-surface2">
-                  <div className="space-y-3">
-                    <textarea
-                      value={newQuoteText}
-                      onChange={(e) => setNewQuoteText(e.target.value)}
-                      placeholder="Enter your favorite quote or highlight..."
-                      className="w-full h-24 p-3 border border-booktarr-border rounded resize-none"
-                    />
-                    <div className="flex items-center justify-between">
-                      <input
-                        type="number"
-                        value={newQuotePage || ''}
-                        onChange={(e) => setNewQuotePage(e.target.value ? parseInt(e.target.value) : undefined)}
-                        placeholder="Page number (optional)"
-                        className="w-32 px-3 py-1 text-sm border border-booktarr-border rounded"
-                      />
-                      <div className="space-x-2">
-                        <button
-                          onClick={() => setShowQuoteForm(false)}
-                          className="booktarr-btn booktarr-btn-secondary"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={addQuote}
-                          disabled={!newQuoteText.trim()}
-                          className="booktarr-btn booktarr-btn-primary"
-                        >
-                          Save Quote
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Quotes List */}
-              <div className="space-y-4">
-                {bookDetails.quotes?.map((quote) => (
-                  <div key={quote.id} className="border border-booktarr-border rounded-lg p-4 hover:border-booktarr-accent/50 transition-colors">
-                    <blockquote className="text-booktarr-text italic text-lg mb-3">
-                      "{quote.text}"
-                    </blockquote>
-                    <div className="flex items-center justify-between text-sm text-booktarr-textMuted">
-                      <div className="flex items-center space-x-4">
-                        {quote.page_number && (
-                          <span>Page {quote.page_number}</span>
+                        {session.notes && (
+                          <div className="mt-2 text-sm text-booktarr-textMuted italic">
+                            "{session.notes}"
+                          </div>
                         )}
-                        {quote.chapter && (
-                          <span>{quote.chapter}</span>
-                        )}
-                        <span>{new Date(quote.date_added).toLocaleDateString()}</span>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        {quote.tags.map((tag, index) => (
-                          <span key={index} className="px-2 py-1 bg-booktarr-accent/10 text-booktarr-accent rounded-full text-xs">
-                            {tag}
-                          </span>
-                        ))}
-                        <button className="text-booktarr-textMuted hover:text-red-500">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
-
-                {(!bookDetails.quotes || bookDetails.quotes.length === 0) && !showQuoteForm && (
-                  <div className="text-center py-12 text-booktarr-textMuted">
-                    <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                    </svg>
-                    <h3 className="text-lg font-medium mb-2">No quotes yet</h3>
-                    <p>Capture your favorite passages and thoughts while reading!</p>
+                ) : (
+                  <div className="text-center py-8 text-booktarr-textMuted">
+                    <span className="text-4xl block mb-2">📖</span>
+                    No reading sessions yet. Start reading to track your progress!
                   </div>
                 )}
               </div>
-            </div>
-          )}
 
-          {/* Stats Tab */}
-          {activeTab === 'stats' && (
-            <div className="space-y-6">
-              <h4 className="font-medium text-booktarr-text">Reading Statistics</h4>
-              
-              {stats ? (
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="bg-booktarr-surface2 p-4 rounded-lg border border-booktarr-border">
-                      <div className="text-2xl font-bold text-booktarr-accent">{Math.round(stats.totalTime)}</div>
-                      <div className="text-sm text-booktarr-textMuted">Total Reading Time (minutes)</div>
+              {/* Reading Goals */}
+              <div>
+                <h4 className="font-medium text-booktarr-text mb-3">Reading Goals</h4>
+                <div className="p-4 bg-booktarr-cardBg rounded-lg border border-booktarr-border">
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-booktarr-text mb-2">
+                        Target Date
+                      </label>
+                      <input
+                        type="date"
+                        value={readingGoal.target_date || ''}
+                        onChange={(e) => setReadingGoal({...readingGoal, target_date: e.target.value})}
+                        className="w-full px-3 py-2 border border-booktarr-border rounded-md focus:outline-none focus:ring-2 focus:ring-booktarr-accent bg-booktarr-bg text-booktarr-text"
+                      />
                     </div>
-                    
-                    <div className="bg-booktarr-surface2 p-4 rounded-lg border border-booktarr-border">
-                      <div className="text-2xl font-bold text-booktarr-accent">{stats.totalPages}</div>
-                      <div className="text-sm text-booktarr-textMuted">Pages Read</div>
+                    <div>
+                      <label className="block text-sm font-medium text-booktarr-text mb-2">
+                        Pages Per Day
+                      </label>
+                      <input
+                        type="number"
+                        value={readingGoal.pages_per_day || ''}
+                        onChange={(e) => setReadingGoal({...readingGoal, pages_per_day: parseInt(e.target.value) || undefined})}
+                        className="w-full px-3 py-2 border border-booktarr-border rounded-md focus:outline-none focus:ring-2 focus:ring-booktarr-accent bg-booktarr-bg text-booktarr-text"
+                        placeholder="Pages per day"
+                      />
                     </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="bg-booktarr-surface2 p-4 rounded-lg border border-booktarr-border">
-                      <div className="text-2xl font-bold text-booktarr-accent">{stats.avgPagesPerHour}</div>
-                      <div className="text-sm text-booktarr-textMuted">Average Pages/Hour</div>
-                    </div>
-                    
-                    <div className="bg-booktarr-surface2 p-4 rounded-lg border border-booktarr-border">
-                      <div className="text-2xl font-bold text-booktarr-accent">{stats.sessionsCount}</div>
-                      <div className="text-sm text-booktarr-textMuted">Reading Sessions</div>
+                    <div>
+                      <label className="block text-sm font-medium text-booktarr-text mb-2">
+                        Estimated Hours
+                      </label>
+                      <input
+                        type="number"
+                        value={readingGoal.total_time_estimate || ''}
+                        onChange={(e) => setReadingGoal({...readingGoal, total_time_estimate: parseInt(e.target.value) || undefined})}
+                        className="w-full px-3 py-2 border border-booktarr-border rounded-md focus:outline-none focus:ring-2 focus:ring-booktarr-accent bg-booktarr-bg text-booktarr-text"
+                        placeholder="Total hours"
+                      />
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'quotes' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-booktarr-text mb-4">Quotes & Notes</h3>
+              
+              {bookDetails.quotes && bookDetails.quotes.length > 0 ? (
+                <div className="space-y-4">
+                  {bookDetails.quotes.map((quote) => (
+                    <div key={quote.id} className="p-4 bg-booktarr-cardBg rounded-lg border border-booktarr-border">
+                      <blockquote className="text-booktarr-text italic text-lg leading-relaxed mb-3">
+                        "{quote.text}"
+                      </blockquote>
+                      <div className="flex items-center justify-between text-sm text-booktarr-textMuted">
+                        <div className="flex items-center space-x-4">
+                          {quote.page_number && (
+                            <span>Page {quote.page_number}</span>
+                          )}
+                          {quote.chapter && (
+                            <span>{quote.chapter}</span>
+                          )}
+                        </div>
+                        <span>{new Date(quote.date_added).toLocaleDateString()}</span>
+                      </div>
+                      {quote.tags && quote.tags.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {quote.tags.map((tag, index) => (
+                            <span
+                              key={index}
+                              className="px-2 py-1 bg-booktarr-accent/10 text-booktarr-accent text-xs rounded-full"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               ) : (
-                <div className="text-center py-12 text-booktarr-textMuted">
-                  <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                  <h3 className="text-lg font-medium mb-2">No reading data yet</h3>
-                  <p>Start reading to see your statistics!</p>
+                <div className="text-center py-8 text-booktarr-textMuted">
+                  <span className="text-4xl block mb-2">💭</span>
+                  No quotes saved yet. Click "Add Quote" to save your favorite passages!
                 </div>
               )}
             </div>
           )}
 
-          {/* Editions Tab */}
+          {activeTab === 'stats' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-booktarr-text mb-4">Reading Statistics</h3>
+              
+              {readingStats ? (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="p-4 bg-booktarr-cardBg rounded-lg border border-booktarr-border">
+                    <div className="text-2xl font-bold text-booktarr-accent mb-1">
+                      {readingStats.totalPages}
+                    </div>
+                    <div className="text-sm text-booktarr-textMuted">Total Pages Read</div>
+                  </div>
+                  <div className="p-4 bg-booktarr-cardBg rounded-lg border border-booktarr-border">
+                    <div className="text-2xl font-bold text-booktarr-accent mb-1">
+                      {readingStats.totalSessions}
+                    </div>
+                    <div className="text-sm text-booktarr-textMuted">Reading Sessions</div>
+                  </div>
+                  <div className="p-4 bg-booktarr-cardBg rounded-lg border border-booktarr-border">
+                    <div className="text-2xl font-bold text-booktarr-accent mb-1">
+                      {readingStats.avgPagesPerSession}
+                    </div>
+                    <div className="text-sm text-booktarr-textMuted">Avg Pages/Session</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-booktarr-textMuted">
+                  <span className="text-4xl block mb-2">📈</span>
+                  Start reading to see your statistics!
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'editions' && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium text-booktarr-text">Available Editions</h4>
-                <div className="text-sm text-booktarr-textSecondary">
-                  {bookDetails.editions.length} edition{bookDetails.editions.length !== 1 ? 's' : ''} found
-                </div>
-              </div>
+              <h3 className="text-lg font-semibold text-booktarr-text mb-4">Available Editions</h3>
               
-              <div className="space-y-4">
-                {bookDetails.editions.map((edition) => {
-                  const isSelected = edition.isbn === selectedEdition;
-                  const isOwned = bookDetails.ownership?.owned_editions?.includes(edition.isbn);
-                  
-                  return (
+              {bookDetails.editions && bookDetails.editions.length > 0 ? (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {bookDetails.editions.map((edition, index) => (
                     <div 
-                      key={edition.isbn}
-                      className={`border rounded-lg p-6 cursor-pointer transition-all hover:shadow-md ${
-                        isSelected 
-                          ? 'border-booktarr-accent bg-booktarr-accent/5 shadow-md' 
-                          : 'border-booktarr-border hover:border-booktarr-accent/50'
+                      key={edition.id || index} 
+                      className={`p-4 rounded-lg border transition-all ${
+                        selectedEdition === (edition.isbn_13 || edition.id.toString())
+                          ? 'border-booktarr-accent bg-booktarr-accent/5'
+                          : 'border-booktarr-border bg-booktarr-cardBg hover:border-booktarr-accent/50'
                       }`}
-                      onClick={() => setSelectedEdition(edition.isbn)}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <h3 className="text-lg font-medium text-booktarr-text">
-                              {getEditionTypeLabel(edition.edition_type)}
-                            </h3>
-                            {isOwned && (
-                              <span className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full font-medium">
-                                ✓ Owned
-                              </span>
-                            )}
-                            {isSelected && (
-                              <span className="px-3 py-1 bg-booktarr-accent text-white text-sm rounded-full font-medium">
-                                Selected
-                              </span>
-                            )}
-                          </div>
-                          
-                          <div className="grid grid-cols-3 gap-6 mb-4">
-                            <div>
-                              <span className="text-sm text-booktarr-textMuted">ISBN:</span>
-                              <p className="text-booktarr-text font-mono text-sm">{edition.isbn}</p>
-                            </div>
-                            <div>
-                              <span className="text-sm text-booktarr-textMuted">Publisher:</span>
-                              <p className="text-booktarr-text">{edition.publisher || 'Unknown'}</p>
-                            </div>
-                            <div>
-                              <span className="text-sm text-booktarr-textMuted">Published:</span>
-                              <p className="text-booktarr-text">{formatDate(edition.published_date)}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-3 gap-6">
-                            <div>
-                              <span className="text-sm text-booktarr-textMuted">Pages:</span>
-                              <p className="text-booktarr-text">{edition.page_count || 'Unknown'}</p>
-                            </div>
-                            <div>
-                              <span className="text-sm text-booktarr-textMuted">Language:</span>
-                              <p className="text-booktarr-text">{edition.language.toUpperCase()}</p>
-                            </div>
-                            <div>
-                              <span className="text-sm text-booktarr-textMuted">Added:</span>
-                              <p className="text-booktarr-text">{new Date(edition.added_date).toLocaleDateString()}</p>
-                            </div>
-                          </div>
-                          
-                          {edition.pricing && edition.pricing.length > 0 && (
-                            <div className="mt-4">
-                              <span className="text-sm text-booktarr-textMuted">Pricing:</span>
-                              <div className="flex items-center space-x-4 mt-1">
-                                {edition.pricing.map((price, index) => (
-                                  <div key={index} className="flex items-center space-x-2">
-                                    <span className="text-booktarr-text font-medium">
-                                      {new Intl.NumberFormat('en-US', {
-                                        style: 'currency',
-                                        currency: price.currency,
-                                      }).format(price.price)}
-                                    </span>
-                                    <span className="text-xs text-booktarr-textMuted">({price.source})</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h4 className="font-medium text-booktarr-text">
+                            {getEditionTypeLabel(edition.format || 'unknown')}
+                          </h4>
+                          <p className="text-sm text-booktarr-textMuted">
+                            {edition.publisher || 'Unknown Publisher'}
+                          </p>
                         </div>
-                        
-                        <div className="flex flex-col gap-2 ml-6">
-                          {edition.thumbnail_url && (
-                            <div className="w-16 h-24 mb-3">
-                              <img
-                                src={edition.thumbnail_url}
-                                alt={bookDetails.title}
-                                className="w-full h-full object-cover rounded shadow"
-                              />
-                            </div>
-                          )}
-                          
-                          {!isOwned && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // handleEditionSelect(edition.isbn, true);
-                              }}
-                              className="booktarr-btn booktarr-btn-primary booktarr-btn-sm"
-                            >
-                              Mark as Owned
-                            </button>
-                          )}
-                          {!isSelected && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedEdition(edition.isbn);
-                              }}
-                              className="booktarr-btn booktarr-btn-secondary booktarr-btn-sm"
-                            >
-                              Select Edition
-                            </button>
-                          )}
+                        <button
+                          onClick={() => setSelectedEdition(edition.isbn_13 || edition.id.toString() || '')}
+                          className={`px-3 py-1 rounded-full text-xs ${
+                            selectedEdition === (edition.isbn_13 || edition.id.toString())
+                              ? 'bg-booktarr-accent text-white'
+                              : 'bg-booktarr-border text-booktarr-textMuted hover:bg-booktarr-accent hover:text-white'
+                          }`}
+                        >
+                          {selectedEdition === (edition.isbn_13 || edition.id.toString()) ? 'Selected' : 'Select'}
+                        </button>
+                      </div>
+                      
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-booktarr-textMuted">ISBN:</span>
+                          <span className="text-booktarr-text">{edition.isbn_13 || edition.isbn_10 || 'N/A'}</span>
                         </div>
+                        {edition.release_date && (
+                          <div className="flex justify-between">
+                            <span className="text-booktarr-textMuted">Published:</span>
+                            <span className="text-booktarr-text">
+                              {new Date(edition.release_date).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
+                        {edition.price && (
+                          <div className="flex justify-between">
+                            <span className="text-booktarr-textMuted">Price:</span>
+                            <span className="text-booktarr-text">${edition.price}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-booktarr-textMuted">Status:</span>
+                          <span className={`text-sm px-2 py-1 rounded-full ${
+                            edition.status === 'own' 
+                              ? 'bg-green-100 text-green-800' 
+                              : edition.status === 'want'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {edition.status || 'unknown'}
+                          </span>
+                        </div>
+                        {edition.notes && (
+                          <div className="mt-2 p-2 bg-booktarr-bg rounded text-xs text-booktarr-textMuted">
+                            {edition.notes}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-booktarr-textMuted">
+                  <span className="text-4xl block mb-2">📚</span>
+                  No editions available
+                </div>
+              )}
             </div>
           )}
         </div>

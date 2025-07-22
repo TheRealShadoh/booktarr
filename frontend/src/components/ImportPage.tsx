@@ -3,8 +3,10 @@
  */
 import React, { useState, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Book, ReadingStatus, MetadataSource } from '../types';
+import { Book, ReadingStatus, MetadataSource, CSVImportResponse, CSVPreviewResponse, UnmatchedBook, BookMatch } from '../types';
 import LoadingSpinner from './LoadingSpinner';
+import booktarrAPI from '../services/api';
+import ManualBookMatching from './ManualBookMatching';
 
 interface ImportResult {
   success: boolean;
@@ -33,6 +35,10 @@ const ImportPage: React.FC = () => {
   const [previewData, setPreviewData] = useState<any[] | null>(null);
   const [fieldMapping, setFieldMapping] = useState<Record<string, string>>({});
   const [showFieldMapping, setShowFieldMapping] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [csvPreview, setCsvPreview] = useState<CSVPreviewResponse | null>(null);
+  const [unmatchedBooks, setUnmatchedBooks] = useState<UnmatchedBook[]>([]);
+  const [showManualMatching, setShowManualMatching] = useState(false);
 
   const importFormats: ImportFormat[] = [
     {
@@ -71,8 +77,8 @@ const ImportPage: React.FC = () => {
     {
       id: 'handylib',
       name: 'HandyLib',
-      description: 'HandyLib tab-delimited export format',
-      extensions: ['.txt', '.tsv'],
+      description: 'HandyLib CSV export format with advanced parsing',
+      extensions: ['.csv', '.txt', '.tsv'],
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -104,6 +110,10 @@ const ImportPage: React.FC = () => {
     setImportResult(null);
     setPreviewData(null);
     setShowFieldMapping(false);
+    setCsvPreview(null);
+    setShowPreview(false);
+    setUnmatchedBooks([]);
+    setShowManualMatching(false);
   }, [selectedFormat, showToast, importFormats]);
 
   const parseCSV = (text: string): any[] => {
@@ -162,6 +172,130 @@ const ImportPage: React.FC = () => {
     } catch (error) {
       throw new Error('Invalid JSON format');
     }
+  };
+
+  const handlePreviewFile = async () => {
+    if (!importFile) {
+      showToast('Please select a file first', 'error');
+      return;
+    }
+
+    setImporting(true);
+    try {
+      // Use backend API for HandyLib format
+      if (selectedFormat === 'handylib') {
+        const previewResponse = await booktarrAPI.previewCSV(importFile, 'handylib', 5);
+        setCsvPreview(previewResponse);
+        setShowPreview(true);
+        showToast(`Preview loaded: ${previewResponse.preview.length} rows`, 'success');
+      } else {
+        // Fall back to local parsing for other formats
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = e.target?.result as string;
+          let parsed;
+
+          if (selectedFormat === 'csv' || selectedFormat === 'goodreads') {
+            parsed = parseCSV(text);
+          } else if (selectedFormat === 'handylib') {
+            parsed = parseTabDelimited(text);
+          } else if (selectedFormat === 'hardcover') {
+            try {
+              parsed = JSON.parse(text);
+            } catch (error) {
+              showToast('Invalid JSON format', 'error');
+              return;
+            }
+          }
+
+          setPreviewData(parsed.slice(0, 10)); // Show first 10 rows
+          setShowFieldMapping(true);
+        };
+        reader.readAsText(importFile);
+      }
+    } catch (error: any) {
+      console.error('Preview error:', error);
+      showToast(error.message || 'Failed to preview file', 'error');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleImportFile = async () => {
+    if (!importFile) {
+      showToast('Please select a file first', 'error');
+      return;
+    }
+
+    setImporting(true);
+    setImportResult(null);
+
+    try {
+      // Use backend API for HandyLib format
+      if (selectedFormat === 'handylib') {
+        const importResponse = await booktarrAPI.importCSV(importFile, 'handylib');
+        
+        // Check if there were errors that need manual matching
+        if (importResponse.errors && importResponse.errors.length > 0) {
+          const unmatchedBooksData = importResponse.errors.map((error: any, index: number) => ({
+            row_number: error.row || index + 1,
+            title: error.title || 'Unknown',
+            authors: [],
+            original_data: error
+          }));
+          
+          setUnmatchedBooks(unmatchedBooksData);
+          setShowManualMatching(true);
+        }
+
+        setImportResult({
+          success: importResponse.success,
+          imported: importResponse.imported,
+          failed: importResponse.errors.length,
+          errors: importResponse.errors.map((e: any) => e.error),
+          skipped: 0,
+          processing_time: 0,
+          books_added: importResponse.books.map((b: any) => b.title)
+        });
+
+        showToast(
+          `Import completed! ${importResponse.imported} books imported, ${importResponse.updated} updated, ${importResponse.errors.length} errors`,
+          importResponse.errors.length > 0 ? 'warning' : 'success'
+        );
+      } else {
+        // Fall back to local processing for other formats
+        showToast('Local import processing not implemented for this format', 'error');
+      }
+    } catch (error: any) {
+      console.error('Import error:', error);
+      setImportResult({
+        success: false,
+        imported: 0,
+        failed: 1,
+        errors: [error.message || 'Import failed'],
+        skipped: 0,
+        processing_time: 0,
+        books_added: []
+      });
+      showToast(error.message || 'Import failed', 'error');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleManualMatchingComplete = (matches: BookMatch[]) => {
+    // Process the manual matches - for now just close the modal
+    setShowManualMatching(false);
+    setUnmatchedBooks([]);
+    
+    const importedCount = matches.filter(m => m.action === 'import').length;
+    const skippedCount = matches.filter(m => m.action === 'skip').length;
+    
+    showToast(`Manual matching completed: ${importedCount} books matched, ${skippedCount} skipped`, 'success');
+  };
+
+  const handleManualMatchingCancel = () => {
+    setShowManualMatching(false);
   };
 
   const handlePreview = async () => {
@@ -421,17 +555,30 @@ const ImportPage: React.FC = () => {
           {importFile && (
             <div className="mt-4 flex space-x-2">
               <button
-                onClick={handlePreview}
+                onClick={selectedFormat === 'handylib' ? handlePreviewFile : handlePreview}
                 disabled={importing}
                 className="booktarr-btn booktarr-btn-secondary"
               >
                 {importing ? <LoadingSpinner size="small" /> : 'Preview'}
               </button>
+              {selectedFormat === 'handylib' && (
+                <button
+                  onClick={handleImportFile}
+                  disabled={importing}
+                  className="booktarr-btn booktarr-btn-primary"
+                >
+                  {importing ? <LoadingSpinner size="small" /> : 'Import Now'}
+                </button>
+              )}
               <button
                 onClick={() => {
                   setImportFile(null);
                   setPreviewData(null);
                   setImportResult(null);
+                  setCsvPreview(null);
+                  setShowPreview(false);
+                  setUnmatchedBooks([]);
+                  setShowManualMatching(false);
                 }}
                 className="booktarr-btn booktarr-btn-secondary"
               >
@@ -574,6 +721,85 @@ const ImportPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Enhanced CSV Preview for HandyLib */}
+      {showPreview && csvPreview && (
+        <div className="booktarr-card">
+          <div className="booktarr-card-header">
+            <h2 className="text-lg font-semibold text-booktarr-text">CSV Preview</h2>
+            <p className="text-booktarr-textSecondary text-sm mt-1">
+              Preview of {csvPreview.filename} ({csvPreview.format} format)
+            </p>
+          </div>
+          <div className="booktarr-card-body">
+            <div className="space-y-4">
+              {csvPreview.preview.map((row, index) => (
+                <div key={index} className="border border-booktarr-border rounded-lg p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-semibold text-booktarr-text">Row {row.row_number}</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-booktarr-text mb-2">Original Data:</h4>
+                      <div className="bg-booktarr-surface p-2 rounded text-xs space-y-1">
+                        <p><strong>Title:</strong> {row.original.Title}</p>
+                        <p><strong>Author:</strong> {row.original.Author}</p>
+                        <p><strong>Series:</strong> {row.original.Series}</p>
+                        <p><strong>ISBN:</strong> {row.original.ISBN}</p>
+                        <p><strong>Format:</strong> {row.original.Format}</p>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h4 className="text-sm font-medium text-booktarr-text mb-2">Parsed Data:</h4>
+                      <div className="bg-booktarr-surface p-2 rounded text-xs space-y-1">
+                        {row.parsed ? (
+                          <>
+                            <p><strong>Title:</strong> {row.parsed.title}</p>
+                            <p><strong>Authors:</strong> {row.parsed.authors?.join(', ')}</p>
+                            <p><strong>Series:</strong> {row.parsed.series_name} {row.parsed.series_position ? `#${row.parsed.series_position}` : ''}</p>
+                            <p><strong>ISBN:</strong> {row.parsed.isbn_13}</p>
+                            <p><strong>Format:</strong> {row.parsed.format}</p>
+                            <p><strong>Price:</strong> {row.parsed.price ? `$${row.parsed.price}` : 'N/A'}</p>
+                          </>
+                        ) : (
+                          <p className="text-red-500">Failed to parse</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-4 flex space-x-2">
+              <button
+                onClick={handleImportFile}
+                disabled={importing}
+                className="booktarr-button-primary"
+              >
+                {importing ? <LoadingSpinner size="small" /> : 'Import All Books'}
+              </button>
+              <button
+                onClick={() => setShowPreview(false)}
+                className="booktarr-button-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Book Matching */}
+      {showManualMatching && unmatchedBooks.length > 0 && (
+        <ManualBookMatching
+          unmatchedBooks={unmatchedBooks}
+          onComplete={handleManualMatchingComplete}
+          onCancel={handleManualMatchingCancel}
+        />
       )}
     </div>
   );

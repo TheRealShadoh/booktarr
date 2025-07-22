@@ -3,9 +3,18 @@ from typing import List, Dict, Any
 from datetime import datetime, timedelta
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from .cache import JsonCache
-from .book_search import BookSearchService
-from ..clients import GoogleBooksClient, OpenLibraryClient
+try:
+    from backend.services.cache import JsonCache
+except ImportError:
+    from .cache import JsonCache
+try:
+    from backend.services.book_search import BookSearchService
+except ImportError:
+    from .book_search import BookSearchService
+try:
+    from backend.clients import GoogleBooksClient, OpenLibraryClient
+except ImportError:
+    from clients import GoogleBooksClient, OpenLibraryClient
 
 
 class MetadataRefreshService:

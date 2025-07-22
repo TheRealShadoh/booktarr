@@ -76,7 +76,7 @@
   }
   
   input:focus, textarea:focus, select:focus {
-    outline: 2px solid var(--booktarr-accent);
+    outline: 2px solid #a855f7;
     outline-offset: 2px;
   }
 }
@@ -85,8 +85,8 @@
 @layer components {
   /* Booktarr sidebar */
   .booktarr-sidebar {
-    background: var(--booktarr-surface);
-    border-right: 1px solid var(--booktarr-border);
+    background: #252525;
+    border-right: 1px solid #404040;
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.5);
   }
   
@@ -115,7 +115,7 @@
   
   .booktarr-card-header {
     @apply px-6 py-4 border-b border-booktarr-border;
-    background: linear-gradient(135deg, var(--booktarr-surface2) 0%, var(--booktarr-surface3) 100%);
+    background: linear-gradient(135deg, #2f2f2f 0%, #3a3a3a 100%);
   }
   
   .booktarr-card-body {
@@ -162,27 +162,8 @@
   
   /* Book grid enhancements */
   .booktarr-book-grid {
-    @apply grid gap-4;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  }
-  
-  @media (min-width: 640px) {
-    .booktarr-book-grid {
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    }
-  }
-  
-  @media (min-width: 1024px) {
-    .booktarr-book-grid {
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 1.5rem;
-    }
-  }
-  
-  @media (min-width: 1280px) {
-    .booktarr-book-grid {
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    }
+    @apply grid gap-6;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
   
   .booktarr-book-card {
@@ -197,7 +178,7 @@
   
   .booktarr-book-cover {
     @apply aspect-[2/3] w-full object-cover;
-    background: linear-gradient(135deg, var(--booktarr-surface3) 0%, var(--booktarr-surface2) 100%);
+    background: linear-gradient(135deg, #3a3a3a 0%, #2f2f2f 100%);
   }
   
   .booktarr-book-info {
@@ -214,6 +195,37 @@
   
   .booktarr-book-series {
     @apply text-xs text-booktarr-accent mt-1;
+  }
+  
+  /* Series section */
+  .booktarr-series-section {
+    @apply mb-8;
+  }
+  
+  .booktarr-series-header {
+    @apply flex items-center justify-between p-4 bg-booktarr-surface2 border border-booktarr-border rounded-lg mb-4 cursor-pointer transition-all duration-200 hover:bg-booktarr-hover;
+  }
+  
+  .booktarr-series-title {
+    @apply text-lg font-semibold text-booktarr-text;
+  }
+  
+  .booktarr-series-count {
+    @apply text-sm text-booktarr-textSecondary bg-booktarr-surface px-3 py-1 rounded-full;
+  }
+  
+  .booktarr-series-toggle {
+    @apply text-booktarr-textSecondary hover:text-booktarr-accent transition-colors;
+  }
+  
+  /* Loading states */
+  .booktarr-loading-skeleton {
+    @apply bg-booktarr-surface2 rounded animate-pulse;
+  }
+  
+  .booktarr-loading-shimmer {
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    animation: shimmer 1.5s infinite;
   }
   
   /* Status indicators */
@@ -236,12 +248,85 @@
   .booktarr-status-info {
     @apply bg-booktarr-info bg-opacity-20 text-booktarr-info border border-booktarr-info border-opacity-30;
   }
+  
+  /* Filter panel */
+  .booktarr-filter-panel {
+    @apply bg-booktarr-surface border border-booktarr-border rounded-lg p-4 space-y-4;
+  }
+  
+  .booktarr-filter-section {
+    @apply space-y-2;
+  }
+  
+  .booktarr-filter-title {
+    @apply text-sm font-medium text-booktarr-text;
+  }
+  
+  .booktarr-filter-checkbox {
+    @apply w-4 h-4 text-booktarr-accent bg-booktarr-surface2 border-booktarr-border rounded focus:ring-booktarr-accent focus:ring-2;
+  }
+  
+  .booktarr-filter-checkbox-label {
+    @apply text-sm text-booktarr-textSecondary;
+  }
+  
+  /* Book grid layout - Reduced size by ~50% */
+  .booktarr-book-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 1rem;
+  }
+  
+  @media (min-width: 640px) {
+    .booktarr-book-grid {
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .booktarr-book-grid {
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 1.25rem;
+    }
+  }
+  
+  @media (min-width: 1280px) {
+    .booktarr-book-grid {
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    }
+  }
+  
+  /* Size toggle options */
+  .booktarr-book-grid-large {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  @media (min-width: 640px) {
+    .booktarr-book-grid-large {
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .booktarr-book-grid-large {
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 2rem;
+    }
+  }
+  
+  @media (min-width: 1280px) {
+    .booktarr-book-grid-large {
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    }
+  }
 }
 
 /* Utility classes */
 @layer utilities {
   .text-gradient {
-    background: linear-gradient(135deg, var(--booktarr-accent) 0%, var(--booktarr-info) 100%);
+    background: linear-gradient(135deg, #a855f7 0%, #3b82f6 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -275,7 +360,7 @@
   
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: var(--booktarr-surface3) var(--booktarr-surface);
+    scrollbar-color: #4b5563 #1f2937;
   }
   
   .scrollbar-thin::-webkit-scrollbar {
@@ -284,17 +369,17 @@
   }
   
   .scrollbar-thin::-webkit-scrollbar-track {
-    background: var(--booktarr-surface);
+    background: #1f2937;
     border-radius: 4px;
   }
   
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: var(--booktarr-surface3);
+    background: #4b5563;
     border-radius: 4px;
   }
   
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: var(--booktarr-hover);
+    background: #6b7280;
   }
 }
 
@@ -323,16 +408,35 @@
 
 /* Responsive design helpers */
 @media (max-width: 768px) {
-  .booktarr-book-grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  .book-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 1rem;
   }
   
-  .booktarr-card-header {
+  .card-header {
     @apply px-4 py-3;
   }
   
-  .booktarr-card-body {
+  .card-body {
     @apply px-4 py-3;
+  }
+}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+  .status-success {
+    @apply bg-green-900 text-green-200;
+  }
+  
+  .status-warning {
+    @apply bg-yellow-900 text-yellow-200;
+  }
+  
+  .status-error {
+    @apply bg-red-900 text-red-200;
+  }
+  
+  .status-info {
+    @apply bg-blue-900 text-blue-200;
   }
 }

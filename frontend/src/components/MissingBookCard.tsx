@@ -7,28 +7,16 @@ interface MissingBookCardProps {
   seriesName: string;
   position: number;
   bookTitle?: string; // Real book title if known
-  author?: string;
-  isbn?: string;
-  thumbnailUrl?: string;
-  publishedDate?: string;
-  detectionMethod?: 'range' | 'metadata';
   viewMode?: 'grid' | 'list';
   onClick?: () => void;
-  onAddToWantlist?: () => void;
 }
 
 const MissingBookCard: React.FC<MissingBookCardProps> = ({ 
   seriesName, 
   position,
   bookTitle,
-  author,
-  isbn,
-  thumbnailUrl,
-  publishedDate,
-  detectionMethod,
   viewMode = 'grid',
-  onClick,
-  onAddToWantlist 
+  onClick 
 }) => {
   const handleClick = () => {
     if (onClick) {
@@ -44,19 +32,11 @@ const MissingBookCard: React.FC<MissingBookCardProps> = ({
       >
         <div className="flex items-center space-x-4">
           {/* Book Cover Placeholder */}
-          {thumbnailUrl ? (
-            <img 
-              src={thumbnailUrl} 
-              alt={bookTitle || `${seriesName} #${position}`}
-              className="w-16 h-24 object-cover rounded grayscale opacity-75"
-            />
-          ) : (
-            <div className="w-16 h-24 bg-booktarr-surface2 border-2 border-dashed border-booktarr-border rounded flex items-center justify-center">
-              <svg className="w-8 h-8 text-booktarr-textMuted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </div>
-          )}
+          <div className="w-16 h-24 bg-booktarr-surface2 border-2 border-dashed border-booktarr-border rounded flex items-center justify-center">
+            <svg className="w-8 h-8 text-booktarr-textMuted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+          </div>
           
           {/* Book Info */}
           <div className="flex-1 min-w-0">
@@ -68,13 +48,8 @@ const MissingBookCard: React.FC<MissingBookCardProps> = ({
                 Missing
               </span>
             </div>
-            <p className="text-booktarr-textSecondary text-sm mb-1">
-              {author || 'Book not in library'}
-            </p>
-            <p className="text-booktarr-textMuted text-xs">
-              {isbn ? `ISBN: ${isbn}` : 'Click to search for this book'}
-              {publishedDate && ` • ${publishedDate}`}
-            </p>
+            <p className="text-booktarr-textSecondary text-sm mb-1">Book not in library</p>
+            <p className="text-booktarr-textMuted text-xs">Click to search for this book</p>
           </div>
           
           {/* Actions */}
@@ -99,20 +74,12 @@ const MissingBookCard: React.FC<MissingBookCardProps> = ({
     >
       <div className="booktarr-book-image-container">
         {/* Missing book placeholder */}
-        {thumbnailUrl ? (
-          <img 
-            src={thumbnailUrl} 
-            alt={bookTitle || `${seriesName} #${position}`}
-            className="w-full h-full object-cover rounded-lg grayscale opacity-75"
-          />
-        ) : (
-          <div className="w-full h-full bg-booktarr-surface2 border-2 border-dashed border-booktarr-border rounded-lg flex flex-col items-center justify-center">
-            <svg className="w-12 h-12 text-booktarr-textMuted mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            <span className="text-xs text-booktarr-textMuted text-center px-2">Missing Book</span>
-          </div>
-        )}
+        <div className="w-full h-full bg-booktarr-surface2 border-2 border-dashed border-booktarr-border rounded-lg flex flex-col items-center justify-center">
+          <svg className="w-12 h-12 text-booktarr-textMuted mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          <span className="text-xs text-booktarr-textMuted text-center px-2">Missing Book</span>
+        </div>
         
         {/* Missing badge */}
         <div className="absolute top-2 right-2">
@@ -127,7 +94,7 @@ const MissingBookCard: React.FC<MissingBookCardProps> = ({
           {bookTitle || `${seriesName} #${position}`}
         </h3>
         <p className="booktarr-book-author text-xs text-booktarr-textMuted">
-          {author || 'Unknown Author'}
+          Book not in library
         </p>
         
         {/* Series info */}
@@ -137,8 +104,8 @@ const MissingBookCard: React.FC<MissingBookCardProps> = ({
           </span>
         </div>
         
-        {/* Action buttons */}
-        <div className="mt-3 space-y-2">
+        {/* Action button */}
+        <div className="mt-3">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -148,17 +115,6 @@ const MissingBookCard: React.FC<MissingBookCardProps> = ({
           >
             Find Book
           </button>
-          {onAddToWantlist && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddToWantlist();
-              }}
-              className="w-full booktarr-btn booktarr-btn-secondary booktarr-btn-sm text-xs"
-            >
-              Add to Wantlist
-            </button>
-          )}
         </div>
       </div>
     </div>

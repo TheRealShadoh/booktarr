@@ -1,11 +1,12 @@
 /**
- * Statistics Dashboard component
- * Displays comprehensive library statistics and insights
+ * Combined Analytics Dashboard component
+ * Displays comprehensive library statistics, analytics, and insights
  */
 import React, { useState, useEffect, useMemo } from 'react';
 import { useStateManager } from '../hooks/useStateManager';
-import { Book } from '../types';
+import { Book, BooksBySeriesMap } from '../types';
 import LoadingSpinner from './LoadingSpinner';
+import ErrorMessage from './ErrorMessage';
 
 interface StatItem {
   label: string;

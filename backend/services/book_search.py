@@ -3,10 +3,22 @@ from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 from sqlmodel import Session, select, or_
 
-from ..models import Book, Edition, UserEditionStatus
-from ..clients import GoogleBooksClient, OpenLibraryClient
-from ..database import get_session
-from .cache import JsonCache
+try:
+    from backend.models import Book, Edition, UserEditionStatus
+except ImportError:
+    from models import Book, Edition, UserEditionStatus
+try:
+    from backend.clients import GoogleBooksClient, OpenLibraryClient
+except ImportError:
+    from clients import GoogleBooksClient, OpenLibraryClient
+try:
+    from backend.database import get_session
+except ImportError:
+    from database import get_session
+try:
+    from backend.services.cache import JsonCache
+except ImportError:
+    from .cache import JsonCache
 
 
 class BookSearchService:

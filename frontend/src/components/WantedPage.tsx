@@ -1,13 +1,12 @@
 /**
  * Wanted page component with Missing From Series and Wantlist functionality
  */
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import BookCard from './BookCard';
 import MissingBookCard from './MissingBookCard';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import { BooksBySeriesMap, Book } from '../types';
-import { booktarrAPI } from '../services/api';
 
 interface WantedPageProps {
   books: BooksBySeriesMap;
@@ -22,12 +21,6 @@ interface MissingBook {
   position: number;
   title?: string;
   author?: string;
-  authors?: string[];
-  isbn?: string;
-  published_date?: string;
-  description?: string;
-  thumbnail_url?: string;
-  detection_method?: 'range' | 'metadata';
   id: string;
 }
 
@@ -52,166 +45,78 @@ const WantedPage: React.FC<WantedPageProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'missing' | 'wantlist'>('missing');
   const [wantlist, setWantlist] = useState<WantlistItem[]>([]);
-  const [wantlistLoading, setWantlistLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newWantlistItem, setNewWantlistItem] = useState<Partial<WantlistItem>>({
     priority: 'medium'
   });
-  const [missingBooks, setMissingBooks] = useState<MissingBook[]>([]);
-  const [missingBooksLoading, setMissingBooksLoading] = useState(false);
 
-  // Fetch wantlist from API
-  useEffect(() => {
-    fetchWantlist();
-    fetchMissingBooks();
-  }, []);
-
-  const fetchWantlist = async () => {
-    setWantlistLoading(true);
-    try {
-      const response = await fetch('http://localhost:8000/api/wantlist');
-      if (response.ok) {
-        const data = await response.json();
-        setWantlist(data.map((item: any) => ({
-          id: item.id.toString(),
-          title: item.title,
-          author: item.authors?.[0],
-          isbn: item.isbn,
-          seriesName: item.series,
-          seriesPosition: item.series_position,
-          dateAdded: new Date(item.date_added),
-          notes: item.notes,
-          priority: item.priority as 'low' | 'medium' | 'high'
-        })));
-      }
-    } catch (error) {
-      console.error('Error fetching wantlist:', error);
-    } finally {
-      setWantlistLoading(false);
-    }
-  };
-
-  const fetchMissingBooks = async () => {
-    setMissingBooksLoading(true);
-    try {
-      const response = await fetch('http://localhost:8000/api/wantlist/missing-books');
-      if (response.ok) {
-        const data = await response.json();
-        setMissingBooks(data.map((item: any) => ({
-          id: `${item.series}-${item.position || 'unknown'}`,
-          seriesName: item.series,
-          position: item.position,
-          title: item.title,
-          author: item.authors?.[0],
-          authors: item.authors,
-          isbn: item.isbn,
-          published_date: item.published_date,
-          description: item.description,
-          thumbnail_url: item.thumbnail_url,
-          detection_method: item.detection_method
-        })));
-      }
-    } catch (error) {
-      console.error('Error fetching missing books:', error);
-      // Fallback to client-side calculation if API fails
-      const missing: MissingBook[] = [];
+  // Calculate missing books from series
+  const missingBooks = useMemo(() => {
+    if (!books) return [];
+    
+    const missing: MissingBook[] = [];
+    
+    Object.entries(books).forEach(([seriesName, bookList]) => {
+      if (seriesName === 'Standalone') return;
       
-      Object.entries(books).forEach(([seriesName, bookList]) => {
-        if (seriesName === 'Standalone') return;
-        
-        const booksWithPositions = bookList.filter(book => book.series_position);
-        if (booksWithPositions.length === 0) return;
-        
-        const positions = booksWithPositions.map(book => book.series_position!).sort((a, b) => a - b);
-        const maxPosition = Math.max(...positions);
-        
-        // Find gaps in the series
-        for (let i = 1; i <= maxPosition; i++) {
-          if (!positions.includes(i)) {
-            missing.push({
-              id: `${seriesName}-${i}`,
-              seriesName,
-              position: i,
-              author: bookList[0]?.authors[0],
-              detection_method: 'range'
-            });
-          }
+      const booksWithPositions = bookList.filter(book => book.series_position);
+      if (booksWithPositions.length === 0) return;
+      
+      const positions = booksWithPositions.map(book => book.series_position!).sort((a, b) => a - b);
+      const maxPosition = Math.max(...positions);
+      
+      // Find gaps in the series
+      for (let i = 1; i <= maxPosition; i++) {
+        if (!positions.includes(i)) {
+          missing.push({
+            id: `${seriesName}-${i}`,
+            seriesName,
+            position: i,
+            author: bookList[0]?.authors[0]
+          });
         }
-      });
-      
-      setMissingBooks(missing.sort((a, b) => a.seriesName.localeCompare(b.seriesName)));
-    } finally {
-      setMissingBooksLoading(false);
-    }
-  };
-
-  const handleAddToWantlist = async (missingBook: MissingBook) => {
-    try {
-      const response = await fetch('http://localhost:8000/api/wantlist/missing-book', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          series_name: missingBook.seriesName,
-          position: missingBook.position,
-          title: missingBook.title,
-          authors: missingBook.author ? [missingBook.author] : []
-        })
-      });
-      
-      if (response.ok) {
-        await fetchWantlist(); // Refresh the list
-        await fetchMissingBooks(); // Refresh missing books too
-      } else if (response.status === 409) {
-        alert('This book is already in your wantlist');
       }
-    } catch (error) {
-      console.error('Error adding to wantlist:', error);
-    }
+    });
+    
+    return missing.sort((a, b) => a.seriesName.localeCompare(b.seriesName));
+  }, [books]);
+
+  const handleAddToWantlist = (missingBook: MissingBook) => {
+    const newItem: WantlistItem = {
+      id: `wl-${Date.now()}`,
+      title: missingBook.title || `${missingBook.seriesName} #${missingBook.position}`,
+      author: missingBook.author,
+      seriesName: missingBook.seriesName,
+      seriesPosition: missingBook.position,
+      dateAdded: new Date(),
+      priority: 'medium'
+    };
+    
+    setWantlist(prev => [...prev, newItem]);
   };
 
-  const handleAddManualWantlistItem = async () => {
+  const handleAddManualWantlistItem = () => {
     if (!newWantlistItem.title) return;
     
-    try {
-      const response = await fetch('http://localhost:8000/api/wantlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: newWantlistItem.title,
-          authors: newWantlistItem.author ? [newWantlistItem.author] : [],
-          isbn: newWantlistItem.isbn,
-          series: newWantlistItem.seriesName,
-          series_position: newWantlistItem.seriesPosition,
-          notes: newWantlistItem.notes,
-          priority: newWantlistItem.priority || 'medium',
-          source: 'manual'
-        })
-      });
-      
-      if (response.ok) {
-        await fetchWantlist(); // Refresh the list
-        setNewWantlistItem({ priority: 'medium' });
-        setShowAddForm(false);
-      } else if (response.status === 409) {
-        alert('This book is already in your wantlist');
-      }
-    } catch (error) {
-      console.error('Error adding to wantlist:', error);
-    }
+    const item: WantlistItem = {
+      id: `wl-${Date.now()}`,
+      title: newWantlistItem.title,
+      author: newWantlistItem.author,
+      isbn: newWantlistItem.isbn,
+      seriesName: newWantlistItem.seriesName,
+      seriesPosition: newWantlistItem.seriesPosition,
+      dateAdded: new Date(),
+      notes: newWantlistItem.notes,
+      priority: newWantlistItem.priority || 'medium'
+    };
+    
+    setWantlist(prev => [...prev, item]);
+    setNewWantlistItem({ priority: 'medium' });
+    setShowAddForm(false);
   };
 
-  const handleRemoveFromWantlist = async (id: string) => {
-    try {
-      const response = await fetch(`http://localhost:8000/api/wantlist/${id}`, {
-        method: 'DELETE'
-      });
-      
-      if (response.ok) {
-        await fetchWantlist(); // Refresh the list
-      }
-    } catch (error) {
-      console.error('Error removing from wantlist:', error);
-    }
+  const handleRemoveFromWantlist = (id: string) => {
+    setWantlist(prev => prev.filter(item => item.id !== id));
   };
 
   const totalMissing = missingBooks.length;
@@ -304,11 +209,7 @@ const WantedPage: React.FC<WantedPageProps> = ({
             </p>
           </div>
           <div className="booktarr-card-body">
-            {missingBooksLoading ? (
-              <div className="flex justify-center items-center py-12">
-                <LoadingSpinner size="medium" message="Loading missing books..." />
-              </div>
-            ) : missingBooks.length === 0 ? (
+            {missingBooks.length === 0 ? (
               <div className="text-center py-12">
                 <svg className="w-16 h-16 text-booktarr-textMuted mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -319,28 +220,29 @@ const WantedPage: React.FC<WantedPageProps> = ({
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              <div className="space-y-4">
                 {missingBooks.map(missing => (
-                  <MissingBookCard
-                    key={missing.id}
-                    seriesName={missing.seriesName}
-                    position={missing.position}
-                    bookTitle={missing.title}
-                    author={missing.author}
-                    isbn={missing.isbn}
-                    thumbnailUrl={missing.thumbnail_url}
-                    publishedDate={missing.published_date}
-                    detectionMethod={missing.detection_method}
-                    onClick={() => {
-                      // Navigate to search page with ISBN or title
-                      if (missing.isbn) {
-                        window.location.href = `/search?isbn=${missing.isbn}`;
-                      } else if (missing.title) {
-                        window.location.href = `/search?q=${encodeURIComponent(missing.title)}`;
-                      }
-                    }}
-                    onAddToWantlist={() => handleAddToWantlist(missing)}
-                  />
+                  <div key={missing.id} className="flex items-center justify-between p-4 bg-booktarr-surface2 rounded-lg border border-booktarr-border">
+                    <div className="flex-1">
+                      <h4 className="text-booktarr-text font-medium">
+                        {missing.seriesName} #{missing.position}
+                      </h4>
+                      {missing.author && (
+                        <p className="text-booktarr-textSecondary text-sm">by {missing.author}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleAddToWantlist(missing)}
+                        className="booktarr-btn booktarr-btn-secondary text-xs"
+                      >
+                        Add to Wantlist
+                      </button>
+                      <button className="booktarr-btn booktarr-btn-primary text-xs">
+                        Search for Book
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}

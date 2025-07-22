@@ -13,6 +13,7 @@ export interface Book {
   page_count?: number;
   language: string;
   thumbnail_url?: string;
+  cover_url?: string;
   description?: string;
   categories: string[];
   pricing: PriceInfo[];
@@ -261,52 +262,6 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   selectedCategories: [],
 };
 
-// Metadata Enhancement types
-export enum EnhancementStatus {
-  PENDING = 'pending',
-  IN_PROGRESS = 'in_progress',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  CACHED = 'cached',
-}
-
-export interface EnhancementRequest {
-  isbn?: string;
-  force_refresh?: boolean;
-}
-
-export interface EnhancementResult {
-  isbn: string;
-  status: EnhancementStatus;
-  original_book?: Book;
-  enhanced_book?: Book;
-  error_message?: string;
-  sources_used: string[];
-  cache_hit: boolean;
-  processing_time: number;
-}
-
-export interface BatchEnhancementResponse {
-  success: boolean;
-  message: string;
-  total_books: number;
-  enhanced_books: number;
-  failed_books: number;
-  cached_books: number;
-  processing_time: number;
-  results: EnhancementResult[];
-}
-
-export interface EnhancementProgressResponse {
-  total_books: number;
-  processed_books: number;
-  successful_enhancements: number;
-  failed_enhancements: number;
-  cached_results: number;
-  current_isbn?: string;
-  estimated_completion?: string;
-  is_complete: boolean;
-}
 
 export interface CacheStatsResponse {
   cache_stats: any;
@@ -364,4 +319,76 @@ export interface ReadingGoal {
   current_pages: number;
   is_completed: boolean;
   created_date: string;
+}
+
+// CSV Import API types
+export interface CSVImportRequest {
+  file: File;
+  format_type: string; // 'handylib', 'goodreads', etc.
+  user_id?: number;
+}
+
+export interface CSVImportResponse {
+  success: boolean;
+  filename: string;
+  format: string;
+  imported: number;
+  updated: number;
+  errors: CSVImportError[];
+  books: ImportedBook[];
+}
+
+export interface CSVImportError {
+  row?: number;
+  error: string;
+  title?: string;
+}
+
+export interface ImportedBook {
+  id: number;
+  title: string;
+  authors: string[];
+  series_name?: string;
+  series_position?: number;
+}
+
+export interface CSVPreviewRequest {
+  file: File;
+  format_type: string;
+  limit?: number;
+}
+
+export interface CSVPreviewResponse {
+  filename: string;
+  format: string;
+  headers: string[];
+  preview: CSVPreviewRow[];
+  total_rows_in_file: string;
+}
+
+export interface CSVPreviewRow {
+  row_number: number;
+  original: any;
+  parsed: any;
+}
+
+export interface ManualMatchRequest {
+  unmatched_books: UnmatchedBook[];
+  user_matches: BookMatch[];
+}
+
+export interface UnmatchedBook {
+  row_number: number;
+  title: string;
+  authors: string[];
+  isbn?: string;
+  series?: string;
+  original_data: any;
+}
+
+export interface BookMatch {
+  row_number: number;
+  matched_book?: Book;
+  action: 'import' | 'skip' | 'create_new';
+  user_notes?: string;
 }

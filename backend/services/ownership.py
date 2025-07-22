@@ -3,8 +3,14 @@ from sqlmodel import Session, select
 from datetime import date
 import json
 
-from ..models import Book, Edition, UserEditionStatus
-from ..database import get_session
+try:
+    from backend.models import Book, Edition, UserEditionStatus
+except ImportError:
+    from models import Book, Edition, UserEditionStatus
+try:
+    from backend.database import get_session
+except ImportError:
+    from database import get_session
 
 
 class OwnershipService:
@@ -72,7 +78,7 @@ class OwnershipService:
                     # If no status or status is not 'own', it's missing
                     if not user_status or user_status.status != "own":
                         missing_editions.append({
-                            "book_title": book.title,
+                            "title": book.title,
                             "series_position": book.series_position,
                             "edition_id": edition.id,
                             "isbn_13": edition.isbn_13,
@@ -116,7 +122,7 @@ class OwnershipService:
                     # If no status or status is not 'own', it's missing
                     if not user_status or user_status.status != "own":
                         missing_editions.append({
-                            "book_title": book.title,
+                            "title": book.title,
                             "series_name": book.series_name,
                             "series_position": book.series_position,
                             "edition_id": edition.id,
@@ -148,7 +154,7 @@ class OwnershipService:
                 book = edition.book
                 
                 wanted_editions.append({
-                    "book_title": book.title,
+                    "title": book.title,
                     "authors": json.loads(book.authors) if book.authors else [],
                     "series_name": book.series_name,
                     "series_position": book.series_position,
@@ -182,7 +188,7 @@ class OwnershipService:
                 book = edition.book
                 
                 owned_editions.append({
-                    "book_title": book.title,
+                    "title": book.title,
                     "authors": json.loads(book.authors) if book.authors else [],
                     "series_name": book.series_name,
                     "series_position": book.series_position,

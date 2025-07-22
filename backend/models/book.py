@@ -29,6 +29,7 @@ class Edition(SQLModel, table=True):
 
     book: Book = Relationship(back_populates="editions")
     user_statuses: List["UserEditionStatus"] = Relationship(back_populates="edition")
+    reading_progress: List["ReadingProgress"] = Relationship(back_populates="edition")
 
 
 class UserEditionStatus(SQLModel, table=True):
