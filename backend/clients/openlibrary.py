@@ -18,7 +18,7 @@ class OpenLibraryClient:
             return None
         response.raise_for_status()
         
-        book_data = await response.json()
+        book_data = response.json()
         
         # Get work data if available
         work_data = None
@@ -26,7 +26,7 @@ class OpenLibraryClient:
             work_key = book_data["works"][0]["key"]
             work_response = await self.client.get(f"{self.BASE_URL}{work_key}.json")
             if work_response.status_code == 200:
-                work_data = await work_response.json()
+                work_data = work_response.json()
         
         return self._parse_book_data(book_data, work_data)
     
@@ -42,7 +42,7 @@ class OpenLibraryClient:
         response = await self.client.get(f"{self.BASE_URL}/search.json", params=params)
         response.raise_for_status()
         
-        data = await response.json()
+        data = response.json()
         results = []
         
         for doc in data.get("docs", []):
@@ -68,7 +68,7 @@ class OpenLibraryClient:
         response = await self.client.get(f"{self.BASE_URL}/search.json", params=params)
         response.raise_for_status()
         
-        data = await response.json()
+        data = response.json()
         results = []
         
         for doc in data.get("docs", []):
@@ -81,7 +81,7 @@ class OpenLibraryClient:
         response = await self.client.get(f"{self.BASE_URL}{work_key}/editions.json")
         response.raise_for_status()
         
-        data = await response.json()
+        data = response.json()
         editions = []
         
         for entry in data.get("entries", []):

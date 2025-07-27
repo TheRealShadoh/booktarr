@@ -1,1 +1,4 @@
-{"enable_external_metadata": true}
+{
+  "enable_external_metadata": true,
+  "external_metadata_timeout_until": null
+}

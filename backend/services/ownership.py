@@ -8,9 +8,9 @@ try:
 except ImportError:
     from models import Book, Edition, UserEditionStatus
 try:
-    from backend.database import get_session
+    from backend.database import get_db_session
 except ImportError:
-    from database import get_session
+    from database import get_db_session
 
 
 class OwnershipService:
@@ -19,7 +19,7 @@ class OwnershipService:
         if status not in ["own", "want", "missing"]:
             raise ValueError("Status must be 'own', 'want', or 'missing'")
         
-        with get_session() as session:
+        with get_db_session() as session:
             # Check if edition exists
             edition = session.get(Edition, edition_id)
             if not edition:
@@ -57,7 +57,7 @@ class OwnershipService:
             }
     
     def get_missing_from_series(self, user_id: int, series_name: str) -> List[Dict[str, Any]]:
-        with get_session() as session:
+        with get_db_session() as session:
             # Get all books in the series
             books = session.exec(
                 select(Book).where(Book.series_name == series_name)
@@ -96,7 +96,7 @@ class OwnershipService:
             return missing_editions
     
     def get_missing_from_author(self, user_id: int, author_name: str) -> List[Dict[str, Any]]:
-        with get_session() as session:
+        with get_db_session() as session:
             # Get all books by author
             books = session.exec(select(Book)).all()
             
@@ -138,7 +138,7 @@ class OwnershipService:
             return missing_editions
     
     def get_wanted_books(self, user_id: int) -> List[Dict[str, Any]]:
-        with get_session() as session:
+        with get_db_session() as session:
             # Get all editions marked as 'want'
             wanted_statuses = session.exec(
                 select(UserEditionStatus).where(
@@ -172,7 +172,7 @@ class OwnershipService:
             return wanted_editions
     
     def get_owned_books(self, user_id: int) -> List[Dict[str, Any]]:
-        with get_session() as session:
+        with get_db_session() as session:
             # Get all editions marked as 'own'
             owned_statuses = session.exec(
                 select(UserEditionStatus).where(
@@ -205,7 +205,7 @@ class OwnershipService:
             return owned_editions
     
     def add_note_to_edition(self, user_id: int, edition_id: int, note: str) -> Dict[str, Any]:
-        with get_session() as session:
+        with get_db_session() as session:
             # Check if user status exists
             user_status = session.exec(
                 select(UserEditionStatus).where(

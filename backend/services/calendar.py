@@ -9,9 +9,9 @@ try:
 except ImportError:
     from models import Book, Edition, UserEditionStatus
 try:
-    from backend.database import get_session
+    from backend.database import get_db_session
 except ImportError:
-    from database import get_session
+    from database import get_db_session
 
 
 class ReleaseCalendarService:
@@ -21,7 +21,7 @@ class ReleaseCalendarService:
         Returns a calendar of upcoming releases and recently released books
         that the user doesn't own or wants.
         """
-        with get_session() as session:
+        with get_db_session() as session:
             # Get current date
             today = date.today()
             
@@ -95,7 +95,7 @@ class ReleaseCalendarService:
         """
         Get upcoming releases for a specific series.
         """
-        with get_session() as session:
+        with get_db_session() as session:
             today = date.today()
             
             # Get all books in the series
@@ -144,7 +144,7 @@ class ReleaseCalendarService:
         """
         Get books released in the last N days that the user doesn't own.
         """
-        with get_session() as session:
+        with get_db_session() as session:
             today = date.today()
             cutoff_date = today - timedelta(days=days)
             
@@ -196,7 +196,7 @@ class ReleaseCalendarService:
         """
         Get upcoming releases from a specific author.
         """
-        with get_session() as session:
+        with get_db_session() as session:
             today = date.today()
             
             # Get all books

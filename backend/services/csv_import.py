@@ -10,9 +10,9 @@ try:
 except ImportError:
     from models import Book, Edition, UserEditionStatus
 try:
-    from backend.database import get_session
+    from backend.database import get_db_session
 except ImportError:
-    from database import get_session
+    from database import get_db_session
 try:
     from backend.services.book_search import BookSearchService
 except ImportError:
@@ -185,7 +185,7 @@ class CSVImportService:
     async def _import_book(self, book_data: Dict[str, Any], user_id: int) -> Dict[str, Any]:
         """Import a single book into the database using existing services."""
         try:
-            with get_session() as session:
+            with get_db_session() as session:
                 # Check if book already exists by ISBN or title+author
                 existing_book = None
                 existing_edition = None

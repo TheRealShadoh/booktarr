@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 import json
 import os
+import sqlite3
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -280,3 +281,143 @@ async def get_external_metadata_status() -> Dict[str, Any]:
         response["timeout_active"] = False
     
     return response
+
+
+class RemoveAllDataRequest(BaseModel):
+    confirmation: str
+
+
+@router.post("/remove-all-data")
+async def remove_all_data(request: RemoveAllDataRequest) -> Dict[str, Any]:
+    """
+    Remove all books and series data from the library.
+    Requires confirmation text "DELETE" to proceed.
+    
+    WARNING: This is a destructive operation that cannot be undone.
+    """
+    # Verify confirmation text
+    if request.confirmation != "DELETE":
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid confirmation text. Must be exactly 'DELETE' to proceed."
+        )
+    
+    try:
+        # Get database paths
+        backend_dir = os.path.dirname(os.path.dirname(__file__))
+        books_db_path = os.path.join(backend_dir, "books.db")
+        booktarr_db_path = os.path.join(backend_dir, "booktarr.db")
+        cache_file_path = os.path.join(backend_dir, "book_cache.json")
+        
+        removed_counts = {
+            "books": 0,
+            "editions": 0,
+            "user_edition_statuses": 0,
+            "series": 0,
+            "series_volumes": 0,
+            "reading_progress": 0,
+            "cache_entries": 0
+        }
+        
+        # Clear books.db if it exists and has data
+        if os.path.exists(books_db_path) and os.path.getsize(books_db_path) > 0:
+            try:
+                conn = sqlite3.connect(books_db_path)
+                cursor = conn.cursor()
+                
+                try:
+                    # Count records before deletion
+                    tables_to_clear = [
+                        ("book", "books"),
+                        ("edition", "editions"), 
+                        ("usereditionstatus", "user_edition_statuses"),
+                        ("series", "series"),
+                        ("seriesvolume", "series_volumes"),
+                        ("readingprogress", "reading_progress")
+                    ]
+                    
+                    for table_name, count_key in tables_to_clear:
+                        try:
+                            cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+                            count = cursor.fetchone()[0]
+                            removed_counts[count_key] = count
+                            
+                            # Delete all records from table
+                            cursor.execute(f"DELETE FROM {table_name}")
+                        except sqlite3.Error:
+                            # Table might not exist, skip
+                            pass
+                    
+                    # Reset SQLite sequence counters (if the table exists)
+                    try:
+                        cursor.execute("DELETE FROM sqlite_sequence")
+                    except sqlite3.Error:
+                        # sqlite_sequence table doesn't exist, which is fine
+                        pass
+                    
+                    conn.commit()
+                finally:
+                    conn.close()
+            except sqlite3.Error as e:
+                # If there's any database error, just skip this database
+                print(f"Error accessing books.db: {e}")
+                pass
+        
+        # Clear booktarr.db if it exists and has data
+        if os.path.exists(booktarr_db_path) and os.path.getsize(booktarr_db_path) > 0:
+            try:
+                conn = sqlite3.connect(booktarr_db_path)
+                cursor = conn.cursor()
+                
+                try:
+                    # Get list of all tables
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+                    tables = cursor.fetchall()
+                    
+                    # Clear all data tables (but preserve schema)
+                    for (table_name,) in tables:
+                        try:
+                            cursor.execute(f"DELETE FROM {table_name}")
+                        except sqlite3.Error:
+                            # Skip if error
+                            pass
+                    
+                    # Reset sequence counters (if the table exists)
+                    try:
+                        cursor.execute("DELETE FROM sqlite_sequence WHERE name NOT IN ('alembic_version')")
+                    except sqlite3.Error:
+                        # sqlite_sequence table doesn't exist, which is fine
+                        pass
+                    
+                    conn.commit()
+                finally:
+                    conn.close()
+            except sqlite3.Error as e:
+                # If there's any database error, just skip this database
+                print(f"Error accessing booktarr.db: {e}")
+                pass
+        
+        # Remove cache file
+        if os.path.exists(cache_file_path):
+            try:
+                with open(cache_file_path, 'r') as f:
+                    cache_data = json.load(f)
+                    removed_counts["cache_entries"] = len(cache_data)
+            except:
+                pass
+            
+            # Remove the cache file
+            os.remove(cache_file_path)
+        
+        return {
+            "success": True,
+            "message": "All books and series data has been removed from your library",
+            "removed_counts": removed_counts,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to remove data: {str(e)}"
+        )

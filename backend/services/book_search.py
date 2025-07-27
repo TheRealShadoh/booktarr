@@ -12,9 +12,9 @@ try:
 except ImportError:
     from clients import GoogleBooksClient, OpenLibraryClient
 try:
-    from backend.database import get_session
+    from backend.database import get_db_session
 except ImportError:
-    from database import get_session
+    from database import get_db_session
 try:
     from backend.services.cache import JsonCache
 except ImportError:
@@ -59,7 +59,7 @@ class BookSearchService:
             return self._format_book_response(cached, user_id)
         
         # Check database
-        with get_session() as session:
+        with get_db_session() as session:
             # Look for edition with this ISBN
             stmt = select(Edition).where(
                 or_(Edition.isbn_10 == isbn, Edition.isbn_13 == isbn)
@@ -126,7 +126,7 @@ class BookSearchService:
         return unique_results
     
     async def _save_book_to_db(self, book_data: Dict[str, Any]):
-        with get_session() as session:
+        with get_db_session() as session:
             # Check if book already exists
             existing_book = None
             if book_data.get("google_books_id"):
@@ -185,7 +185,35 @@ class BookSearchService:
                 await self._ensure_series_exists(book_data["series_name"], book_data.get("authors", []), session)
     
     async def _ensure_series_exists(self, series_name: str, authors: List[str], session: Session):
-        """Ensure series exists in database and trigger metadata fetch if needed"""
+        """Ensure series exists in database and trigger enhanced series detection"""
+        try:
+            # Import enhanced series detection
+            try:
+                from backend.services.enhanced_series_detection import EnhancedSeriesDetectionService
+            except ImportError:
+                from services.enhanced_series_detection import EnhancedSeriesDetectionService
+            
+            # Use enhanced series detection to find and populate complete series info
+            async with EnhancedSeriesDetectionService() as detection_service:
+                series_info = await detection_service.detect_and_populate_series(
+                    book_title="",  # We don't have the full book title here
+                    authors=authors,
+                    existing_series_name=series_name
+                )
+                
+                if series_info:
+                    print(f"✅ Enhanced series detection found series '{series_info['series_name']}' with {len(series_info.get('books', []))} books")
+                else:
+                    # Fallback to basic series creation
+                    await self._create_basic_series_fallback(series_name, authors, session)
+                    
+        except Exception as e:
+            print(f"Warning: Enhanced series detection failed for '{series_name}': {e}")
+            # Fallback to basic series creation
+            await self._create_basic_series_fallback(series_name, authors, session)
+    
+    async def _create_basic_series_fallback(self, series_name: str, authors: List[str], session: Session):
+        """Fallback method to create basic series record"""
         try:
             # Import series models
             try:
@@ -210,30 +238,15 @@ class BookSearchService:
                 )
                 session.add(series)
                 session.commit()
-                
-                # Trigger background metadata fetch (async)
-                try:
-                    from backend.services.series_metadata import SeriesMetadataService
-                except ImportError:
-                    from services.series_metadata import SeriesMetadataService
-                    
-                # Note: In a production system, this would be a background task
-                # For now, we'll do it synchronously but with error handling
-                try:
-                    metadata_service = SeriesMetadataService()
-                    await metadata_service.fetch_and_update_series(series_name, author)
-                    await metadata_service.close()
-                except Exception as e:
-                    print(f"Warning: Failed to fetch series metadata for '{series_name}': {e}")
-                    # Continue without failing the book import
+                print(f"Created basic series record for '{series_name}'")
                     
         except Exception as e:
-            print(f"Error ensuring series exists: {e}")
+            print(f"Error creating basic series fallback: {e}")
             # Don't fail the book import if series creation fails
     
     def _format_book_response(self, book_data: Dict[str, Any], user_id: int) -> Dict[str, Any]:
         # Get user status for editions
-        with get_session() as session:
+        with get_db_session() as session:
             # Find the book in DB to get edition statuses
             book = None
             if book_data.get("google_books_id"):

@@ -5,10 +5,10 @@ from sqlalchemy import func
 
 try:
     from backend.models import Edition, ReadingProgress, ReadingStats
-    from backend.database import get_session
+    from backend.database import get_db_session
 except ImportError:
     from models import Edition, ReadingProgress, ReadingStats
-    from database import get_session
+    from database import get_db_session
 
 
 class ReadingProgressService:
@@ -17,7 +17,7 @@ class ReadingProgressService:
 
     def update_progress(self, edition_id: int, current_page: int, total_pages: int) -> ReadingProgress:
         """Update reading progress for a book"""
-        with get_session() as session:
+        with get_db_session() as session:
             progress = session.exec(
                 select(ReadingProgress).where(
                     ReadingProgress.edition_id == edition_id,
@@ -49,7 +49,7 @@ class ReadingProgressService:
 
     def get_reading_stats(self) -> ReadingStats:
         """Get reading statistics for the user"""
-        with get_session() as session:
+        with get_db_session() as session:
             stats = ReadingStats()
             
             # Count books by status
@@ -121,7 +121,7 @@ class ReadingProgressService:
 
     def get_books_by_status(self, status: str) -> List[ReadingProgress]:
         """Get all books with a specific reading status"""
-        with get_session() as session:
+        with get_db_session() as session:
             return session.exec(
                 select(ReadingProgress).where(
                     ReadingProgress.user_id == 1,
@@ -131,7 +131,7 @@ class ReadingProgressService:
 
     def start_reading(self, edition_id: int) -> ReadingProgress:
         """Mark a book as currently reading"""
-        with get_session() as session:
+        with get_db_session() as session:
             progress = session.exec(
                 select(ReadingProgress).where(
                     ReadingProgress.edition_id == edition_id,
@@ -156,7 +156,7 @@ class ReadingProgressService:
 
     def finish_reading(self, edition_id: int, rating: Optional[int] = None) -> ReadingProgress:
         """Mark a book as finished"""
-        with get_session() as session:
+        with get_db_session() as session:
             progress = session.exec(
                 select(ReadingProgress).where(
                     ReadingProgress.edition_id == edition_id,
@@ -189,7 +189,7 @@ class ReadingProgressService:
 
     def add_to_wishlist(self, edition_id: int) -> ReadingProgress:
         """Add a book to the want-to-read list"""
-        with get_session() as session:
+        with get_db_session() as session:
             progress = session.exec(
                 select(ReadingProgress).where(
                     ReadingProgress.edition_id == edition_id,

@@ -1,55 +1,46 @@
 #!/usr/bin/env python3
 """
-Test series extraction from Google Books and OpenLibrary clients
+Test script to verify series extraction from Google Books API
 """
-import sys
-sys.path.insert(0, '.')
 import asyncio
-from clients import GoogleBooksClient, OpenLibraryClient
+import sys
+import os
+
+# Add the backend directory to the path
+sys.path.insert(0, os.path.dirname(__file__))
 
 async def test_series_extraction():
-    print("🧪 Testing series information extraction from API clients")
+    """Test series extraction with known series books"""
     
-    # Test titles that should have series info
-    test_cases = [
-        "Bleach, Vol. 1",
-        "Bleach Volume 2",
-        "One Piece #3", 
-        "Naruto: Volume 4",
-        "Attack on Titan (Volume 5)",
-        "Jujutsu Kaisen Vol. 6",
-        "呪術廻戦 [Jujutsu Kaisen] Vol. 7",
-        "Spy x Family, Vol. 8"
+    from clients.google_books import GoogleBooksClient
+    
+    client = GoogleBooksClient()
+    
+    test_books = [
+        ("9780439708180", "Harry Potter and the Sorcerer's Stone"),
+        ("9781421533384", "Naruto Vol. 1"),
+        ("9781626922419", "Citrus Vol. 1"),
+        ("9780765326355", "The Way of Kings")
     ]
     
-    google_client = GoogleBooksClient()
-    openlibrary_client = OpenLibraryClient()
+    for isbn, expected_title in test_books:
+        print(f"\n🔍 Testing ISBN: {isbn} ({expected_title})")
+        try:
+            result = await client.search_by_isbn(isbn)
+            
+            if result:
+                print(f"📖 Title: {result.get('title')}")
+                print(f"👥 Authors: {result.get('authors')}")
+                print(f"📚 Series: {result.get('series_name')}")
+                print(f"🔢 Position: {result.get('series_position')}")
+                print(f"📝 Description: {result.get('description', '')[:100]}...")
+            else:
+                print("❌ No result found")
+                
+        except Exception as e:
+            print(f"❌ Error: {e}")
     
-    try:
-        print("\n📚 Testing Google Books series extraction:")
-        for title in test_cases:
-            # Test the series extraction method directly
-            series_name, series_position = google_client._extract_series_info({"title": title})
-            print(f"   '{title}' -> Series: '{series_name}', Position: {series_position}")
-        
-        print("\n📚 Testing OpenLibrary series extraction:")
-        for title in test_cases:
-            # Test the series extraction method directly
-            series_name, series_position = openlibrary_client._extract_series_info(title)
-            print(f"   '{title}' -> Series: '{series_name}', Position: {series_position}")
-        
-        # Test a real API call (if we want to avoid API limits, we can skip this)
-        print(f"\n🌐 Testing real API call (skipping to avoid rate limits)")
-        # google_result = await google_client.search_by_title("Bleach Vol 1")
-        # if google_result:
-        #     book = google_result[0]
-        #     print(f"   Real API result: {book.get('title')} -> Series: {book.get('series_name')}, Position: {book.get('series_position')}")
-        
-    finally:
-        await google_client.close()
-        await openlibrary_client.close()
-    
-    print(f"\n✅ Series extraction testing completed!")
+    await client.close()
 
 if __name__ == "__main__":
     asyncio.run(test_series_extraction())

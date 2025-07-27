@@ -7,15 +7,21 @@ import json
 
 try:
     from backend.services import BookSearchService, OwnershipService, ReleaseCalendarService, MetadataRefreshService, CSVImportService
-    from backend.database import get_session
+    from backend.database import get_session, get_db_session
     from backend.models import Book, Edition, UserEditionStatus
 except ImportError:
     from services import BookSearchService, OwnershipService, ReleaseCalendarService, MetadataRefreshService, CSVImportService
-    from database import get_session
+    from database import get_session, get_db_session
     from models import Book, Edition, UserEditionStatus
 
 
 router = APIRouter(prefix="/books", tags=["books"])
+
+# Create separate router for library endpoints
+library_router = APIRouter(prefix="/library", tags=["library"])
+
+# Make both routers available for import
+__all__ = ["router", "library_router"]
 
 
 class EditionStatusUpdate(BaseModel):
@@ -25,6 +31,173 @@ class EditionStatusUpdate(BaseModel):
 
 class NoteUpdate(BaseModel):
     notes: str
+
+
+class BookAdd(BaseModel):
+    isbn: Optional[str] = None
+    title: str
+    authors: List[str] = []
+    series: Optional[str] = None
+    series_position: Optional[int] = None
+    publisher: Optional[str] = None
+    published_date: Optional[str] = None
+    cover_url: Optional[str] = None
+    description: Optional[str] = None
+    isbn10: Optional[str] = None
+    isbn13: Optional[str] = None
+
+
+@router.post("/add")
+async def add_book(book_data: BookAdd, user_id: int = Query(1, description="User ID")) -> Dict[str, Any]:
+    """
+    Add a new book to the user's library.
+    """
+    try:
+        with get_db_session() as session:
+            from sqlmodel import select
+            import json
+            
+            # Check if book already exists by ISBN or title/author combination
+            existing_book = None
+            if book_data.isbn13 or book_data.isbn10:
+                isbn_to_check = book_data.isbn13 or book_data.isbn10
+                stmt = select(Edition).where(
+                    (Edition.isbn_13 == isbn_to_check) | (Edition.isbn_10 == isbn_to_check)
+                )
+                existing_edition = session.exec(stmt).first()
+                if existing_edition:
+                    existing_book = existing_edition.book
+            
+            if not existing_book:
+                # Check by title and author
+                stmt = select(Book).where(Book.title == book_data.title)
+                existing_books = session.exec(stmt).all()
+                for book in existing_books:
+                    book_authors = json.loads(book.authors) if book.authors else []
+                    if book_authors == book_data.authors:
+                        existing_book = book
+                        break
+            
+            if existing_book:
+                # Book exists, just update user status
+                # Find the appropriate edition
+                edition = existing_book.editions[0] if existing_book.editions else None
+                if edition:
+                    # Update or create user status
+                    stmt = select(UserEditionStatus).where(
+                        UserEditionStatus.user_id == user_id,
+                        UserEditionStatus.edition_id == edition.id
+                    )
+                    user_status = session.exec(stmt).first()
+                    
+                    if not user_status:
+                        user_status = UserEditionStatus(
+                            user_id=user_id,
+                            edition_id=edition.id,
+                            status="own",
+                            notes=None
+                        )
+                        session.add(user_status)
+                    else:
+                        user_status.status = "own"
+                    
+                    session.commit()
+                    
+                    return {
+                        "success": True,
+                        "message": "Book already existed, marked as owned",
+                        "book_id": existing_book.id,
+                        "edition_id": edition.id
+                    }
+            
+            # Create new book
+            new_book = Book(
+                title=book_data.title,
+                authors=json.dumps(book_data.authors),
+                series_name=book_data.series,
+                series_position=book_data.series_position
+            )
+            session.add(new_book)
+            session.flush()  # Get the book ID
+            
+            # Create edition
+            new_edition = Edition(
+                book_id=new_book.id,
+                isbn_10=book_data.isbn10,
+                isbn_13=book_data.isbn13,
+                book_format="unknown",
+                publisher=book_data.publisher,
+                cover_url=book_data.cover_url,
+                source="manual_add"
+            )
+            
+            # Parse published date if provided
+            if book_data.published_date:
+                try:
+                    from datetime import datetime
+                    # Try different date formats
+                    for fmt in ["%Y-%m-%d", "%Y", "%B %Y", "%B %d, %Y"]:
+                        try:
+                            parsed_date = datetime.strptime(book_data.published_date, fmt).date()
+                            new_edition.release_date = parsed_date
+                            break
+                        except ValueError:
+                            continue
+                except:
+                    pass
+            
+            session.add(new_edition)
+            session.flush()  # Get the edition ID
+            
+            # Create user status
+            user_status = UserEditionStatus(
+                user_id=user_id,
+                edition_id=new_edition.id,
+                status="own",
+                notes=None
+            )
+            session.add(user_status)
+            
+            session.commit()
+            
+            # Trigger series creation and volume sync if the book has series info
+            if book_data.series:
+                try:
+                    # Import and use series services
+                    try:
+                        from backend.services.volume_sync_service import VolumeSyncService
+                        from backend.services.series_metadata import SeriesMetadataService
+                    except ImportError:
+                        from services.volume_sync_service import VolumeSyncService
+                        from services.series_metadata import SeriesMetadataService
+                    
+                    # First, try to fetch series metadata from external sources
+                    series_service = SeriesMetadataService()
+                    try:
+                        await series_service.fetch_and_update_series(
+                            book_data.series, 
+                            book_data.authors[0] if book_data.authors else None
+                        )
+                    finally:
+                        await series_service.close()
+                    
+                    # Then sync series volumes to create series entry and volume if needed
+                    sync_service = VolumeSyncService()
+                    await sync_service.sync_series_volumes_with_books(book_data.series)
+                    
+                except Exception as e:
+                    print(f"Warning: Failed to sync series volumes for {book_data.series}: {e}")
+                    # Don't fail the book addition if series sync fails
+            
+            return {
+                "success": True,
+                "message": "Book added successfully",
+                "book_id": new_book.id,
+                "edition_id": new_edition.id
+            }
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to add book: {str(e)}")
 
 
 @router.get("/test")
@@ -140,7 +313,7 @@ async def get_book_by_id(book_id: int, user_id: int = Query(1, description="User
     """
     ownership_service = OwnershipService()
     try:
-        with get_session() as session:
+        with get_db_session() as session:
             from sqlmodel import select
             
             # Get the book
@@ -194,7 +367,7 @@ async def get_book_by_isbn(isbn: str, user_id: int = Query(1, description="User 
     Get a specific book by ISBN with all its details and user status.
     """
     try:
-        with get_session() as session:
+        with get_db_session() as session:
             from sqlmodel import select, or_
             
             # Find edition by ISBN
@@ -251,7 +424,7 @@ async def get_book_by_isbn(isbn: str, user_id: int = Query(1, description="User 
 @router.get("/")
 async def get_books(user_id: int = Query(1, description="User ID")) -> Dict[str, Any]:
     """
-    Get all books in the user's collection.
+    Get all books in the user's collection with series metadata.
     """
     ownership_service = OwnershipService()
     try:
@@ -259,14 +432,32 @@ async def get_books(user_id: int = Query(1, description="User ID")) -> Dict[str,
         
         # Group books by series as expected by frontend
         series_grouped = {}
-        for book in owned_books:
-            series_name = book.get("series_name") or book.get("series", "Standalone Books")
-            if series_name not in series_grouped:
-                series_grouped[series_name] = []
-            series_grouped[series_name].append(book)
+        series_metadata = {}
+        
+        with get_db_session() as session:
+            from sqlmodel import select
+            from models import Series
+            
+            for book in owned_books:
+                series_name = book.get("series_name") or book.get("series", "Standalone Books")
+                if series_name not in series_grouped:
+                    series_grouped[series_name] = []
+                    
+                    # Fetch series metadata if it's not standalone
+                    if series_name != "Standalone Books":
+                        series = session.exec(select(Series).where(Series.name == series_name)).first()
+                        if series:
+                            series_metadata[series_name] = {
+                                "total_books": series.total_books,
+                                "description": series.description,
+                                "status": series.status
+                            }
+                
+                series_grouped[series_name].append(book)
         
         return {
             "series": series_grouped,
+            "series_metadata": series_metadata,
             "total_books": len(owned_books),
             "total_series": len(series_grouped),
             "last_sync": "2025-07-19T14:00:00Z"
@@ -687,3 +878,227 @@ async def preview_csv_import(
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to preview CSV: {str(e)}")
+
+
+# Library endpoints expected by frontend scanner
+@library_router.post("/add")
+async def add_book_to_library(
+    request: dict,
+    user_id: int = Query(1, description="User ID")  
+) -> Dict[str, Any]:
+    """
+    Add a book to user's library (used by scanner/frontend).
+    Expected by frontend optimistic updates system.
+    """
+    try:
+        isbn = request.get("isbn")
+        source = request.get("source", "scanner")
+        
+        if not isbn:
+            raise HTTPException(status_code=400, detail="ISBN is required")
+        
+        # Use existing search service to find/create book
+        search_service = BookSearchService()
+        try:
+            # Search for the book first
+            result = await search_service.search(isbn, user_id)
+            
+            if "error" in result:
+                # Book not found in APIs, return error for now
+                # TODO: Allow manual creation from scanner
+                return {
+                    "success": False,
+                    "message": f"Book with ISBN {isbn} not found in metadata sources",
+                    "isbn": isbn,
+                    "needs_manual_entry": True
+                }
+            
+            # Check if we already own this book
+            with get_db_session() as session:
+                from sqlmodel import select, or_
+                
+                # Look for existing edition
+                stmt = select(Edition).where(
+                    or_(Edition.isbn_10 == isbn, Edition.isbn_13 == isbn)
+                )
+                existing_edition = session.exec(stmt).first()
+                
+                already_owned = False
+                if existing_edition:
+                    # Check user status
+                    user_status = session.exec(
+                        select(UserEditionStatus).where(
+                            UserEditionStatus.user_id == user_id,
+                            UserEditionStatus.edition_id == existing_edition.id
+                        )
+                    ).first()
+                    
+                    if user_status and user_status.status == "own":
+                        already_owned = True
+                    else:
+                        # Mark as owned
+                        if not user_status:
+                            user_status = UserEditionStatus(
+                                user_id=user_id,
+                                edition_id=existing_edition.id,
+                                status="own",
+                                notes=f"Added via {source}"
+                            )
+                            session.add(user_status)
+                        else:
+                            user_status.status = "own"
+                            user_status.notes = f"Updated via {source}"
+                        session.commit()
+                
+                # Trigger series creation and volume sync if the book has series info
+                book_data = result
+                if book_data.get("series"):
+                    series_name = book_data["series"]
+                    try:
+                        # Import and use series services
+                        try:
+                            from backend.services.volume_sync_service import VolumeSyncService
+                            from backend.services.series_metadata import SeriesMetadataService
+                        except ImportError:
+                            from services.volume_sync_service import VolumeSyncService
+                            from services.series_metadata import SeriesMetadataService
+                        
+                        # First, try to fetch series metadata from external sources
+                        series_service = SeriesMetadataService()
+                        try:
+                            await series_service.fetch_and_update_series(
+                                series_name, 
+                                book_data.get("authors", [None])[0] if book_data.get("authors") else None
+                            )
+                        finally:
+                            await series_service.close()
+                        
+                        # Then sync series volumes to create series entry and volume if needed
+                        sync_service = VolumeSyncService()
+                        await sync_service.sync_series_volumes_with_books(series_name)
+                        
+                    except Exception as e:
+                        print(f"Warning: Failed to sync series volumes for {series_name}: {e}")
+                        # Don't fail the book addition if series sync fails
+                
+                return {
+                    "success": True,
+                    "message": "Book already owned" if already_owned else "Book added to library",
+                    "already_exists": already_owned,
+                    "isbn": isbn,
+                    "book": result
+                }
+                
+        finally:
+            await search_service.close()
+            
+    except Exception as e:
+        print(f"Error adding book to library: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to add book: {str(e)}")
+
+
+@library_router.delete("/{isbn}")
+async def remove_book_from_library(
+    isbn: str,
+    user_id: int = Query(1, description="User ID")
+) -> Dict[str, Any]:
+    """
+    Remove a book from user's library.
+    Expected by frontend optimistic updates system.
+    """
+    try:
+        with get_db_session() as session:
+            from sqlmodel import select, or_
+            
+            # Find edition by ISBN
+            stmt = select(Edition).where(
+                or_(Edition.isbn_10 == isbn, Edition.isbn_13 == isbn)
+            )
+            edition = session.exec(stmt).first()
+            
+            if not edition:
+                raise HTTPException(status_code=404, detail=f"Book with ISBN {isbn} not found")
+            
+            # Find user status
+            stmt = select(UserEditionStatus).where(
+                UserEditionStatus.user_id == user_id,
+                UserEditionStatus.edition_id == edition.id
+            )
+            user_status = session.exec(stmt).first()
+            
+            if not user_status or user_status.status != "own":
+                raise HTTPException(status_code=404, detail=f"Book with ISBN {isbn} not owned by user")
+            
+            # Change status to missing instead of deleting
+            user_status.status = "missing"
+            user_status.notes = "Removed from library"
+            session.add(user_status)
+            session.commit()
+            
+            return {
+                "success": True,
+                "message": "Book removed from library",
+                "isbn": isbn
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error removing book from library: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to remove book: {str(e)}")
+
+
+@library_router.get("/{isbn}")
+async def get_library_book(
+    isbn: str,
+    user_id: int = Query(1, description="User ID")
+) -> Dict[str, Any]:
+    """
+    Get book information from user's library by ISBN.
+    Expected by frontend to check ownership status.
+    """
+    try:
+        with get_db_session() as session:
+            from sqlmodel import select, or_
+            
+            # Find edition by ISBN
+            stmt = select(Edition).where(
+                or_(Edition.isbn_10 == isbn, Edition.isbn_13 == isbn)
+            )
+            edition = session.exec(stmt).first()
+            
+            if not edition:
+                raise HTTPException(status_code=404, detail=f"Book with ISBN {isbn} not found")
+            
+            book = edition.book
+            
+            # Get user status
+            stmt = select(UserEditionStatus).where(
+                UserEditionStatus.user_id == user_id,
+                UserEditionStatus.edition_id == edition.id
+            )
+            user_status = session.exec(stmt).first()
+            
+            return {
+                "id": book.id,
+                "title": book.title,
+                "authors": json.loads(book.authors) if book.authors else [],
+                "series": book.series_name,
+                "series_position": book.series_position,
+                "isbn": isbn,
+                "status": user_status.status if user_status else "missing",
+                "owned": user_status.status == "own" if user_status else False,
+                "edition": {
+                    "id": edition.id,
+                    "isbn_13": edition.isbn_13,
+                    "isbn_10": edition.isbn_10,
+                    "format": edition.book_format,
+                    "cover_url": edition.cover_url
+                }
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error getting library book: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get book: {str(e)}")

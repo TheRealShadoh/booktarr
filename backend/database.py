@@ -11,8 +11,15 @@ def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
 
 
-@contextmanager
+# For FastAPI dependency injection
 def get_session():
+    with Session(engine) as session:
+        yield session
+
+
+# For use in services as context manager  
+@contextmanager
+def get_db_session():
     with Session(engine) as session:
         yield session
 

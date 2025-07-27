@@ -24,7 +24,7 @@ class GoogleBooksClient:
         response = await self.client.get(self.BASE_URL, params=params)
         response.raise_for_status()
         
-        data = await response.json()
+        data = response.json()
         if data.get("totalItems", 0) > 0:
             return self._parse_volume(data["items"][0])
         return None
@@ -45,7 +45,7 @@ class GoogleBooksClient:
         response = await self.client.get(self.BASE_URL, params=params)
         response.raise_for_status()
         
-        data = await response.json()
+        data = response.json()
         results = []
         for item in data.get("items", []):
             parsed = self._parse_volume(item)
@@ -66,7 +66,7 @@ class GoogleBooksClient:
         response = await self.client.get(self.BASE_URL, params=params)
         response.raise_for_status()
         
-        data = await response.json()
+        data = response.json()
         results = []
         for item in data.get("items", []):
             parsed = self._parse_volume(item)
@@ -202,6 +202,43 @@ class GoogleBooksClient:
         match7 = pattern7.match(title)
         if match7:
             return match7.group(1).strip(), int(match7.group(2))
+        
+        # Pattern 8: Check description for series information
+        if description:
+            # Look for "Book X in the Series Name series"
+            desc_pattern1 = re.compile(r'Book\s+(\d+)\s+(?:in\s+(?:the\s+)?)?(.+?)\s+series', re.IGNORECASE)
+            desc_match1 = desc_pattern1.search(description)
+            if desc_match1:
+                return desc_match1.group(2).strip(), int(desc_match1.group(1))
+            
+            # Look for "Volume X of Series Name"
+            desc_pattern2 = re.compile(r'Volume\s+(\d+)\s+of\s+(?:the\s+)?(.+?)(?:\s+series)?[.!]', re.IGNORECASE)
+            desc_match2 = desc_pattern2.search(description)
+            if desc_match2:
+                return desc_match2.group(2).strip(), int(desc_match2.group(1))
+            
+            # Look for "X in the Y series" or "Part X of Y"
+            desc_pattern3 = re.compile(r'(?:Part|Volume|Book)\s+(\d+)\s+(?:of|in)\s+(?:the\s+)?(.+?)(?:\s+(?:series|saga|trilogy))?[.!]', re.IGNORECASE)
+            desc_match3 = desc_pattern3.search(description)
+            if desc_match3:
+                return desc_match3.group(2).strip(), int(desc_match3.group(1))
+        
+        # Pattern 9: Look for common series keywords in title that might not have numbers
+        series_keywords = ["saga", "trilogy", "chronicles", "tales", "adventures", "series"]
+        for keyword in series_keywords:
+            if keyword in title.lower():
+                # Try to extract the base name before the keyword
+                keyword_pattern = re.compile(rf'^(.+?)\s+{keyword}', re.IGNORECASE)
+                keyword_match = keyword_pattern.match(title)
+                if keyword_match:
+                    base_name = keyword_match.group(1).strip()
+                    # Look for a number in the remaining title
+                    number_pattern = re.compile(r'(\d+)')
+                    number_match = number_pattern.search(title[len(base_name):])
+                    if number_match:
+                        return base_name, int(number_match.group(1))
+                    else:
+                        return base_name, None
         
         # If no clear series pattern found, return None
         return None, None

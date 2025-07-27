@@ -1,12 +1,22 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
+import os
 
-# Always use relative imports when in backend directory
+# Always use relative imports when in backend directory  
 from database import init_db
 from routes import books_router, settings_router
 from routes.reading import router as reading_router
-from routes.series_simple import router as series_router
+from routes.series import router as series_router
+from routes.search import router as search_router
+from routes.images import router as images_router
+
+# Import library router directly from books module
+try:
+    from routes.books import library_router
+except ImportError:
+    from backend.routes.books import library_router
 
 
 @asynccontextmanager
@@ -35,9 +45,18 @@ app.add_middleware(
 
 # Include routers with /api prefix
 app.include_router(books_router, prefix="/api")
+app.include_router(library_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(reading_router, prefix="/api/reading")
 app.include_router(series_router, prefix="/api/series")
+app.include_router(search_router, prefix="/api")
+app.include_router(images_router, prefix="/api/images")
+
+# Mount static files for cover images
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if not os.path.exists(static_dir):
+    os.makedirs(static_dir, exist_ok=True)
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
 @app.get("/")
