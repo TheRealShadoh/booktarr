@@ -105,12 +105,20 @@ async def get_series_details(
             } if volume.status == "owned" else None
         })
     
+    # Calculate accurate total books count
+    owned_count = len([v for v in volume_data if v["status"] == "owned"])
+    total_count = max(len(volume_data), series.total_books or 0)
+    
+    # If we have more owned than total, adjust total
+    if owned_count > total_count:
+        total_count = owned_count
+    
     return {
         "series": {
             "id": series.id,
             "name": series.name,
             "description": series.description,
-            "total_books": series.total_books,
+            "total_books": total_count,
             "author": series.author,
             "publisher": series.publisher,
             "first_published": series.first_published.isoformat() if series.first_published else None,
@@ -124,11 +132,11 @@ async def get_series_details(
         },
         "volumes": volume_data,
         "stats": {
-            "total_volumes": len(volume_data),
-            "owned_volumes": len([v for v in volume_data if v["status"] == "owned"]),
+            "total_volumes": total_count,
+            "owned_volumes": owned_count,
             "wanted_volumes": len([v for v in volume_data if v["status"] == "wanted"]),
             "missing_volumes": len([v for v in volume_data if v["status"] == "missing"]),
-            "completion_percentage": round(len([v for v in volume_data if v["status"] == "owned"]) / len(volume_data) * 100) if volume_data else 0
+            "completion_percentage": round(owned_count / total_count * 100) if total_count > 0 else 0
         }
     }
 
@@ -257,7 +265,13 @@ async def list_all_series(
         volumes = session.exec(statement).all()
         
         owned_count = len([v for v in volumes if v.status == "owned"])
-        total_count = len(volumes)
+        
+        # Use the actual number of volumes or series.total_books, whichever makes more sense
+        total_count = max(len(volumes), series.total_books or 0)
+        
+        # If we have more owned than total, adjust total
+        if owned_count > total_count:
+            total_count = owned_count
         
         series_list.append({
             "id": series.id,
@@ -274,3 +288,54 @@ async def list_all_series(
         "series": series_list,
         "total_series": len(series_list)
     }
+
+
+@router.post("/{series_name}/validate")
+async def validate_series(
+    series_name: str,
+    session: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    """Validate series data for consistency issues."""
+    try:
+        from backend.services.series_validation import SeriesValidationService
+    except ImportError:
+        from services.series_validation import SeriesValidationService
+    
+    validation_service = SeriesValidationService()
+    report = await validation_service.validate_series(series_name)
+    
+    return report
+
+
+@router.post("/{series_name}/reconcile")
+async def reconcile_series(
+    series_name: str,
+    fix_errors: bool = Query(True, description="Apply fixes for detected errors"),
+    session: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    """Reconcile series data to fix inconsistencies."""
+    try:
+        from backend.services.series_validation import SeriesValidationService
+    except ImportError:
+        from services.series_validation import SeriesValidationService
+    
+    validation_service = SeriesValidationService()
+    result = await validation_service.reconcile_series(series_name, fix_errors=fix_errors)
+    
+    return result
+
+
+@router.post("/validate-all")
+async def validate_all_series(
+    session: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    """Validate all series in the database for consistency issues."""
+    try:
+        from backend.services.series_validation import SeriesValidationService
+    except ImportError:
+        from services.series_validation import SeriesValidationService
+    
+    validation_service = SeriesValidationService()
+    report = await validation_service.validate_all_series()
+    
+    return report
