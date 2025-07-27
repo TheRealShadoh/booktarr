@@ -1,20 +1,39 @@
 /**
  * SeriesCard component - Grid view for series similar to BookCard
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Book } from '../types';
 
 interface SeriesCardProps {
   seriesName: string;
   books: Book[];
+  totalBooksInSeries?: number;
   onClick?: (seriesName: string) => void;
   className?: string;
   viewMode?: 'grid' | 'list';
 }
 
-const SeriesCard: React.FC<SeriesCardProps> = ({ seriesName, books, onClick, className = '', viewMode = 'grid' }) => {
+const SeriesCard: React.FC<SeriesCardProps> = ({ seriesName, books, totalBooksInSeries, onClick, className = '', viewMode = 'grid' }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [seriesMetadata, setSeriesMetadata] = useState<{ total_books?: number } | null>(null);
+
+  // Fetch series metadata if not provided and not standalone
+  useEffect(() => {
+    if (!totalBooksInSeries && seriesName !== 'Standalone' && seriesName !== 'Standalone Books') {
+      // Fetch series metadata from the API
+      fetch(`/api/series/${encodeURIComponent(seriesName)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.series && data.series.total_books) {
+            setSeriesMetadata({ total_books: data.series.total_books });
+          }
+        })
+        .catch(err => {
+          console.error('Failed to fetch series metadata:', err);
+        });
+    }
+  }, [seriesName, totalBooksInSeries]);
 
   const handleClick = () => {
     if (onClick) {
@@ -43,10 +62,10 @@ const SeriesCard: React.FC<SeriesCardProps> = ({ seriesName, books, onClick, cla
 
   // Calculate series statistics
   const stats = useMemo(() => {
-    const totalBooks = books.length;
-    const ownedBooks = totalBooks; // All books passed to this component are owned
+    const ownedBooks = books.length; // All books passed to this component are owned
+    const totalBooks = totalBooksInSeries || seriesMetadata?.total_books || ownedBooks; // Use provided total, fetched metadata, or fallback to owned count
     const readBooks = books.filter(book => book.reading_status === 'read').length;
-    const completionPercentage = 100; // All books in this component are owned, so 100%
+    const completionPercentage = totalBooks > 0 ? Math.round((ownedBooks / totalBooks) * 100) : 0;
     
     return {
       totalBooks,
@@ -54,7 +73,7 @@ const SeriesCard: React.FC<SeriesCardProps> = ({ seriesName, books, onClick, cla
       readBooks,
       completionPercentage
     };
-  }, [books]);
+  }, [books, totalBooksInSeries, seriesMetadata]);
 
   // Get first author
   const primaryAuthor = books[0]?.authors[0] || 'Unknown Author';

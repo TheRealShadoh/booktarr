@@ -5,7 +5,8 @@
       "Read",
       "Write",
       "Search",
-      "WebFetch(domain:localhost)"
+      "WebFetch(domain:localhost)",
+      "Edit"
     ],
     "deny": []
   }

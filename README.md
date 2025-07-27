@@ -1,6 +1,6 @@
-# BookTarr - Book Collection Management Backend
+# BookTarr - Book Collection Management
 
-A Python backend for managing book collections with metadata enrichment, local caching, and edition tracking.
+A full-stack application for managing book collections with metadata enrichment, local caching, and edition tracking.
 
 ## Features
 
@@ -10,31 +10,75 @@ A Python backend for managing book collections with metadata enrichment, local c
 - **Release Calendar**: Track upcoming releases and recently released books
 - **Metadata Refresh**: Background tasks to refresh stale or incomplete metadata
 - **Rate Limiting**: Respects API rate limits with exponential backoff
+- **React Frontend**: Modern web interface with responsive design
 - **Comprehensive Testing**: Unit tests for all components
 
-## Setup
+## Quick Start
 
-1. **Install Dependencies**
+### Prerequisites
+- Python 3.8+ with `venv` module
+- Node.js 18+ and npm
+
+### Backend Setup
+
+1. **Create and activate virtual environment**
    ```bash
    cd backend
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+2. **Install dependencies**
+   ```bash
    pip install -r requirements.txt
    ```
 
-2. **Environment Configuration**
+3. **Start the backend server**
    ```bash
-   cp .env.example .env
-   # Edit .env with your API keys
+   python main.py
+   ```
+   
+   The backend will start on `http://localhost:8000`
+
+### Frontend Setup
+
+1. **Navigate to frontend directory**
+   ```bash
+   cd frontend
    ```
 
-3. **Run the Application**
+2. **Install dependencies**
    ```bash
-   python -m backend.main
+   npm install
    ```
 
-4. **Run Tests**
+3. **Start the development server**
    ```bash
-   pytest
+   npm start
    ```
+   
+   The frontend will start on `http://localhost:3000`
+
+### Development Workflow
+
+1. Start the backend first (it provides the API)
+2. Start the frontend (it will proxy API requests to the backend)
+3. Access the application at `http://localhost:3000`
+
+### Testing
+
+**Backend Tests**
+```bash
+cd backend
+source venv/bin/activate
+pytest
+```
+
+**Frontend Tests**
+```bash
+cd frontend
+npm test
+```
 
 ## API Endpoints
 

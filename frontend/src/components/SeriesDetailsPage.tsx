@@ -43,6 +43,7 @@ const SeriesDetailsPage: React.FC<SeriesDetailsPageProps> = ({
           }
           
           setSeriesData(data as SeriesDetailsResponse);
+          setLoading(false);  // Set loading to false after successful data fetch
         } else {
           throw new Error(`Failed to fetch series data: ${response.status}`);
         }
@@ -59,11 +60,7 @@ const SeriesDetailsPage: React.FC<SeriesDetailsPageProps> = ({
         }
         
         setError(`Failed to load series information: ${err instanceof Error ? err.message : String(err)}`);
-      } finally {
-        // Only set loading to false if this is the final attempt
-        if (retryCount > 0) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     };
     

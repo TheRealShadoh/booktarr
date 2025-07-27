@@ -252,14 +252,97 @@ The frontend expects the following API endpoints that need to be implemented in 
 ### General Endpoints
 - **GET /api/health** - Health check endpoint (already implemented)
 
-### Backend Issues
-- Import path issues in the backend preventing it from starting properly
-- The backend uses relative imports that are causing `ImportError: attempted relative import beyond top-level package`
-- Need to fix import paths in:
-  - `/backend/services/book_search.py`
-  - Other service and route files
+### Backend Issues (RESOLVED)
+- ✅ Import path issues fixed - backend now starts properly
+- ✅ Series metadata system implemented with complete volume tracking
+- ✅ Series details page shows all volumes with owned/missing/wanted status
 
-### Frontend Configuration
-- Frontend is configured to proxy API requests from `/api` to `http://localhost:8000`
-- Frontend expects all API endpoints to be prefixed with `/api`
-- CORS is enabled in the backend for all origins (should be restricted in production)
+### Frontend Configuration  
+- ✅ Frontend proxies API requests from `/api` to `http://localhost:8000`
+- ✅ All API endpoints prefixed with `/api`
+- ✅ CORS enabled (should be restricted in production)
+
+---
+
+## 🚨 URGENT Issues Needing Resolution
+
+### 1. Series Volume Count Inconsistencies
+- **Issue**: Some series show incorrect completion ratios (e.g., "Citrus" showing 9/1 - more owned than total)
+- **Root Cause**: Series metadata fetched from external APIs may be incomplete or incorrect
+- **Impact**: Misleading completion percentages and user confusion
+- **Priority**: HIGH
+
+### 2. Missing Cover Images for Series Volumes
+- **Issue**: Volume entries in series details don't show cover images
+- **Requirements**:
+  - Use existing downloaded images from book data if available (match by ISBN)
+  - Download and cache missing cover images to shared storage location
+  - Store cover images in same location as book data for consistency
+- **Implementation Needed**:
+  - Image matching service to link existing covers to series volumes
+  - Image download and caching system for missing covers
+  - Consistent storage path management
+- **Priority**: HIGH
+
+### 3. Series Metadata Quality Control
+- **Issue**: External API data (AniList, Google Books) may provide inaccurate volume counts
+- **Needed**:
+  - Validation system for series metadata
+  - Manual override capability for incorrect API data
+  - Crowdsourced or curated series data for popular series
+  - Fallback to user-owned book count when API data is suspect
+- **Priority**: MEDIUM
+
+### 4. Volume Status Synchronization
+- **Issue**: Need to ensure series volume status stays in sync with actual book ownership
+- **Requirements**:
+  - When user adds/removes books, update corresponding series volume status
+  - Reconciliation process to fix status mismatches
+  - Bulk status update tools
+- **Priority**: MEDIUM
+
+---
+
+## 🔧 Technical Implementation Tasks
+
+### Cover Image Management System
+```python
+# Needed functions:
+async def match_existing_covers_to_volumes(series_name: str) -> Dict[int, str]:
+    """Match existing book covers to series volumes by ISBN"""
+    
+async def download_missing_volume_covers(series_id: int) -> Dict[int, str]:
+    """Download missing covers for series volumes"""
+    
+def get_cover_storage_path(isbn: str) -> str:
+    """Get consistent storage path for cover images"""
+```
+
+### Series Metadata Validation
+```python
+async def validate_series_metadata(series_name: str, api_data: Dict) -> Dict:
+    """Validate and correct series metadata from external APIs"""
+    
+async def reconcile_series_with_owned_books(series_name: str) -> Dict:
+    """Ensure series volumes match actual book ownership"""
+```
+
+### Data Consistency Tools
+- Background jobs to maintain data integrity
+- User tools to report/fix incorrect series data
+- Admin interface for manual series metadata management
+
+---
+
+## 📋 Next Sprint Priorities
+
+1. **🎯 Fix volume count inconsistencies** - Implement validation for series metadata
+2. **🖼️ Implement cover image system** - Match existing covers and download missing ones  
+3. **🔄 Add data reconciliation** - Keep series status in sync with book ownership
+4. **🛠️ Build admin tools** - Manual override capabilities for bad API data
+5. **🧪 Add comprehensive testing** - Ensure data consistency across all operations
+
+
+TODO
+ ☐ Update book addition to use enhanced series detection
+     ☐ Update series fix buttons to use enhanced series detection

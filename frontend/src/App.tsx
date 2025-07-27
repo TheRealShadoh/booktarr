@@ -20,6 +20,7 @@ import StatsDashboard from './components/StatsDashboard';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import OfflineIndicator from './components/OfflineIndicator';
 import PWAUpdateNotification from './components/PWAUpdateNotification';
+import SeriesManagement from './components/SeriesManagement';
 import { AppProvider } from './context/AppContext';
 import { useStateManager } from './hooks/useStateManager';
 import './styles/tailwind.css';
@@ -180,6 +181,8 @@ const AppInner: React.FC = () => {
             error={state.error}
           />
         );
+      case 'series-management':
+        return <SeriesManagement />;
       case 'activity':
         return (
           <ReadingTimelinePage

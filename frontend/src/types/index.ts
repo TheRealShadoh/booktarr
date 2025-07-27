@@ -62,6 +62,13 @@ export enum ReadingStatus {
 
 export interface BooksResponse {
   series: { [key: string]: Book[] };
+  series_metadata?: { 
+    [key: string]: {
+      total_books: number;
+      description?: string;
+      status?: string;
+    }
+  };
   total_books: number;
   total_series: number;
   last_sync: string;
