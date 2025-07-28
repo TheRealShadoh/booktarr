@@ -58,8 +58,12 @@ class VolumeSyncService:
                 
                 if volume.position in position_to_book:
                     # We own this volume
+                    book = position_to_book[volume.position]
+                    updated = False
+                    
                     if volume.status != "owned":
                         volume.status = "owned"
+                        updated = True
                         changes_made.append({
                             "position": volume.position,
                             "title": volume.title,
@@ -67,6 +71,24 @@ class VolumeSyncService:
                             "new_status": "owned",
                             "reason": "Book found in collection"
                         })
+                    
+                    # Update cover URL if missing and book has one
+                    if not volume.cover_url and book.editions:
+                        # Get cover URL from first edition that has one
+                        for edition in book.editions:
+                            if edition.cover_url:
+                                volume.cover_url = edition.cover_url
+                                updated = True
+                                changes_made.append({
+                                    "position": volume.position,
+                                    "title": volume.title,
+                                    "old_status": "no cover",
+                                    "new_status": "cover added",
+                                    "reason": "Added cover URL from owned book edition"
+                                })
+                                break
+                    
+                    if updated:
                         session.add(volume)
                 else:
                     # We don't own this volume
@@ -86,10 +108,18 @@ class VolumeSyncService:
             for position, book in position_to_book.items():
                 if position not in volume_positions:
                     # Create missing volume entry
+                    cover_url = None
+                    if book.editions:
+                        for edition in book.editions:
+                            if edition.cover_url:
+                                cover_url = edition.cover_url
+                                break
+                    
                     new_volume = SeriesVolume(
                         series_id=series.id,
                         position=position,
                         title=book.title,
+                        cover_url=cover_url,
                         status="owned",
                         user_id=1  # Default user
                     )

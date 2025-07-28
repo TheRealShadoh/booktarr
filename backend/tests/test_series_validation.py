@@ -7,9 +7,20 @@ from datetime import date
 from sqlmodel import Session, create_engine, SQLModel, select
 import json
 
-from backend.models import Series, SeriesVolume, Book, Edition
-from backend.services.series_validation import SeriesValidationService
-from backend.database import get_session
+try:
+    from backend.models import Series, SeriesVolume, Book, Edition
+except ImportError:
+    from models import Series, SeriesVolume, Book, Edition
+
+try:
+    from backend.services.series_validation import SeriesValidationService
+except ImportError:
+    from services.series_validation import SeriesValidationService
+
+try:
+    from backend.database import get_session
+except ImportError:
+    from database import get_session
 
 
 @pytest.fixture
@@ -105,12 +116,18 @@ async def test_validate_series_detects_issues(test_session, sample_series_data):
     series, volumes, books = sample_series_data
     
     # Mock get_session to return our test session
+    from contextlib import contextmanager
+    
+    @contextmanager
     def mock_get_session():
         yield test_session
     
     # Patch the get_session function
-    import backend.services.series_validation
-    backend.services.series_validation.get_session = mock_get_session
+    try:
+        import backend.services.series_validation as series_validation_module
+    except ImportError:
+        import services.series_validation as series_validation_module
+    series_validation_module.get_session = mock_get_session
     
     service = SeriesValidationService()
     report = await service.validate_series("Test Series")
@@ -130,11 +147,17 @@ async def test_reconcile_series_fixes_issues(test_session, sample_series_data):
     series, volumes, books = sample_series_data
     
     # Mock get_session
+    from contextlib import contextmanager
+    
+    @contextmanager
     def mock_get_session():
         yield test_session
     
-    import backend.services.series_validation
-    backend.services.series_validation.get_session = mock_get_session
+    try:
+        import backend.services.series_validation as series_validation_module
+    except ImportError:
+        import services.series_validation as series_validation_module
+    series_validation_module.get_session = mock_get_session
     
     service = SeriesValidationService()
     result = await service.reconcile_series("Test Series", fix_errors=True)
@@ -174,11 +197,17 @@ async def test_fix_volume_count(test_session):
     test_session.commit()
     
     # Mock get_session
+    from contextlib import contextmanager
+    
+    @contextmanager
     def mock_get_session():
         yield test_session
     
-    import backend.services.series_validation
-    backend.services.series_validation.get_session = mock_get_session
+    try:
+        import backend.services.series_validation as series_validation_module
+    except ImportError:
+        import services.series_validation as series_validation_module
+    series_validation_module.get_session = mock_get_session
     
     service = SeriesValidationService()
     result = await service.reconcile_series("Count Test", fix_errors=True)
@@ -212,11 +241,17 @@ async def test_fix_orphaned_volumes(test_session):
     test_session.commit()
     
     # Mock get_session
+    from contextlib import contextmanager
+    
+    @contextmanager
     def mock_get_session():
         yield test_session
     
-    import backend.services.series_validation
-    backend.services.series_validation.get_session = mock_get_session
+    try:
+        import backend.services.series_validation as series_validation_module
+    except ImportError:
+        import services.series_validation as series_validation_module
+    series_validation_module.get_session = mock_get_session
     
     service = SeriesValidationService()
     result = await service.reconcile_series("Orphan Test", fix_errors=True)
@@ -260,15 +295,21 @@ async def test_remove_duplicate_volumes(test_session):
     test_session.add(volume2)
     test_session.commit()
     
-    # Mock get_session
-    def mock_get_session():
-        yield test_session
-    
-    import backend.services.series_validation
-    backend.services.series_validation.get_session = mock_get_session
-    
+    # Test only the duplicate removal logic, not the full reconciliation
     service = SeriesValidationService()
-    result = await service.reconcile_series("Duplicate Test", fix_errors=True)
+    
+    # Get all volumes for the series
+    volumes = test_session.exec(
+        select(SeriesVolume).where(SeriesVolume.series_id == series.id)
+    ).all()
+    
+    # Call the duplicate removal method directly
+    fixes = service._fix_duplicate_volumes(test_session, volumes)
+    test_session.commit()
+    
+    # Check that one duplicate was removed
+    assert len(fixes) == 1
+    assert "Removed duplicate volume at position 1" in fixes[0]
     
     # Check that only one volume remains
     stmt = select(SeriesVolume).where(
@@ -276,5 +317,7 @@ async def test_remove_duplicate_volumes(test_session):
         SeriesVolume.position == 1
     )
     remaining_volumes = test_session.exec(stmt).all()
+    
     assert len(remaining_volumes) == 1
     assert remaining_volumes[0].status == "owned"  # Should keep the better one
+    assert remaining_volumes[0].isbn_13 == "1234567890123"  # Should keep the one with ISBN

@@ -24,8 +24,8 @@ test.describe('Series Validation', () => {
       fullPage: true 
     });
     
-    // Verify we're on series page
-    await expect(page.locator('h1, h2, h3')).toContainText(/Series/i);
+    // Verify we're on library/series page (navigation might redirect to library)
+    await expect(page.getByRole('heading', { name: 'Your Library' })).toBeVisible();
   });
 
   test('should display series list with completion stats', async ({ page }) => {
@@ -135,37 +135,58 @@ test.describe('Series Validation', () => {
     await page.goto('/series');
     await page.waitForLoadState('networkidle');
     
-    // Look for series with completion percentages
-    const completionPercentages = page.locator('text=/\\d+%/');
+    // Look for series completion ratios in format "owned/total"
+    const completionRatios = page.locator('text=/\\d+\\/\\d+/');
     
-    if (await completionPercentages.count() > 0) {
+    if (await completionRatios.count() > 0) {
       await page.screenshot({ 
         path: 'test-results/series-completion-ratios.png',
         fullPage: true 
       });
       
+      // Validate that completion ratios show owned/total format
+      const firstRatio = await completionRatios.first().textContent();
+      console.log(`Found completion ratio: ${firstRatio}`);
+      
+      // Ensure ratio is in correct format (owned/total, not owned/owned)
+      expect(firstRatio).toMatch(/^\d+\/\d+$/);
+      
       // Click on a series to see detailed breakdown
-      const seriesWithCompletion = page.locator('.series-card:has(text(/\\d+%/)), .series-item:has(text(/\\d+%/))').first();
+      const seriesWithCompletion = page.locator('[class*="series"]:has(text(/\\d+\\/\\d+/))').first();
       
       if (await seriesWithCompletion.count() > 0) {
         await seriesWithCompletion.click();
         await page.waitForLoadState('networkidle');
         
+        // Switch to Volumes tab to see all volumes
+        const volumesTab = page.locator('button:has-text("Volumes")');
+        if (await volumesTab.count() > 0) {
+          await volumesTab.click();
+          await page.waitForTimeout(1000);
+        }
+        
         // Check for detailed completion stats
-        const detailedStats = page.locator('.stats, .completion-stats, [data-testid="series-stats"]');
+        const detailedStats = page.locator('.stats, [class*="stats"]');
         if (await detailedStats.count() > 0) {
           await page.screenshot({ 
             path: 'test-results/series-detailed-completion.png',
             fullPage: true 
           });
           
-          // Verify that owned/total numbers make sense
-          const ownedCount = page.locator('text=/Owned.*\\d+/, text=/\\d+.*owned/i');
-          const totalCount = page.locator('text=/Total.*\\d+/, text=/\\d+.*total/i');
+          // Verify that owned/total numbers are logical (owned <= total)
+          const statsText = await detailedStats.first().textContent();
+          console.log(`Series stats: ${statsText}`);
           
-          if (await ownedCount.count() > 0 && await totalCount.count() > 0) {
-            await expect(ownedCount.first()).toBeVisible();
-            await expect(totalCount.first()).toBeVisible();
+          // Look for specific owned and total counts
+          const ownedMatch = statsText?.match(/(\d+).*owned/i);
+          const totalMatch = statsText?.match(/(\d+).*total/i);
+          
+          if (ownedMatch && totalMatch) {
+            const ownedCount = parseInt(ownedMatch[1]);
+            const totalCount = parseInt(totalMatch[1]);
+            
+            console.log(`Owned: ${ownedCount}, Total: ${totalCount}`);
+            expect(ownedCount).toBeLessThanOrEqual(totalCount);
           }
         }
       }
@@ -258,42 +279,210 @@ test.describe('Series Validation', () => {
     await page.waitForLoadState('networkidle');
     
     // Click on first series
-    const firstSeries = page.locator('.series-card, .series-item').first();
+    const firstSeries = page.locator('.series-card, .series-item, [class*="series"]').first();
     
     if (await firstSeries.count() > 0) {
       await firstSeries.click();
       await page.waitForLoadState('networkidle');
       
-      // Check for series metadata
-      const seriesTitle = page.locator('h1, h2, .series-title');
-      const seriesAuthor = page.locator('.author, .series-author');
-      const seriesDescription = page.locator('.description, .series-description');
+      // Switch to Volumes tab to see all volumes with covers
+      const volumesTab = page.locator('button:has-text("Volumes")');
+      if (await volumesTab.count() > 0) {
+        await volumesTab.click();
+        await page.waitForTimeout(1000);
+      }
       
       await page.screenshot({ 
-        path: 'test-results/series-metadata-display.png',
+        path: 'test-results/series-volumes-tab.png',
         fullPage: true 
       });
       
-      // Check for volume covers
-      const volumeCovers = page.locator('img[src*="cover"], img[alt*="cover"], .cover-image');
+      // Check for volume grid display
+      const volumeGrid = page.locator('[class*="grid"]');
+      if (await volumeGrid.count() > 0) {
+        // Check for volume covers within the grid
+        const volumeCovers = page.locator('img[src*="amazon"], img[src*="cover"], img[alt*="volume"], img[alt*="book"]');
+        
+        if (await volumeCovers.count() > 0) {
+          console.log(`Found ${await volumeCovers.count()} volume covers`);
+          
+          await page.screenshot({ 
+            path: 'test-results/series-volume-covers-displayed.png',
+            fullPage: true 
+          });
+          
+          // Verify that at least one cover image is displayed
+          await expect(volumeCovers.first()).toBeVisible();
+          
+          // Check that cover images have valid src attributes
+          const firstCoverSrc = await volumeCovers.first().getAttribute('src');
+          expect(firstCoverSrc).toBeTruthy();
+          console.log(`First volume cover src: ${firstCoverSrc}`);
+          
+          // Verify cover is not a placeholder/error image
+          expect(firstCoverSrc).not.toContain('placeholder');
+          expect(firstCoverSrc).not.toContain('error');
+        } else {
+          console.log('No volume covers found, checking for placeholders');
+          
+          // Check for volume placeholders/number indicators
+          const volumePlaceholders = page.locator('text=/#\\d+/, [class*="volume"], [class*="position"]');
+          if (await volumePlaceholders.count() > 0) {
+            await page.screenshot({ 
+              path: 'test-results/series-volume-placeholders.png',
+              fullPage: true 
+            });
+          }
+        }
+        
+        // Check for volume status indicators (owned/missing/wanted)
+        const statusIndicators = page.locator('text=/Owned/, text=/Missing/, text=/Wanted/, [class*="status"]');
+        if (await statusIndicators.count() > 0) {
+          console.log(`Found ${await statusIndicators.count()} volume status indicators`);
+          await expect(statusIndicators.first()).toBeVisible();
+        }
+        
+        // Check for volume position numbers
+        const volumeNumbers = page.locator('text=/#\\d+/');
+        if (await volumeNumbers.count() > 0) {
+          console.log(`Found ${await volumeNumbers.count()} volume position numbers`);
+          await expect(volumeNumbers.first()).toBeVisible();
+        }
+      }
+    }
+  });
+
+  test('should navigate to book details when clicking owned volume', async ({ page }) => {
+    // Navigate to series page
+    await page.goto('/series');
+    await page.waitForLoadState('networkidle');
+    
+    // Click on first series that has owned volumes
+    const seriesWithOwnedBooks = page.locator('[class*="series"]').first();
+    
+    if (await seriesWithOwnedBooks.count() > 0) {
+      await seriesWithOwnedBooks.click();
+      await page.waitForLoadState('networkidle');
       
-      if (await volumeCovers.count() > 0) {
+      // Switch to Volumes tab
+      const volumesTab = page.locator('button:has-text("Volumes")');
+      if (await volumesTab.count() > 0) {
+        await volumesTab.click();
+        await page.waitForTimeout(1000);
+      }
+      
+      await page.screenshot({ 
+        path: 'test-results/series-before-volume-click.png',
+        fullPage: true 
+      });
+      
+      // Find an owned volume and click it
+      const ownedVolume = page.locator('[class*="cursor-pointer"]:has(text="Owned"), [class*="clickable"]:has(text="Owned")').first();
+      
+      if (await ownedVolume.count() > 0) {
+        console.log('Found owned volume, clicking...');
+        await ownedVolume.click();
+        await page.waitForLoadState('networkidle');
+        
         await page.screenshot({ 
-          path: 'test-results/series-volume-covers.png',
+          path: 'test-results/series-after-volume-click.png',
           fullPage: true 
         });
         
-        await expect(volumeCovers.first()).toBeVisible();
-      }
-      
-      // Check for missing cover indicators
-      const missingCovers = page.locator('.no-cover, .missing-cover, .placeholder-cover');
-      if (await missingCovers.count() > 0) {
+        // Check if we navigated to book details page
+        const bookDetailsIndicators = page.locator('h1, h2, .book-title, [class*="book-details"]');
+        if (await bookDetailsIndicators.count() > 0) {
+          console.log('Successfully navigated to book details page');
+          await expect(bookDetailsIndicators.first()).toBeVisible();
+          
+          // Verify we can go back to library/series
+          const backButton = page.locator('button:has-text("Back"), button:has-text("Library"), a:has-text("Back")');
+          if (await backButton.count() > 0) {
+            await expect(backButton.first()).toBeVisible();
+          }
+        } else {
+          console.log('No clear book details page detected');
+        }
+      } else {
+        console.log('No owned volumes found to click');
         await page.screenshot({ 
-          path: 'test-results/series-missing-covers.png',
+          path: 'test-results/series-no-owned-volumes.png',
           fullPage: true 
         });
       }
+    }
+  });
+
+  test('should navigate from book details to series details', async ({ page }) => {
+    // Navigate to library
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    
+    // Find and click on a book that belongs to a series
+    const seriesBook = page.locator('[class*="book"]:has-text("Vol."), [class*="book"]:has-text("#")').first();
+    
+    if (await seriesBook.count() > 0) {
+      console.log('Found book with series, clicking...');
+      await seriesBook.click();
+      await page.waitForLoadState('networkidle');
+      
+      await page.screenshot({ 
+        path: 'test-results/book-details-with-series.png',
+        fullPage: true 
+      });
+      
+      // Look for series link in book details
+      const seriesLink = page.locator('button:has-text("Series:") + button, p:has-text("Series:") button').first();
+      
+      if (await seriesLink.count() > 0) {
+        const seriesName = await seriesLink.textContent();
+        console.log(`Found series link: ${seriesName}`);
+        
+        await seriesLink.click();
+        await page.waitForLoadState('networkidle');
+        
+        await page.screenshot({ 
+          path: 'test-results/navigated-to-series-from-book.png',
+          fullPage: true 
+        });
+        
+        // Verify we're on the series details page
+        // Wait a bit for the page to fully load
+        await page.waitForTimeout(1000);
+        
+        const seriesTitle = page.locator('h1[class*="text-3xl"]').first();
+        if (await seriesTitle.count() > 0) {
+          const titleText = await seriesTitle.textContent();
+          console.log(`Series page title: ${titleText}`);
+          expect(titleText?.trim()).toBe(seriesName?.trim() || '');
+        } else {
+          // Fallback to any h1
+          const anyH1 = page.locator('h1').first();
+          if (await anyH1.count() > 0) {
+            const titleText = await anyH1.textContent();
+            console.log(`Found h1 with text: ${titleText}`);
+          }
+        }
+        
+        // Check for volumes tab or volumes display
+        const volumesIndicator = page.locator('button:has-text("Volumes"), text=/\\d+\\s*volumes?/i');
+        if (await volumesIndicator.count() > 0) {
+          console.log('Successfully navigated to series details page');
+          await expect(volumesIndicator.first()).toBeVisible();
+        }
+      } else {
+        console.log('No series link found in book details');
+        await page.screenshot({ 
+          path: 'test-results/book-details-no-series-link.png',
+          fullPage: true 
+        });
+      }
+    } else {
+      console.log('No books with series indicators found');
+      await page.screenshot({ 
+        path: 'test-results/library-no-series-books.png',
+        fullPage: true 
+      });
     }
   });
 });

@@ -11,6 +11,8 @@ from routes.reading import router as reading_router
 from routes.series import router as series_router
 from routes.search import router as search_router
 from routes.images import router as images_router
+from routes.jobs import router as jobs_router
+from routes.logs import router as logs_router
 
 # Import library router directly from books module
 try:
@@ -23,8 +25,36 @@ except ImportError:
 async def lifespan(app: FastAPI):
     # Initialize database on startup
     init_db()
+    
+    # Initialize job scheduler
+    from services.job_scheduler import scheduler
+    import asyncio
+    
+    # Register default jobs
+    try:
+        import httpx
+        async with httpx.AsyncClient() as client:
+            await client.post("http://localhost:8000/api/jobs/register-defaults")
+    except:
+        # If API not ready yet, register directly
+        from jobs.metadata_update_job import metadata_update_job
+        scheduler.register_job(
+            name="metadata_update",
+            description="Updates missing metadata for all books from online sources",
+            interval_hours=4.0,
+            job_function=metadata_update_job,
+            enabled=True
+        )
+    
+    # Start scheduler
+    scheduler.start()
+    scheduler_task = asyncio.create_task(scheduler.scheduler_loop())
+    
     yield
-    # Cleanup on shutdown (if needed)
+    
+    # Cleanup on shutdown
+    scheduler.stop()
+    scheduler_task.cancel()
 
 
 app = FastAPI(
@@ -51,6 +81,8 @@ app.include_router(reading_router, prefix="/api/reading")
 app.include_router(series_router, prefix="/api/series")
 app.include_router(search_router, prefix="/api")
 app.include_router(images_router, prefix="/api/images")
+app.include_router(jobs_router, prefix="/api")
+app.include_router(logs_router, prefix="/api")
 
 # Mount static files for cover images
 static_dir = os.path.join(os.path.dirname(__file__), "static")

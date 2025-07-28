@@ -24,5 +24,9 @@
     "src",
     "cypress/support/component.d.ts"
   ],
+  "exclude": [
+    "src/**/*.cy.tsx",
+    "src/**/*.cy.ts"
+  ],
   "types": ["cypress", "node"]
 }

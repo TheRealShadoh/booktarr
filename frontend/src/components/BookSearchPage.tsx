@@ -17,9 +17,10 @@ interface SearchResult {
 
 interface BookSearchPageProps {
   onBookAdded?: () => void;
+  initialSearchQuery?: string;
 }
 
-const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
+const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded, initialSearchQuery }) => {
   const {
     state,
     searchWithCaching,
@@ -29,7 +30,7 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
     hasPendingUpdates
   } = useStateManager();
 
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialSearchQuery || '');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +70,13 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded }) => {
       setLoading(false);
     }
   }, [searchWithCaching]);
+
+  // Trigger search when component mounts with initial query
+  useEffect(() => {
+    if (initialSearchQuery && initialSearchQuery.trim()) {
+      handleSearch(initialSearchQuery);
+    }
+  }, [initialSearchQuery, handleSearch]);
 
   // Auto-search with debouncing
   useEffect(() => {

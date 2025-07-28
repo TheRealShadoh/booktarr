@@ -169,9 +169,11 @@ const StatsDashboard: React.FC = () => {
     // Category statistics
     const categoryMap = new Map<string, number>();
     allBooks.forEach(book => {
-      book.categories.forEach(category => {
-        categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
-      });
+      if (book.categories && Array.isArray(book.categories)) {
+        book.categories.forEach(category => {
+          categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
+        });
+      }
     });
 
     const categoryStats = Array.from(categoryMap.entries())

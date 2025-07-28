@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from datetime import date, timedelta
-from sqlmodel import Session, create_engine, SQLModel
+from sqlmodel import Session, create_engine, SQLModel, select
 import json
 import tempfile
 import os
@@ -117,7 +117,7 @@ class TestOwnershipService:
         session.refresh(edition)
         
         # Create service with mocked session
-        with patch('backend.services.ownership.get_session') as mock_get_session:
+        with patch('backend.services.ownership.get_db_session') as mock_get_session:
             mock_get_session.return_value.__enter__.return_value = session
             
             service = OwnershipService()
@@ -133,8 +133,11 @@ class TestOwnershipService:
             assert result["notes"] == "Test note"
             
             # Verify in database
-            user_status = session.query(UserEditionStatus).filter_by(
-                user_id=1, edition_id=edition.id
+            user_status = session.exec(
+                select(UserEditionStatus).where(
+                    UserEditionStatus.user_id == 1,
+                    UserEditionStatus.edition_id == edition.id
+                )
             ).first()
             assert user_status is not None
             assert user_status.status == "own"
@@ -163,7 +166,7 @@ class TestOwnershipService:
         session.commit()
         
         # Update status
-        with patch('backend.services.ownership.get_session') as mock_get_session:
+        with patch('backend.services.ownership.get_db_session') as mock_get_session:
             mock_get_session.return_value.__enter__.return_value = session
             
             service = OwnershipService()
@@ -212,14 +215,14 @@ class TestOwnershipService:
         session.commit()
         
         # Test service
-        with patch('backend.services.ownership.get_session') as mock_get_session:
+        with patch('backend.services.ownership.get_db_session') as mock_get_session:
             mock_get_session.return_value.__enter__.return_value = session
             
             service = OwnershipService()
             result = service.get_wanted_books(user_id=1)
             
             assert len(result) == 1
-            assert result[0]["book_title"] == "Book 1"
+            assert result[0]["title"] == "Book 1"
             assert result[0]["isbn_13"] == "9781234567890"
 
 
@@ -263,7 +266,7 @@ class TestReleaseCalendarService:
         session.commit()
         
         # Test service
-        with patch('backend.services.calendar.get_session') as mock_get_session:
+        with patch('backend.services.calendar.get_db_session') as mock_get_session:
             mock_get_session.return_value.__enter__.return_value = session
             
             service = ReleaseCalendarService()
@@ -302,7 +305,7 @@ class TestReleaseCalendarService:
         session.commit()
         
         # Test service
-        with patch('backend.services.calendar.get_session') as mock_get_session:
+        with patch('backend.services.calendar.get_db_session') as mock_get_session:
             mock_get_session.return_value.__enter__.return_value = session
             
             service = ReleaseCalendarService()
@@ -342,7 +345,7 @@ class TestBookSearchService:
         mock_google_client.search_by_isbn.return_value = mock_google_response
         
         # Mock database operations
-        with patch('backend.services.book_search.get_session') as mock_get_session:
+        with patch('backend.services.book_search.get_db_session') as mock_get_session:
             mock_session = MagicMock()
             mock_get_session.return_value.__enter__.return_value = mock_session
             mock_session.exec.return_value.first.return_value = None

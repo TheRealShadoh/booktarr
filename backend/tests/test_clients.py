@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 from datetime import date
 import httpx
 
@@ -52,9 +52,9 @@ class TestGoogleBooksClient:
         }
         
         with patch.object(google_client.client, 'get') as mock_get:
-            mock_response_obj = AsyncMock()
-            mock_response_obj.json = AsyncMock(return_value=mock_response)
-            mock_response_obj.raise_for_status = AsyncMock()
+            mock_response_obj = Mock()  # httpx response is not async
+            mock_response_obj.json.return_value = mock_response  # Return data directly
+            mock_response_obj.raise_for_status = Mock()
             mock_get.return_value = mock_response_obj
             
             result = await google_client.search_by_isbn("9781234567890")
@@ -76,9 +76,9 @@ class TestGoogleBooksClient:
         }
         
         with patch.object(google_client.client, 'get') as mock_get:
-            mock_response_obj = AsyncMock()
-            mock_response_obj.json = AsyncMock(return_value=mock_response)
-            mock_response_obj.raise_for_status = AsyncMock()
+            mock_response_obj = Mock()  # httpx response is not async
+            mock_response_obj.json.return_value = mock_response  # Return data directly
+            mock_response_obj.raise_for_status = Mock()
             mock_get.return_value = mock_response_obj
             
             result = await google_client.search_by_isbn("9781234567890")
@@ -106,9 +106,9 @@ class TestGoogleBooksClient:
         }
         
         with patch.object(google_client.client, 'get') as mock_get:
-            mock_response_obj = AsyncMock()
-            mock_response_obj.json = AsyncMock(return_value=mock_response)
-            mock_response_obj.raise_for_status = AsyncMock()
+            mock_response_obj = Mock()  # httpx response is not async
+            mock_response_obj.json.return_value = mock_response  # Return data directly
+            mock_response_obj.raise_for_status = Mock()
             mock_get.return_value = mock_response_obj
             
             result = await google_client.search_by_title("Test Book")
@@ -140,9 +140,9 @@ class TestGoogleBooksClient:
         }
         
         with patch.object(google_client.client, 'get') as mock_get:
-            mock_response_obj = AsyncMock()
-            mock_response_obj.json = AsyncMock(return_value=mock_response)
-            mock_response_obj.raise_for_status = AsyncMock()
+            mock_response_obj = Mock()  # httpx response is not async
+            mock_response_obj.json.return_value = mock_response  # Return data directly
+            mock_response_obj.raise_for_status = Mock()
             mock_get.return_value = mock_response_obj
             
             result = await google_client.search_by_author("Test Author")
@@ -224,10 +224,10 @@ class TestOpenLibraryClient:
         
         with patch.object(openlibrary_client.client, 'get') as mock_get:
             # Mock the book data response
-            mock_response_obj = AsyncMock()
+            mock_response_obj = Mock()  # httpx response is not async
             mock_response_obj.status_code = 200
-            mock_response_obj.json = AsyncMock(return_value=mock_book_data)
-            mock_response_obj.raise_for_status = AsyncMock()
+            mock_response_obj.json.return_value = mock_book_data
+            mock_response_obj.raise_for_status = Mock()
             mock_get.return_value = mock_response_obj
             
             result = await openlibrary_client.search_by_isbn("9781234567890")
@@ -245,7 +245,7 @@ class TestOpenLibraryClient:
     @pytest.mark.asyncio
     async def test_search_by_isbn_not_found(self, openlibrary_client):
         with patch.object(openlibrary_client.client, 'get') as mock_get:
-            mock_response_obj = AsyncMock()
+            mock_response_obj = Mock()  # httpx response is not async
             mock_response_obj.status_code = 404
             mock_get.return_value = mock_response_obj
             
@@ -270,9 +270,9 @@ class TestOpenLibraryClient:
         # Mock the search_by_isbn method to return None (forcing direct parsing)
         with patch.object(openlibrary_client, 'search_by_isbn', new_callable=AsyncMock, return_value=None):
             with patch.object(openlibrary_client.client, 'get') as mock_get:
-                mock_response_obj = AsyncMock()
-                mock_response_obj.json = AsyncMock(return_value=mock_search_data)
-                mock_response_obj.raise_for_status = AsyncMock()
+                mock_response_obj = Mock()  # httpx response is not async
+                mock_response_obj.json.return_value = mock_search_data
+                mock_response_obj.raise_for_status = Mock()
                 mock_get.return_value = mock_response_obj
                 
                 result = await openlibrary_client.search_by_title("Test Book")
@@ -296,9 +296,9 @@ class TestOpenLibraryClient:
         }
         
         with patch.object(openlibrary_client.client, 'get') as mock_get:
-            mock_response_obj = AsyncMock()
-            mock_response_obj.json = AsyncMock(return_value=mock_search_data)
-            mock_response_obj.raise_for_status = AsyncMock()
+            mock_response_obj = Mock()  # httpx response is not async
+            mock_response_obj.json.return_value = mock_search_data
+            mock_response_obj.raise_for_status = Mock()
             mock_get.return_value = mock_response_obj
             
             result = await openlibrary_client.search_by_author("Test Author")

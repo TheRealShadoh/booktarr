@@ -13,6 +13,12 @@ class AniListClient:
         self.base_url = "https://graphql.anilist.co"
         self.session = None
     
+    async def close(self):
+        """Close the aiohttp session"""
+        if self.session:
+            await self.session.close()
+            self.session = None
+
     async def search_manga_series(self, series_name: str, author: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Search for a manga series and get complete volume information

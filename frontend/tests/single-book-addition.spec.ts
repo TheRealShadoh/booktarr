@@ -22,8 +22,8 @@ test.describe('Single Book Addition', () => {
       fullPage: true 
     });
     
-    // Verify we're on add book page
-    await expect(page.locator('h1, h2, h3')).toContainText(/Add.*Book|New.*Book/i);
+    // Verify we're on add book page - check for specific heading
+    await expect(page.getByRole('heading', { name: 'Add Books to Library' })).toBeVisible();
   });
 
   test('should show book search form', async ({ page }) => {
@@ -82,9 +82,9 @@ test.describe('Single Book Addition', () => {
     // Navigate to add book page
     await page.click('[data-testid="add-book"], button:has-text("Add Book"), a:has-text("Add Book")');
     
-    // Enter title
-    const titleInput = page.locator('input[name="title"], input[placeholder*="Title"], [data-testid="title-input"]').first();
-    await titleInput.fill('The Fellowship of the Ring');
+    // Enter title in the search input
+    const searchInput = page.locator('input[placeholder*="book title"]');
+    await searchInput.fill('The Fellowship of the Ring');
     
     // Submit search
     const searchButton = page.locator('button:has-text("Search"), button[type="submit"]');
@@ -160,11 +160,9 @@ test.describe('Single Book Addition', () => {
     }
     
     // Fill in manual book details
-    const titleInput = page.locator('input[name="title"], [data-testid="title-input"]').first();
-    const authorInput = page.locator('input[name="author"], [data-testid="author-input"]').first();
-    
-    await titleInput.fill('Test Manual Book');
-    await authorInput.fill('Test Author');
+    // Use the main search input for manual entry
+    const searchInput = page.locator('input[placeholder*="book title"]');
+    await searchInput.fill('Test Manual Book');
     
     // Check for series fields
     const seriesInput = page.locator('input[name="series"], [data-testid="series-input"]');

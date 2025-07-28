@@ -30,15 +30,27 @@ class SeriesMetadataService:
         Fetch comprehensive series information from external APIs and update the database
         """
         try:
-            # First try AniList for manga series (has complete volume counts)
-            series_data = await self._fetch_from_anilist(series_name, author)
+            # Try multiple sources in order of preference
+            series_data = None
+            
+            # Check if this looks like a manga series (Japanese characters or known manga authors)
+            is_likely_manga = self._is_likely_manga_series(series_name, author)
+            
+            if is_likely_manga:
+                # For manga, try AniList first (has complete volume counts)
+                series_data = await self._fetch_from_anilist(series_name, author)
             
             if not series_data:
-                # Try Google Books for regular book series
+                # Try Google Books for all series types
                 series_data = await self._fetch_from_google_books(series_name, author)
             
+            if not series_data and not is_likely_manga:
+                # For non-manga, try enhanced detection patterns
+                series_data = await self._fetch_from_enhanced_patterns(series_name, author)
+            
             if not series_data:
-                series_data = await self._fetch_from_goodreads(series_name, author)
+                # Try AniList even for non-manga series (some light novels are there)
+                series_data = await self._fetch_from_anilist(series_name, author)
             
             if not series_data:
                 # Create basic series data from owned books
@@ -171,6 +183,10 @@ class SeriesMetadataService:
                 
                 manga_data["volumes"] = volumes
             
+            # Map total_volumes to total_books for consistency
+            if "total_volumes" in manga_data:
+                manga_data["total_books"] = manga_data["total_volumes"]
+            
             return manga_data
             
         except Exception as e:
@@ -184,6 +200,139 @@ class SeriesMetadataService:
         """
         # TODO: Implement if alternative APIs become available
         return None
+    
+    def _is_likely_manga_series(self, series_name: str, author: str = None) -> bool:
+        """Check if a series is likely manga based on name and author"""
+        # Check for Japanese characters
+        import re
+        if re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]', series_name):
+            return True
+        
+        # Check for known manga publishers/indicators
+        manga_indicators = [
+            "manga", "vol.", "volume", "chapter", "tankobon"
+        ]
+        
+        series_lower = series_name.lower()
+        if any(indicator in series_lower for indicator in manga_indicators):
+            return True
+        
+        # Check for known manga authors (could be expanded)
+        if author:
+            author_lower = author.lower()
+            manga_author_indicators = [
+                # Common Japanese name patterns
+                "sensei", "san", "kun", "chan",
+                # Known manga authors
+                "tite kubo", "eiichiro oda", "masashi kishimoto", 
+                "naoshi komi", "tatsuya endo", "gege akutami"
+            ]
+            if any(indicator in author_lower for indicator in manga_author_indicators):
+                return True
+        
+        return False
+    
+    async def _fetch_from_enhanced_patterns(self, series_name: str, author: str = None) -> Optional[Dict[str, Any]]:
+        """Fetch series using enhanced patterns for book series"""
+        
+        # Known series patterns for popular book series
+        known_series = {
+            "blood and ash": {
+                "author": "Jennifer L. Armentrout",
+                "total_books": 5,
+                "books": [
+                    {"position": 1, "title": "From Blood and Ash"},
+                    {"position": 2, "title": "A Kingdom of Flesh and Fire"},
+                    {"position": 3, "title": "The Crown of Gilded Bones"},
+                    {"position": 4, "title": "The War of Two Queens"},
+                    {"position": 5, "title": "A Soul of Ash and Blood"}
+                ]
+            },
+            "throne of glass": {
+                "author": "Sarah J. Maas",
+                "total_books": 7,
+                "books": [
+                    {"position": 1, "title": "Throne of Glass"},
+                    {"position": 2, "title": "Crown of Midnight"},
+                    {"position": 3, "title": "Heir of Fire"},
+                    {"position": 4, "title": "Queen of Shadows"},
+                    {"position": 5, "title": "Empire of Storms"},
+                    {"position": 6, "title": "Tower of Dawn"},
+                    {"position": 7, "title": "Kingdom of Ash"}
+                ]
+            },
+            "harry potter": {
+                "author": "J.K. Rowling",
+                "total_books": 7,
+                "books": [
+                    {"position": 1, "title": "Harry Potter and the Philosopher's Stone"},
+                    {"position": 2, "title": "Harry Potter and the Chamber of Secrets"},
+                    {"position": 3, "title": "Harry Potter and the Prisoner of Azkaban"},
+                    {"position": 4, "title": "Harry Potter and the Goblet of Fire"},
+                    {"position": 5, "title": "Harry Potter and the Order of the Phoenix"},
+                    {"position": 6, "title": "Harry Potter and the Half-Blood Prince"},
+                    {"position": 7, "title": "Harry Potter and the Deathly Hallows"}
+                ]
+            }
+        }
+        
+        series_key = series_name.lower()
+        if series_key in known_series:
+            pattern_data = known_series[series_key]
+            
+            # Verify author matches if provided
+            if author and author.lower() not in pattern_data["author"].lower():
+                return None
+            
+            # Convert to our series format
+            volumes = []
+            for book_info in pattern_data["books"]:
+                # Try to get additional info from Google Books
+                book_details = await self._get_book_details_from_google(
+                    book_info["title"], 
+                    pattern_data["author"]
+                )
+                
+                volume = {
+                    "position": book_info["position"],
+                    "title": book_info["title"],
+                    "isbn_13": book_details.get("isbn_13") if book_details else None,
+                    "isbn_10": book_details.get("isbn_10") if book_details else None,
+                    "publisher": book_details.get("publisher") if book_details else None,
+                    "published_date": book_details.get("release_date") if book_details else None,
+                    "page_count": book_details.get("page_count") if book_details else None,
+                    "description": book_details.get("description") if book_details else None,
+                    "cover_url": book_details.get("cover_url") if book_details else None,
+                    "status": "missing"
+                }
+                volumes.append(volume)
+            
+            return {
+                "name": series_name,
+                "author": pattern_data["author"],
+                "description": None,
+                "publisher": None,
+                "total_books": pattern_data["total_books"],
+                "status": "completed",
+                "genres": [],
+                "tags": [],
+                "first_published": None,
+                "last_published": None,
+                "volumes": volumes
+            }
+        
+        return None
+    
+    async def _get_book_details_from_google(self, title: str, author: str) -> Optional[Dict[str, Any]]:
+        """Get detailed book information from Google Books"""
+        try:
+            results = await self.google_client.search_by_title(title, author)
+            if results:
+                return results[0]
+            return None
+        except Exception as e:
+            print(f"Error getting book details from Google: {e}")
+            return None
     
     def _extract_series_position(self, title: str, series_name: str) -> Optional[int]:
         """
@@ -278,6 +427,21 @@ class SeriesMetadataService:
             )
             
             if not series:
+                # Convert date strings to date objects for new series
+                first_pub = series_data.get("first_published")
+                if first_pub and isinstance(first_pub, str):
+                    try:
+                        first_pub = datetime.fromisoformat(first_pub).date()
+                    except:
+                        first_pub = None
+                
+                last_pub = series_data.get("last_published")
+                if last_pub and isinstance(last_pub, str):
+                    try:
+                        last_pub = datetime.fromisoformat(last_pub).date()
+                    except:
+                        last_pub = None
+                
                 series = Series(
                     name=series_data["name"],
                     author=series_data.get("author"),
@@ -287,8 +451,8 @@ class SeriesMetadataService:
                     status=series_data.get("status", "unknown"),
                     genres=json.dumps(series_data.get("genres", [])),
                     tags=json.dumps(series_data.get("tags", [])),
-                    first_published=series_data.get("first_published"),
-                    last_published=series_data.get("last_published"),
+                    first_published=first_pub,
+                    last_published=last_pub,
                     last_updated=date.today()
                 )
                 session.add(series)
@@ -305,8 +469,24 @@ class SeriesMetadataService:
                 series.status = series_data.get("status", series.status)
                 series.genres = json.dumps(series_data.get("genres", json.loads(series.genres) if series.genres else []))
                 series.tags = json.dumps(series_data.get("tags", json.loads(series.tags) if series.tags else []))
-                series.first_published = series_data.get("first_published") or series.first_published
-                series.last_published = series_data.get("last_published") or series.last_published
+                # Convert date strings to date objects
+                first_pub = series_data.get("first_published")
+                if first_pub and isinstance(first_pub, str):
+                    try:
+                        series.first_published = datetime.fromisoformat(first_pub).date()
+                    except:
+                        series.first_published = series.first_published
+                else:
+                    series.first_published = first_pub or series.first_published
+                
+                last_pub = series_data.get("last_published")
+                if last_pub and isinstance(last_pub, str):
+                    try:
+                        series.last_published = datetime.fromisoformat(last_pub).date()
+                    except:
+                        series.last_published = series.last_published
+                else:
+                    series.last_published = last_pub or series.last_published
                 series.last_updated = date.today()
                 session.add(series)
                 session.commit()

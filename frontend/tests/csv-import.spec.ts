@@ -11,8 +11,14 @@ test.describe('CSV Import Feature', () => {
   });
 
   test('should navigate to CSV import page', async ({ page }) => {
-    // Look for CSV import navigation
-    await page.click('[data-testid="csv-import-nav"], text="Import Books", text="CSV"');
+    // Navigate to Settings page where ImportPage is embedded
+    await page.click('text=Settings');
+    
+    // Click on the Import tab
+    await page.click('text=Import');
+    
+    // Wait for import page to load
+    await page.waitForTimeout(1000);
     
     // Take screenshot of CSV import page
     await page.screenshot({ 
@@ -20,21 +26,32 @@ test.describe('CSV Import Feature', () => {
       fullPage: true 
     });
     
-    // Verify we're on the CSV import page
-    await expect(page.locator('h1, h2, h3')).toContainText(/Import|CSV/i);
+    // Verify we're on the Settings page (which contains import functionality)
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
   });
 
   test('should show CSV upload interface', async ({ page }) => {
     // Navigate to CSV import (adjust selector based on actual implementation)
-    await page.click('[data-testid="csv-import-nav"], text="Import", text="CSV"');
+    // Navigate to Settings page where ImportPage is embedded
+    await page.click('text=Settings');
     
-    // Look for file upload input
-    const fileInput = page.locator('input[type="file"]');
-    await expect(fileInput).toBeVisible();
+    // Click on the Import tab
+    await page.click('text=Import');
     
-    // Look for upload button or drop zone
-    const uploadArea = page.locator('[data-testid="upload-area"], .upload-zone, .file-drop');
-    await expect(uploadArea).toBeVisible();
+    // Wait for import page to load
+    await page.waitForTimeout(1000);
+    
+    // Look for file upload input (it's hidden, but should exist)
+    const fileInput = page.locator('#file-upload');
+    await expect(fileInput).toBeAttached();
+    
+    // Look for the visible upload label/area
+    const uploadLabel = page.locator('label[for="file-upload"]');
+    await expect(uploadLabel).toBeVisible();
+    
+    // Look for upload button or drop zone (we already checked the uploadLabel above)
+    // The uploadLabel should be the visible upload area
+    await expect(uploadLabel).toContainText(/upload|file/i);
     
     await page.screenshot({ 
       path: 'test-results/csv-upload-interface.png',
@@ -44,7 +61,14 @@ test.describe('CSV Import Feature', () => {
 
   test('should handle CSV file upload', async ({ page }) => {
     // Navigate to CSV import
-    await page.click('[data-testid="csv-import-nav"], text="Import", text="CSV"');
+    // Navigate to Settings page where ImportPage is embedded
+    await page.click('text=Settings');
+    
+    // Click on the Import tab
+    await page.click('text=Import');
+    
+    // Wait for import page to load
+    await page.waitForTimeout(1000);
     
     // Create a sample CSV content
     const csvContent = `Title,Author,Series,Volume,ISBN
@@ -57,8 +81,8 @@ Harry Potter and the Philosopher's Stone,J.K. Rowling,Harry Potter,1,97807475326
     await require('fs').promises.writeFile(csvPath, csvContent);
 
     try {
-      // Upload the CSV file
-      const fileInput = page.locator('input[type="file"]');
+      // Upload the CSV file using the hidden input
+      const fileInput = page.locator('#file-upload');
       await fileInput.setInputFiles(csvPath);
       
       // Wait for file to be processed
@@ -103,7 +127,14 @@ Harry Potter and the Philosopher's Stone,J.K. Rowling,Harry Potter,1,97807475326
 
   test('should show CSV parsing validation', async ({ page }) => {
     // Navigate to CSV import
-    await page.click('[data-testid="csv-import-nav"], text="Import", text="CSV"');
+    // Navigate to Settings page where ImportPage is embedded
+    await page.click('text=Settings');
+    
+    // Click on the Import tab
+    await page.click('text=Import');
+    
+    // Wait for import page to load
+    await page.waitForTimeout(1000);
     
     // Create invalid CSV content
     const invalidCsvContent = `Title,Author,BadColumn
@@ -113,8 +144,8 @@ Book Without Required Fields,Author Name,Extra Data`;
     await require('fs').promises.writeFile(csvPath, invalidCsvContent);
 
     try {
-      // Upload the invalid CSV
-      const fileInput = page.locator('input[type="file"]');
+      // Upload the invalid CSV using the hidden input
+      const fileInput = page.locator('#file-upload');
       await fileInput.setInputFiles(csvPath);
       
       // Wait for validation
@@ -143,7 +174,14 @@ Book Without Required Fields,Author Name,Extra Data`;
 
   test('should display CSV import results', async ({ page }) => {
     // Navigate to CSV import
-    await page.click('[data-testid="csv-import-nav"], text="Import", text="CSV"');
+    // Navigate to Settings page where ImportPage is embedded
+    await page.click('text=Settings');
+    
+    // Click on the Import tab
+    await page.click('text=Import');
+    
+    // Wait for import page to load
+    await page.waitForTimeout(1000);
     
     const csvContent = `Title,Author,Series,Volume,ISBN
 Test Book 1,Test Author,Test Series,1,9781234567890
@@ -153,8 +191,8 @@ Test Book 2,Test Author,Test Series,2,9781234567891`;
     await require('fs').promises.writeFile(csvPath, csvContent);
 
     try {
-      // Upload and process CSV
-      await page.locator('input[type="file"]').setInputFiles(csvPath);
+      // Upload and process CSV using the hidden input
+      await page.locator('#file-upload').setInputFiles(csvPath);
       await page.waitForTimeout(1000);
       
       const importButton = page.locator('button:has-text("Import"), button:has-text("Process")');

@@ -10,9 +10,10 @@ import ImportPage from './ImportPage';
 import AmazonSyncPage from './AmazonSyncPage';
 import SharePage from './SharePage';
 import BackupRestore from './BackupRestore';
+import JobsSection from './JobsSection';
 import { useStateManager } from '../hooks/useStateManager';
 
-type SettingsTab = 'general' | 'import' | 'sync' | 'share' | 'backup';
+type SettingsTab = 'general' | 'import' | 'sync' | 'share' | 'backup' | 'jobs';
 
 const SettingsPage: React.FC<SettingsPageProps> = ({
   settings: propsSettings,
@@ -426,6 +427,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                 }`}
               >
                 Backup & Restore
+              </button>
+              <button
+                onClick={() => setActiveTab('jobs')}
+                className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'jobs'
+                    ? 'border-booktarr-accent text-booktarr-accent'
+                    : 'border-transparent text-booktarr-textSecondary hover:text-booktarr-text hover:border-booktarr-border'
+                }`}
+              >
+                Jobs
               </button>
             </nav>
           </div>
@@ -928,6 +939,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             
             {activeTab === 'backup' && (
               <BackupRestore />
+            )}
+            
+            {activeTab === 'jobs' && (
+              <JobsSection />
             )}
           </div>
         </div>

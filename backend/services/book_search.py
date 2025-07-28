@@ -12,9 +12,9 @@ try:
 except ImportError:
     from clients import GoogleBooksClient, OpenLibraryClient
 try:
-    from backend.database import get_db_session
+    from backend.database import get_db_session, get_session
 except ImportError:
-    from database import get_db_session
+    from database import get_db_session, get_session
 try:
     from backend.services.cache import JsonCache
 except ImportError:

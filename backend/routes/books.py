@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form, Depends
 from typing import Optional, List, Dict, Any
+from sqlmodel import Session
 from pydantic import BaseModel
 import tempfile
 import os
@@ -160,34 +161,49 @@ async def add_book(book_data: BookAdd, user_id: int = Query(1, description="User
             
             session.commit()
             
-            # Trigger series creation and volume sync if the book has series info
-            if book_data.series:
+            # Always try to detect and enrich series information for newly added books
+            try:
+                # Import enhanced series detection service
                 try:
-                    # Import and use series services
-                    try:
-                        from backend.services.volume_sync_service import VolumeSyncService
-                        from backend.services.series_metadata import SeriesMetadataService
-                    except ImportError:
-                        from services.volume_sync_service import VolumeSyncService
-                        from services.series_metadata import SeriesMetadataService
+                    from backend.services.enhanced_series_detection import EnhancedSeriesDetectionService
+                    from backend.services.volume_sync_service import VolumeSyncService
+                except ImportError:
+                    from services.enhanced_series_detection import EnhancedSeriesDetectionService
+                    from services.volume_sync_service import VolumeSyncService
+                
+                async with EnhancedSeriesDetectionService() as detection_service:
+                    # Try to detect series information for this book
+                    series_info = await detection_service.detect_and_populate_series(
+                        book_data.title,
+                        book_data.authors,
+                        book_data.series  # Use manually provided series if available
+                    )
                     
-                    # First, try to fetch series metadata from external sources
-                    series_service = SeriesMetadataService()
-                    try:
-                        await series_service.fetch_and_update_series(
-                            book_data.series, 
-                            book_data.authors[0] if book_data.authors else None
-                        )
-                    finally:
-                        await series_service.close()
-                    
-                    # Then sync series volumes to create series entry and volume if needed
-                    sync_service = VolumeSyncService()
-                    await sync_service.sync_series_volumes_with_books(book_data.series)
-                    
-                except Exception as e:
-                    print(f"Warning: Failed to sync series volumes for {book_data.series}: {e}")
-                    # Don't fail the book addition if series sync fails
+                    if series_info:
+                        # Update the book with detected series information
+                        with get_db_session() as update_session:
+                            book_to_update = update_session.get(Book, new_book.id)
+                            if book_to_update:
+                                book_to_update.series_name = series_info["series_name"]
+                                # Try to find the position for this book
+                                for book_info in series_info.get("books", []):
+                                    if book_info.get("title", "").lower() == book_data.title.lower():
+                                        book_to_update.series_position = book_info.get("position")
+                                        break
+                                update_session.add(book_to_update)
+                                update_session.commit()
+                        
+                        # Sync series volumes to ensure the new book is marked as owned
+                        sync_service = VolumeSyncService()
+                        await sync_service.sync_series_volumes_with_books(series_info["series_name"])
+                        
+                        print(f"✅ Detected and enriched series '{series_info['series_name']}' for book '{book_data.title}'")
+                    else:
+                        print(f"ℹ️ No series detected for book '{book_data.title}'")
+                
+            except Exception as e:
+                print(f"Warning: Failed to detect/enrich series for '{book_data.title}': {e}")
+                # Don't fail the book addition if series detection fails
             
             return {
                 "success": True,
@@ -232,6 +248,275 @@ async def get_test_books() -> Dict[str, Any]:
         "total_series": 1,
         "last_sync": "2025-07-19T14:00:00Z"
     }
+
+
+@router.put("/{book_id}/metadata")
+async def update_book_metadata(
+    book_id: int,
+    book_data: dict,
+    session: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    """Update book metadata manually."""
+    
+    try:
+        from sqlmodel import select
+        import json
+        
+        # Get the book
+        book = session.get(Book, book_id)
+        if not book:
+            raise HTTPException(status_code=404, detail=f"Book with ID {book_id} not found")
+        
+        # Update fields if provided
+        updated_fields = []
+        
+        if "title" in book_data and book_data["title"]:
+            book.title = book_data["title"]
+            updated_fields.append("title")
+        
+        if "authors" in book_data and book_data["authors"]:
+            if isinstance(book_data["authors"], list):
+                book.authors = json.dumps(book_data["authors"])
+            else:
+                book.authors = json.dumps([book_data["authors"]])
+            updated_fields.append("authors")
+        
+        if "series_name" in book_data:
+            book.series_name = book_data["series_name"]
+            updated_fields.append("series_name")
+        
+        if "series_position" in book_data:
+            book.series_position = book_data["series_position"]
+            updated_fields.append("series_position")
+        
+        if "description" in book_data:
+            book.description = book_data["description"]
+            updated_fields.append("description")
+        
+        session.add(book)
+        session.commit()
+        
+        return {
+            "success": True,
+            "message": f"Updated book '{book.title}'",
+            "updated_fields": updated_fields,
+            "book": {
+                "id": book.id,
+                "title": book.title,
+                "authors": json.loads(book.authors) if book.authors else [],
+                "series_name": book.series_name,
+                "series_position": book.series_position
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error updating book metadata: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update book: {str(e)}")
+
+
+@router.put("/{book_id}/editions/{edition_id}")
+async def update_edition_metadata(
+    book_id: int,
+    edition_id: int,
+    edition_data: dict,
+    session: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    """Update edition metadata manually."""
+    
+    try:
+        from sqlmodel import select
+        
+        # Get the edition
+        edition = session.get(Edition, edition_id)
+        if not edition or edition.book_id != book_id:
+            raise HTTPException(status_code=404, detail=f"Edition with ID {edition_id} not found for book {book_id}")
+        
+        # Update fields if provided
+        updated_fields = []
+        
+        if "isbn_13" in edition_data:
+            edition.isbn_13 = edition_data["isbn_13"]
+            updated_fields.append("isbn_13")
+        
+        if "isbn_10" in edition_data:
+            edition.isbn_10 = edition_data["isbn_10"]
+            updated_fields.append("isbn_10")
+        
+        if "book_format" in edition_data:
+            edition.book_format = edition_data["book_format"]
+            updated_fields.append("book_format")
+        
+        if "publisher" in edition_data:
+            edition.publisher = edition_data["publisher"]
+            updated_fields.append("publisher")
+        
+        if "release_date" in edition_data:
+            if edition_data["release_date"]:
+                try:
+                    from datetime import datetime
+                    edition.release_date = datetime.fromisoformat(edition_data["release_date"]).date()
+                    updated_fields.append("release_date")
+                except:
+                    pass
+            else:
+                edition.release_date = None
+                updated_fields.append("release_date")
+        
+        if "cover_url" in edition_data:
+            edition.cover_url = edition_data["cover_url"]
+            updated_fields.append("cover_url")
+        
+        if "price" in edition_data:
+            edition.price = edition_data["price"]
+            updated_fields.append("price")
+        
+        session.add(edition)
+        session.commit()
+        
+        return {
+            "success": True,
+            "message": f"Updated edition {edition_id}",
+            "updated_fields": updated_fields,
+            "edition": {
+                "id": edition.id,
+                "isbn_13": edition.isbn_13,
+                "isbn_10": edition.isbn_10,
+                "book_format": edition.book_format,
+                "publisher": edition.publisher,
+                "cover_url": edition.cover_url
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error updating edition metadata: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update edition: {str(e)}")
+
+
+@router.post("/{book_id}/apply-metadata")
+async def apply_metadata_to_book(
+    book_id: int,
+    metadata: dict,
+    session: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    """Apply selected metadata from search results to a book and its edition."""
+    
+    try:
+        from sqlmodel import select
+        import json
+        
+        # Get the book and its first edition
+        book = session.get(Book, book_id)
+        if not book:
+            raise HTTPException(status_code=404, detail=f"Book with ID {book_id} not found")
+        
+        # Get the first edition (or create one if none exists)
+        edition = None
+        if book.editions:
+            edition = book.editions[0]
+        else:
+            edition = Edition(
+                book_id=book.id,
+                book_format="unknown",
+                source="manual_update"
+            )
+            session.add(edition)
+            session.flush()
+        
+        # Apply book metadata
+        book_updated_fields = []
+        
+        if metadata.get("title"):
+            book.title = metadata["title"]
+            book_updated_fields.append("title")
+        
+        if metadata.get("authors"):
+            if isinstance(metadata["authors"], list):
+                book.authors = json.dumps(metadata["authors"])
+            else:
+                book.authors = json.dumps([metadata["authors"]])
+            book_updated_fields.append("authors")
+        
+        if metadata.get("series_name"):
+            book.series_name = metadata["series_name"]
+            book_updated_fields.append("series_name")
+        
+        if metadata.get("series_position"):
+            book.series_position = metadata["series_position"]
+            book_updated_fields.append("series_position")
+        
+        if metadata.get("description"):
+            book.description = metadata["description"]
+            book_updated_fields.append("description")
+        
+        # Apply edition metadata
+        edition_updated_fields = []
+        
+        if metadata.get("isbn_13"):
+            edition.isbn_13 = metadata["isbn_13"]
+            edition_updated_fields.append("isbn_13")
+        
+        if metadata.get("isbn_10"):
+            edition.isbn_10 = metadata["isbn_10"]
+            edition_updated_fields.append("isbn_10")
+        
+        if metadata.get("publisher"):
+            edition.publisher = metadata["publisher"]
+            edition_updated_fields.append("publisher")
+        
+        if metadata.get("release_date"):
+            try:
+                from datetime import datetime
+                if isinstance(metadata["release_date"], str):
+                    edition.release_date = datetime.fromisoformat(metadata["release_date"]).date()
+                    edition_updated_fields.append("release_date")
+            except:
+                pass
+        
+        if metadata.get("cover_url"):
+            edition.cover_url = metadata["cover_url"]
+            edition_updated_fields.append("cover_url")
+        
+        if metadata.get("price"):
+            edition.price = metadata["price"]
+            edition_updated_fields.append("price")
+        
+        if metadata.get("format"):
+            edition.book_format = metadata["format"]
+            edition_updated_fields.append("book_format")
+        
+        session.add(book)
+        session.add(edition)
+        session.commit()
+        
+        return {
+            "success": True,
+            "message": f"Applied metadata to book '{book.title}'",
+            "book_updated_fields": book_updated_fields,
+            "edition_updated_fields": edition_updated_fields,
+            "source": metadata.get("source", "Unknown"),
+            "book": {
+                "id": book.id,
+                "title": book.title,
+                "authors": json.loads(book.authors) if book.authors else [],
+                "series_name": book.series_name,
+                "series_position": book.series_position
+            },
+            "edition": {
+                "id": edition.id,
+                "isbn_13": edition.isbn_13,
+                "cover_url": edition.cover_url
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error applying metadata to book: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to apply metadata: {str(e)}")
 
 
 @router.get("/{isbn}/metadata-sources")

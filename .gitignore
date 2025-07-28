@@ -93,6 +93,23 @@ htmlcov/
 coverage/
 .nyc_output/
 
+# Playwright test artifacts
+frontend/test-results/
+frontend/playwright-report/
+frontend/test-results-*/
+**/test-results/
+**/playwright-report/
+**/*-actual.png
+**/*-expected.png
+**/*-diff.png
+**/*.png
+**/*.webm
+**/*.mp4
+
+# Pytest artifacts
+backend/tests/__pycache__/
+backend/tests/.pytest_cache/
+
 # Temporary files
 *.tmp
 *.temp

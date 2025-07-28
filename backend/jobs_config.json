@@ -1,0 +1,16 @@
+{
+  "jobs": [
+    {
+      "name": "metadata_update",
+      "description": "Updates missing metadata for all books from online sources",
+      "interval_hours": 4.0,
+      "enabled": true,
+      "last_run": "2025-07-27T23:03:01.924583",
+      "next_run": "2025-07-28T03:03:01.924578",
+      "status": "completed",
+      "last_error": null,
+      "items_processed": 0,
+      "items_failed": 0
+    }
+  ]
+}

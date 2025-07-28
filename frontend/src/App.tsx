@@ -21,6 +21,8 @@ import PWAInstallPrompt from './components/PWAInstallPrompt';
 import OfflineIndicator from './components/OfflineIndicator';
 import PWAUpdateNotification from './components/PWAUpdateNotification';
 import SeriesManagement from './components/SeriesManagement';
+import SeriesDetailsPage from './components/SeriesDetailsPage';
+import LogsPage from './components/LogsPage';
 import { AppProvider } from './context/AppContext';
 import { useStateManager } from './hooks/useStateManager';
 import './styles/tailwind.css';
@@ -39,6 +41,8 @@ const AppInner: React.FC = () => {
   } = useStateManager();
 
   const [selectedBookISBN, setSelectedBookISBN] = React.useState<string | null>(null);
+  const [selectedSeriesName, setSelectedSeriesName] = React.useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = React.useState<string>('');
 
 
   // Handle uncaught errors
@@ -94,6 +98,12 @@ const AppInner: React.FC = () => {
     setCurrentPage('library');
   };
 
+  const handleSeriesClick = (seriesName: string) => {
+    console.log('Series clicked:', seriesName);
+    setSelectedSeriesName(seriesName);
+    setCurrentPage('series-details');
+  };
+
   const renderCurrentPage = () => {
     console.log('Rendering page:', state.currentPage, 'selectedBookISBN:', selectedBookISBN);
     
@@ -113,6 +123,7 @@ const AppInner: React.FC = () => {
           <BookDetailsPage
             isbn={selectedBookISBN || undefined}
             onBack={handleBackToLibrary}
+            onSeriesClick={handleSeriesClick}
           />
         );
       case 'settings':
@@ -132,7 +143,7 @@ const AppInner: React.FC = () => {
           />
         );
       case 'add':
-        return <BookSearchPage onBookAdded={loadBooks} />;
+        return <BookSearchPage onBookAdded={loadBooks} initialSearchQuery={searchQuery} />;
       case 'wanted':
         return (
           <WantedPage
@@ -183,6 +194,20 @@ const AppInner: React.FC = () => {
         );
       case 'series-management':
         return <SeriesManagement />;
+      case 'series-details':
+        return selectedSeriesName ? (
+          <SeriesDetailsPage
+            seriesName={selectedSeriesName}
+            ownedBooks={Object.values(state.filteredBooks).flat()}
+            onBack={() => {
+              setSelectedSeriesName(null);
+              setCurrentPage('library');
+            }}
+            onBookClick={handleBookClick}
+          />
+        ) : (
+          <SeriesManagement />
+        );
       case 'activity':
         return (
           <ReadingTimelinePage
@@ -193,21 +218,7 @@ const AppInner: React.FC = () => {
           />
         );
       case 'logs':
-        return (
-          <div className="flex flex-col justify-center items-center h-64 space-y-4">
-            <div className="text-center">
-              <svg className="w-16 h-16 text-booktarr-textMuted mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              <h3 className="text-booktarr-text text-xl font-semibold mb-2">
-                {state.currentPage.charAt(0).toUpperCase() + state.currentPage.slice(1)}
-              </h3>
-              <p className="text-booktarr-textSecondary text-sm max-w-md">
-                This page is coming soon. Stay tuned for updates!
-              </p>
-            </div>
-          </div>
-        );
+        return <LogsPage />;
       default:
         return null;
     }
@@ -247,6 +258,11 @@ const AppInner: React.FC = () => {
             filteredSeries[seriesName].push(book);
           });
           // This will be handled by the search functionality in the context
+        }}
+        onBookSelect={handleBookClick}
+        onSearchAddBook={(query) => {
+          setSearchQuery(query);
+          setCurrentPage('add');
         }}
       >
         {renderCurrentPage()}

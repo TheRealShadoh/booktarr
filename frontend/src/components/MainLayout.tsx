@@ -5,6 +5,7 @@
 import React, { useState, useRef } from 'react';
 import SidebarNavigation from './SidebarNavigation';
 import FilterPanel from './FilterPanel';
+import BookSearch from './BookSearch';
 import { Book } from '../types';
 import { CurrentPage } from '../context/AppContext';
 import { useResponsive } from '../hooks/useResponsive';
@@ -16,6 +17,8 @@ interface MainLayoutProps {
   children: React.ReactNode;
   books?: Book[];
   onFilterChange?: (filteredBooks: Book[]) => void;
+  onBookSelect?: (book: Book) => void;
+  onSearchAddBook?: (searchQuery: string) => void;
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({
@@ -23,7 +26,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   onPageChange,
   children,
   books = [],
-  onFilterChange
+  onFilterChange,
+  onBookSelect,
+  onSearchAddBook
 }) => {
   const { device, breakpoints, getResponsiveValue } = useResponsive();
   const mainRef = useRef<HTMLDivElement>(null);
@@ -152,18 +157,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             {/* Global actions */}
             <div className="flex items-center space-x-2 sm:space-x-4">
               {/* Search - Hidden on mobile, shown in a separate search page */}
-              {!device.isMobile && (
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search books..."
-                    data-testid="search-input"
-                    className="booktarr-form-input w-48 lg:w-64 pl-10"
-                  />
-                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-booktarr-textMuted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
+              {!device.isMobile && onBookSelect && onSearchAddBook && (
+                <BookSearch
+                  onBookSelect={onBookSelect}
+                  onAddNewBook={onSearchAddBook}
+                  className="w-48 lg:w-64"
+                />
               )}
 
               {/* Mobile Search Button */}

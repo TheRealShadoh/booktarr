@@ -8,9 +8,9 @@ try:
 except ImportError:
     from models import Book, Edition, UserEditionStatus
 try:
-    from backend.database import get_db_session
+    from backend.database import get_db_session, get_session
 except ImportError:
-    from database import get_db_session
+    from database import get_db_session, get_session
 
 
 class OwnershipService:

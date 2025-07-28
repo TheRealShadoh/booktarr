@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Book, SeriesDetailsResponse, SeriesVolume, SeriesInfo } from '../types';
 import LoadingSpinner from './LoadingSpinner';
+import MetadataEditor from './MetadataEditor';
 
 interface SeriesDetailsPageProps {
   seriesName: string;
@@ -24,6 +25,8 @@ const SeriesDetailsPage: React.FC<SeriesDetailsPageProps> = ({
   const [sortBy, setSortBy] = useState<'position' | 'title' | 'published_date'>('position');
   const [filterBy, setFilterBy] = useState<'all' | 'owned' | 'missing' | 'wanted'>('all');
   const [selectedTab, setSelectedTab] = useState<'volumes' | 'overview'>('overview');
+  const [editingVolume, setEditingVolume] = useState<SeriesVolume | null>(null);
+  const [showMetadataEditor, setShowMetadataEditor] = useState(false);
 
   // Fetch comprehensive series data from the backend
   useEffect(() => {
@@ -151,12 +154,20 @@ const SeriesDetailsPage: React.FC<SeriesDetailsPageProps> = ({
   }, [seriesData, sortBy, filterBy]);
 
   const handleVolumeClick = (volume: SeriesVolume) => {
-    if (volume.owned_book && onBookClick) {
-      // Convert SeriesVolume owned_book to Book format
+    if (volume.status === 'owned' && onBookClick) {
+      // For owned volumes, use the owned_book data if available, otherwise fall back to volume data
+      const isbn = volume.owned_book?.isbn || volume.isbn_13 || volume.isbn_10 || '';
+      
+      if (!isbn) {
+        console.warn('No ISBN available for volume:', volume);
+        return;
+      }
+      
+      // Convert SeriesVolume to Book format
       const book: Book = {
-        isbn: volume.owned_book.isbn || '',
-        title: volume.owned_book.title,
-        authors: volume.owned_book.authors,
+        isbn: isbn,
+        title: volume.owned_book?.title || volume.title,
+        authors: volume.owned_book?.authors || (seriesData?.series?.author ? [seriesData.series.author] : []),
         series: seriesName,
         series_position: volume.position,
         publisher: volume.publisher || '',
@@ -177,6 +188,8 @@ const SeriesDetailsPage: React.FC<SeriesDetailsPageProps> = ({
         reading_status: 'unread' as any,
         times_read: 0
       };
+      
+      console.log('Volume clicked - navigating to book details with ISBN:', isbn);
       onBookClick(book);
     }
   };
@@ -553,9 +566,23 @@ const SeriesDetailsPage: React.FC<SeriesDetailsPageProps> = ({
                     )}
                   </div>
                   
+                  {/* Edit Button (show on hover) */}
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 mt-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingVolume(volume);
+                        setShowMetadataEditor(true);
+                      }}
+                      className="w-full bg-gray-600 text-white text-xs py-1 px-2 rounded hover:bg-gray-700 transition-colors"
+                    >
+                      ✏️ Edit
+                    </button>
+                  </div>
+                  
                   {/* Action buttons for missing/wanted volumes */}
                   {volume.status !== 'owned' && (
-                    <div className="mt-2 flex space-x-1">
+                    <div className="mt-1 flex space-x-1">
                       {volume.status === 'missing' && (
                         <button 
                           onClick={(e) => {
@@ -592,6 +619,38 @@ const SeriesDetailsPage: React.FC<SeriesDetailsPageProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {/* Metadata Editor Modal */}
+      {showMetadataEditor && editingVolume && (
+        <MetadataEditor
+          type="volume"
+          itemId={editingVolume.position}
+          seriesName={seriesName}
+          position={editingVolume.position}
+          currentData={editingVolume}
+          onClose={() => {
+            setShowMetadataEditor(false);
+            setEditingVolume(null);
+          }}
+          onUpdate={(updatedData) => {
+            // Refresh series data to show the updated information
+            const fetchUpdatedData = async () => {
+              try {
+                const response = await fetch(`/api/series/${encodeURIComponent(seriesName)}`);
+                if (response.ok) {
+                  const data = await response.json();
+                  setSeriesData(data);
+                }
+              } catch (error) {
+                console.error('Error refreshing series data:', error);
+              }
+            };
+            fetchUpdatedData();
+            setShowMetadataEditor(false);
+            setEditingVolume(null);
+          }}
+        />
       )}
     </div>
   );

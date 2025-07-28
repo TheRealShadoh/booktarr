@@ -81,7 +81,7 @@ export default defineConfig({
       }
     },
     {
-      command: 'cd ../backend && python main.py',
+      command: 'cd ../backend && python3 main.py',
       url: 'http://localhost:8000/health',
       reuseExistingServer: !process.env.CI,
       timeout: 60 * 1000,

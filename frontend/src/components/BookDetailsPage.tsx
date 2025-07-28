@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Book } from '../types';
 import LoadingSpinner from './LoadingSpinner';
+import MetadataEditor from './MetadataEditor';
 
 interface BookEdition {
   id: number;
@@ -84,6 +85,7 @@ interface BookDetailsPageProps {
   bookId?: string;
   isbn?: string;
   onBack: () => void;
+  onSeriesClick?: (seriesName: string) => void;
 }
 
 const STAR_RATINGS = [1, 2, 3, 4, 5];
@@ -96,12 +98,15 @@ const TAB_CONFIG = [
   { key: 'editions', label: 'Editions', icon: '📚' }
 ];
 
-const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack }) => {
+const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack, onSeriesClick }) => {
   const [bookDetails, setBookDetails] = useState<BookDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedEdition, setSelectedEdition] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'progress' | 'quotes' | 'stats' | 'editions'>('overview');
+  
+  // Metadata editor state
+  const [showMetadataEditor, setShowMetadataEditor] = useState(false);
   
   // Reading progress state
   const [isReading, setIsReading] = useState(false);
@@ -500,13 +505,31 @@ const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack 
             {/* Book Details */}
             <div className="md:col-span-2 space-y-4">
               <div>
-                <h1 className="text-3xl font-bold text-booktarr-text mb-2">{bookDetails.title}</h1>
+                <div className="flex justify-between items-start mb-2">
+                  <h1 className="text-3xl font-bold text-booktarr-text">{bookDetails.title}</h1>
+                  <button
+                    onClick={() => setShowMetadataEditor(true)}
+                    className="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors"
+                  >
+                    ✏️ Edit Metadata
+                  </button>
+                </div>
                 <p className="text-lg text-booktarr-textMuted">
                   by {bookDetails.authors.join(', ')}
                 </p>
                 {bookDetails.series && (
                   <p className="text-sm text-booktarr-textMuted mt-1">
-                    <span className="font-medium">Series:</span> {bookDetails.series}
+                    <span className="font-medium">Series:</span>{' '}
+                    {onSeriesClick ? (
+                      <button
+                        onClick={() => bookDetails.series && onSeriesClick(bookDetails.series)}
+                        className="text-booktarr-accent hover:text-booktarr-accent/80 underline transition-colors"
+                      >
+                        {bookDetails.series}
+                      </button>
+                    ) : (
+                      <span>{bookDetails.series}</span>
+                    )}
                     {bookDetails.series_position && ` #${bookDetails.series_position}`}
                   </p>
                 )}
@@ -1134,6 +1157,46 @@ const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack 
           )}
         </div>
       </div>
+
+      {/* Metadata Editor Modal */}
+      {showMetadataEditor && bookDetails && (
+        <MetadataEditor
+          type="book"
+          itemId={parseInt(bookDetails.id)}
+          currentData={{
+            title: bookDetails.title,
+            authors: bookDetails.authors,
+            series_name: bookDetails.series,
+            series_position: bookDetails.series_position,
+            isbn_13: bookDetails.isbn,
+            publisher: bookDetails.publisher,
+            published_date: bookDetails.published_date,
+            description: bookDetails.description,
+            cover_url: bookDetails.thumbnail_url
+          }}
+          onClose={() => setShowMetadataEditor(false)}
+          onUpdate={(updatedData) => {
+            // Refresh book data to show the updated information
+            const fetchUpdatedData = async () => {
+              try {
+                const fetchUrl = bookId 
+                  ? `/api/books/details/${bookId}`
+                  : `/api/books/details?isbn=${isbn}`;
+                
+                const response = await fetch(fetchUrl);
+                if (response.ok) {
+                  const data = await response.json();
+                  setBookDetails(data);
+                }
+              } catch (error) {
+                console.error('Error refreshing book data:', error);
+              }
+            };
+            fetchUpdatedData();
+            setShowMetadataEditor(false);
+          }}
+        />
+      )}
     </div>
   );
 };
