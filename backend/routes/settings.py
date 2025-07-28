@@ -287,6 +287,110 @@ class RemoveAllDataRequest(BaseModel):
     confirmation: str
 
 
+@router.post("/clear-books-keep-metadata")
+async def clear_books_keep_metadata() -> Dict[str, Any]:
+    """
+    Clear all books while preserving metadata (series, authors, etc.).
+    Used primarily for testing workflows.
+    """
+    try:
+        # Get database paths
+        backend_dir = os.path.dirname(os.path.dirname(__file__))
+        books_db_path = os.path.join(backend_dir, "books.db")
+        booktarr_db_path = os.path.join(backend_dir, "booktarr.db")
+        
+        removed_counts = {
+            "books": 0,
+            "editions": 0,
+            "user_edition_statuses": 0,
+            "reading_progress": 0
+        }
+        
+        # Clear books.db if it exists and has data
+        if os.path.exists(books_db_path) and os.path.getsize(books_db_path) > 0:
+            try:
+                conn = sqlite3.connect(books_db_path)
+                cursor = conn.cursor()
+                
+                try:
+                    # Clear book-related tables but keep metadata
+                    tables_to_clear = [
+                        ("book", "books"),
+                        ("edition", "editions"), 
+                        ("usereditionstatus", "user_edition_statuses"),
+                        ("readingprogress", "reading_progress")
+                    ]
+                    
+                    for table_name, count_key in tables_to_clear:
+                        try:
+                            cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+                            count = cursor.fetchone()[0]
+                            removed_counts[count_key] = count
+                            
+                            # Delete all records from table
+                            cursor.execute(f"DELETE FROM {table_name}")
+                        except sqlite3.Error:
+                            # Table might not exist, skip
+                            pass
+                    
+                    # Reset SQLite sequence counters for cleared tables only
+                    try:
+                        cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('book', 'edition', 'usereditionstatus', 'readingprogress')")
+                    except sqlite3.Error:
+                        # sqlite_sequence table doesn't exist, which is fine
+                        pass
+                    
+                    conn.commit()
+                finally:
+                    conn.close()
+            except sqlite3.Error as e:
+                print(f"Error accessing books.db: {e}")
+                pass
+        
+        # Clear booktarr.db book-related tables if it exists
+        if os.path.exists(booktarr_db_path) and os.path.getsize(booktarr_db_path) > 0:
+            try:
+                conn = sqlite3.connect(booktarr_db_path)
+                cursor = conn.cursor()
+                
+                try:
+                    # Only clear book-related tables, preserve metadata tables
+                    book_tables = ['book', 'edition', 'usereditionstatus', 'readingprogress']
+                    
+                    for table_name in book_tables:
+                        try:
+                            cursor.execute(f"DELETE FROM {table_name}")
+                        except sqlite3.Error:
+                            # Skip if table doesn't exist
+                            pass
+                    
+                    # Reset sequence counters for book tables only
+                    try:
+                        cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('book', 'edition', 'usereditionstatus', 'readingprogress')")
+                    except sqlite3.Error:
+                        pass
+                    
+                    conn.commit()
+                finally:
+                    conn.close()
+            except sqlite3.Error as e:
+                print(f"Error accessing booktarr.db: {e}")
+                pass
+        
+        return {
+            "success": True,
+            "message": "Books cleared while preserving metadata",
+            "removed_counts": removed_counts,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to clear books: {str(e)}"
+        )
+
+
 @router.post("/remove-all-data")
 async def remove_all_data(request: RemoveAllDataRequest) -> Dict[str, Any]:
     """

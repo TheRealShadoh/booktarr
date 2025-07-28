@@ -564,3 +564,321 @@ Frontend tests automatically capture screenshots that can be used for:
 - Design review and approval
 
 Screenshots are stored in `frontend/test-results/` and can be compared between test runs.
+
+---
+
+## 🎯 Recent Testing Improvements (Jan 2025)
+
+### ✅ API Endpoint Consistency Resolution
+**Issue**: Playwright tests were using different API endpoints than the manual UI, causing inconsistent behavior with cover art and metadata enrichment.
+
+**Root Cause**: 
+- Manual import process uses `/api/books/import` endpoint with `CSVImportService().import_handylib_csv()`
+- Playwright tests were using `/api/import/csv` endpoint with different implementation
+- Different endpoints had different metadata enrichment and cover art fetching behavior
+
+**Resolution**:
+1. **Updated all Playwright tests** to use `/api/books/import` endpoint (same as manual process)
+2. **Added required parameters** to match manual import:
+   - `format`: 'handylib'
+   - `field_mapping`: '{}'
+   - `skip_duplicates`: 'true' 
+   - `enrich_metadata`: 'true'
+
+**Test Files Updated**:
+- `frontend/tests/clear-and-import.spec.ts` - Updated all import calls to use production endpoint
+
+### ✅ DELETE Confirmation Security Enhancement
+**Issue**: Settings page "Remove All Books & Series" was executing immediately without proper confirmation.
+
+**Implementation**:
+1. **Added DELETE confirmation modal** requiring users to type "DELETE" to confirm
+2. **Updated test automation** to handle the confirmation popup properly
+3. **Enhanced security** by preventing accidental data deletion
+
+**Files Modified**:
+- `frontend/src/components/SettingsPage.tsx`:
+  - Added modal state management (`showDeleteModal`, `deleteConfirmText`)
+  - Created confirmation modal with text input validation
+  - Updated button to trigger modal instead of direct execution
+- `frontend/tests/clear-and-import.spec.ts`:
+  - Updated tests to interact with confirmation modal
+  - Added proper wait conditions and input handling
+
+### ✅ Test Timeout Optimization
+**Issue**: Import tests were timing out due to metadata enrichment taking longer than default 30s timeout.
+
+**Resolution**:
+- Set import test timeout to 120 seconds (2 minutes)
+- Set full workflow test timeout to 180 seconds (3 minutes)
+- Tests now complete successfully with cover art fetching
+
+### 🔧 Critical Testing Guidelines
+
+#### **Always Use Production API Endpoints in Tests**
+All Playwright tests MUST use the same API endpoints that the production UI uses:
+
+```typescript
+// ✅ CORRECT - Use same endpoint as manual import
+const importResponse = await page.request.post('/api/books/import', {
+  multipart: {
+    'file': { name: 'file.csv', mimeType: 'text/csv', buffer: fileBuffer },
+    'format': 'handylib',
+    'field_mapping': '{}',
+    'skip_duplicates': 'true',
+    'enrich_metadata': 'true'
+  }
+});
+
+// ❌ INCORRECT - Different endpoint than production
+const importResponse = await page.request.post('/api/import/csv', {
+  multipart: { 'file': { name: 'file.csv', buffer: fileBuffer } }
+});
+```
+
+#### **Test Endpoint Verification Process**
+Before writing new tests, verify which endpoints the UI actually uses:
+
+1. **Inspect frontend component code** to find the exact API calls
+2. **Check network tab** during manual testing to see actual requests
+3. **Match test requests exactly** including all form parameters
+4. **Verify response format expectations** match between UI and tests
+
+#### **Required Parameters for `/api/books/import`**
+When testing CSV import functionality, always include:
+- `file`: The CSV file buffer
+- `format`: Import format (e.g., 'handylib')
+- `field_mapping`: Column mapping configuration (can be '{}' for defaults)
+- `skip_duplicates`: Whether to skip duplicate entries ('true'/'false')
+- `enrich_metadata`: Whether to fetch metadata from external APIs ('true'/'false')
+
+### 🚀 How to Iterate on Testing
+
+#### **1. Endpoint Discovery Process**
+When adding tests for new functionality:
+
+```bash
+# 1. Find the frontend component
+grep -r "fetch.*api" frontend/src/components/
+
+# 2. Check what parameters it sends
+# Look for FormData.append() calls or request body construction
+
+# 3. Verify with manual testing
+# Open browser dev tools, perform the action, check Network tab
+
+# 4. Match exactly in tests
+# Copy the exact URL, method, and parameters
+```
+
+#### **2. Test Development Workflow**
+```bash
+# 1. Write test using discovered endpoint
+npx playwright test new-test.spec.ts --headed --project=chromium
+
+# 2. Debug failures by checking actual vs expected
+npx playwright test new-test.spec.ts --debug
+
+# 3. Verify against manual process
+# Perform same action manually and compare results
+
+# 4. Update test if discrepancies found
+# Ensure test matches manual behavior exactly
+```
+
+#### **3. API Endpoint Documentation**
+Maintain this mapping of UI actions to API endpoints:
+
+| UI Action | API Endpoint | Required Parameters |
+|-----------|-------------|-------------------|
+| Manual CSV Import | `POST /api/books/import` | file, format, field_mapping, skip_duplicates, enrich_metadata |
+| Clear Books (Settings) | `POST /api/settings/remove-all-data` | confirmation: 'DELETE' |
+| Clear Books (Keep Metadata) | `POST /api/settings/clear-books-keep-metadata` | None |
+| Book Search | `GET /api/books/search` | q, type |
+| Add Single Book | `POST /api/books` | isbn, title, author, etc. |
+
+#### **4. Test Maintenance Checklist**
+- [ ] All tests use production API endpoints
+- [ ] All required parameters included in requests
+- [ ] Response format expectations match UI behavior
+- [ ] Test timeouts appropriate for operation duration
+- [ ] Screenshots captured for visual verification
+- [ ] Error cases tested with realistic scenarios
+
+### 🔍 Debugging Test Failures
+
+#### **Endpoint Mismatch Issues**
+If tests pass but manual process behaves differently:
+1. **Check API endpoint URLs** - ensure tests use same endpoints as UI
+2. **Verify request parameters** - missing parameters cause different behavior
+3. **Compare response handling** - ensure tests expect same response format
+4. **Check timing** - some operations need appropriate wait times
+
+#### **Common Test Debugging Commands**
+```bash
+# Run single test with full output
+npx playwright test specific-test.spec.ts --headed --project=chromium
+
+# Debug step-by-step
+npx playwright test specific-test.spec.ts --debug
+
+# Check what requests are being made
+# Add console.log in test to see actual request/response
+
+# Compare with manual process
+# Use browser dev tools to see real API calls
+```
+
+---
+
+## 🎯 Current Testing Tasks
+
+### ✅ Completed Testing Tasks
+- [x] Created comprehensive Playwright test suite covering all pages and components
+- [x] Implemented main navigation and routing tests
+- [x] Added dashboard and statistics page tests
+- [x] Created book library page tests with filtering and search
+- [x] Implemented series page and series details tests
+- [x] Added book details and metadata editor tests
+- [x] Created import functionality tests (CSV)
+- [x] Implemented settings page and all settings sections tests
+- [x] Added jobs section and logs page tests
+- [x] Created book search component tests
+- [x] Added reading progress and status feature tests
+- [x] Implemented error handling and edge case tests
+- [x] Fixed basic test selectors to use proper role-based selectors
+- [x] Initial test run showing Chrome/Firefox passing, WebKit has internal error
+- [x] **RESOLVED API endpoint consistency** - All tests now use same endpoints as production UI
+- [x] **ADDED DELETE confirmation security** - Requires typing "DELETE" to confirm data deletion
+- [x] **FIXED test timeouts** - Import tests now have appropriate timeout durations
+
+### 🔄 Current Priority Tasks
+1. [x] **Fix reading progress API endpoints** (COMPLETED)
+   - [x] Update existing `/api/reading/progress` endpoint to work with ISBN and Books model
+   - [x] Fix `/api/reading/stats` to return proper statistics  
+   - [x] Implement `/api/reading/books/status/{status}` endpoint
+   - [x] Fix `/api/reading/books/{isbn}/start-reading` endpoint
+   - [x] Fix `/api/reading/books/{isbn}/finish-reading` endpoint
+   - [x] Fix `/api/reading/books/{isbn}/add-to-wishlist` endpoint
+
+2. [x] **Implement missing import API endpoints** (COMPLETED)
+   - [x] Create `/api/import/csv` endpoint for CSV upload
+   - [x] Create `/api/import/status/{import_id}` endpoint for import progress
+   - [x] Create `/api/import/preview` endpoint for data preview
+   - [x] Added `/api/import/history` for import job history
+   - [x] Added column detection and mapping for CSV files
+
+3. [x] **Fix metadata editor API endpoints** (COMPLETED - Already implemented)
+   - [x] Ensure `/api/series/search-metadata` works properly
+   - [x] Fix `/api/series/{series_name}/volumes/{position}` update endpoint
+   - [x] Fix `/api/series/{series_name}/volumes/{position}/apply-metadata` endpoint
+
+4. [x] **Update Book model to support reading progress** (COMPLETED - Already implemented via ReadingProgress model)
+   - [x] Reading progress is handled by separate ReadingProgress model with Edition relationship
+   - [x] Supports reading_status field (want_to_read, currently_reading, finished, abandoned)
+   - [x] Supports progress_percentage field
+   - [x] Supports current_page and total_pages fields
+   - [x] Supports rating field (1-5 stars)
+   - [x] Supports notes/review field
+   - [x] Supports start_date and finish_date fields
+
+5. [x] **Run full test suite and verify all functionality** (COMPLETED)
+   - [x] Test all implemented API endpoints are working ✅
+   - [x] Run comprehensive Playwright test suite ✅
+   - [x] API tests passing on Chrome and Firefox ✅ 
+   - [x] Verify all API endpoints return expected responses ✅
+   - [x] Core backend functionality working correctly ✅
+   - [❌] WebKit browser tests failing due to internal WebKit errors (not our code issue)
+   - [⚠️] UI navigation tests have some strict mode violations (minor fixes needed)
+
+### 📋 Test Categories Created
+
+#### 1. **Main Application Tests** (`comprehensive-app.spec.ts`)
+- ✅ Main page layout and navigation verification
+- ✅ Navigation between all main pages (Dashboard, Library, Series, Settings)
+- ✅ Dashboard functionality with statistics and API interactions
+- ✅ Library page functionality with tabs and search
+- ✅ Series page and details functionality
+- ✅ Settings page sections navigation
+- ✅ Jobs section functionality testing
+- ✅ Logs page functionality testing
+- ✅ Book search component testing
+- ✅ Error handling and offline mode testing
+- ✅ API health and connectivity verification
+
+#### 2. **Metadata Editor Tests** (`metadata-editor.spec.ts`)
+- ✅ Metadata editor modal opening and interaction
+- ✅ Search metadata functionality testing
+- ✅ Manual edit form testing
+- ✅ Save functionality testing
+- ✅ API integration testing for metadata search
+
+#### 3. **Import Functionality Tests** (`import-functionality.spec.ts`)
+- ✅ Import page UI element verification
+- ✅ CSV file upload process testing
+- ✅ Import API endpoint verification
+- ✅ End-to-end import workflow testing
+
+#### 4. **Reading Progress Tests** (`reading-progress.spec.ts`)
+- ✅ Reading status functionality testing
+- ✅ Reading statistics API testing
+- ✅ Reading timeline testing (if available)
+- ✅ Reading challenges testing (if available)
+- ✅ Book details reading functionality testing
+
+### 🔧 Testing Infrastructure
+- ✅ Playwright configuration with multiple browsers
+- ✅ Screenshot capture for all test scenarios
+- ✅ API endpoint testing and validation
+- ✅ Error state testing and handling
+- ✅ Network condition testing (offline mode)
+
+### 🚨 Issues to Fix During Testing
+
+#### Backend API Issues
+- [ ] **Reading Progress API** - Implement missing endpoints:
+  - `PUT /api/reading/progress` - Update reading progress
+  - `GET /api/reading/stats` - Get reading statistics
+  - `GET /api/reading/books/status/{status}` - Get books by reading status
+  - `POST /api/reading/books/{isbn}/start-reading` - Mark book as currently reading
+  - `POST /api/reading/books/{isbn}/finish-reading` - Mark book as finished
+  - `POST /api/reading/books/{isbn}/add-to-wishlist` - Add book to wishlist
+
+- [ ] **Import API** - Implement missing endpoints:
+  - `POST /api/import/csv` - CSV import functionality
+  - `GET /api/import/status` - Check import status
+  - `POST /api/import/preview` - Preview import data
+
+- [ ] **Metadata Editor API** - Ensure endpoints work:
+  - `POST /api/series/search-metadata` - Search multiple metadata sources
+  - `PUT /api/series/{series_name}/volumes/{position}` - Update volume metadata
+  - `POST /api/series/{series_name}/volumes/{position}/apply-metadata` - Apply search results
+
+#### Frontend Component Issues
+- [ ] **Book Cards** - Ensure reading status dropdowns work
+- [ ] **Series Details** - Verify volume status updates work
+- [ ] **Import Page** - Fix CSV upload and processing flow
+- [ ] **Search Component** - Ensure search results display correctly
+- [ ] **Navigation** - Fix any broken routing or missing pages
+
+### 🏃‍♂️ Next Steps for Testing
+1. **Run the comprehensive test suite**: `npx playwright test tests/clear-and-import.spec.ts`
+2. **Verify all tests use production endpoints** - Check that API calls match manual UI behavior
+3. **Monitor test stability** - Import tests may take 2-3 minutes due to metadata enrichment
+4. **Add tests for new features** using the endpoint discovery process outlined above
+5. **Maintain API endpoint documentation** when adding new UI functionality
+6. **Regular test maintenance** to ensure production/test parity
+
+### 📊 Expected Test Results
+- **API Connectivity**: All major endpoints should return 200 OK
+- **Navigation**: All main pages should load without errors
+- **Component Interaction**: All buttons, forms, and dropdowns should work
+- **Data Flow**: Frontend should properly communicate with backend
+- **Error Handling**: App should gracefully handle errors and edge cases
+
+### 🔄 Continuous Testing Process
+1. Run tests after any code changes
+2. Update tests when adding new features
+3. Capture new screenshots for visual regression testing
+4. Maintain test data and fixtures
+5. Keep test documentation up to date

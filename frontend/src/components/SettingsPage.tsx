@@ -47,10 +47,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [metadataStatus, setMetadataStatus] = useState<any>(null);
   const [metadataLoading, setMetadataLoading] = useState(false);
-  const [showRemoveAllModal, setShowRemoveAllModal] = useState(false);
-  const [removeAllStep, setRemoveAllStep] = useState(0);
-  const [removeAllConfirmation, setRemoveAllConfirmation] = useState('');
-  const [removeAllLoading, setRemoveAllLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   useEffect(() => {
     if (settings) {
@@ -285,22 +283,18 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   };
 
   const handleRemoveAllData = async () => {
-    if (removeAllConfirmation !== 'DELETE') {
-      setToast({ 
-        message: 'You must type "DELETE" exactly to confirm this action',
-        type: 'error' 
-      });
+    if (deleteConfirmText !== 'DELETE') {
+      showToast('Please type DELETE to confirm', 'error');
       return;
     }
 
-    setRemoveAllLoading(true);
     try {
       const response = await fetch('/api/settings/remove-all-data', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ confirmation: removeAllConfirmation }),
+        body: JSON.stringify({ confirmation: 'DELETE' }),
       });
       
       if (response.ok) {
@@ -308,15 +302,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         const { removed_counts } = result;
         const totalRemoved = Object.values(removed_counts).reduce((sum: number, count: any) => sum + (count || 0), 0);
         
-        setToast({ 
-          message: `Successfully removed ${totalRemoved} items from your library`,
-          type: 'success' 
-        });
+        showToast(`Successfully removed ${totalRemoved} items from your library`, 'success');
         
-        // Reset modal state
-        setShowRemoveAllModal(false);
-        setRemoveAllStep(0);
-        setRemoveAllConfirmation('');
+        // Close modal and reset state
+        setShowDeleteModal(false);
+        setDeleteConfirmText('');
         
         // Optionally refresh the page to reflect empty state
         setTimeout(() => {
@@ -327,20 +317,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         throw new Error(errorData.detail || 'Failed to remove data');
       }
     } catch (error) {
-      setToast({ 
-        message: error instanceof Error ? error.message : 'Failed to remove all data',
-        type: 'error' 
-      });
-    } finally {
-      setRemoveAllLoading(false);
+      showToast(error instanceof Error ? error.message : 'Failed to remove all data', 'error');
     }
   };
 
-  const resetRemoveAllModal = () => {
-    setShowRemoveAllModal(false);
-    setRemoveAllStep(0);
-    setRemoveAllConfirmation('');
-  };
 
   if (loading) {
     return (
@@ -853,6 +833,41 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                     </button>
                   </div>
                   
+                  {/* Test Toast Button */}
+                  <div className="mt-4">
+                    <h3 className="text-md font-semibold text-booktarr-text mb-2">Test Notifications</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => showToast('Test success message!', 'success')}
+                        className="booktarr-btn booktarr-btn-primary text-sm py-2"
+                      >
+                        Success Toast
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => showToast('Test error message!', 'error')}
+                        className="booktarr-btn booktarr-btn-danger text-sm py-2"
+                      >
+                        Error Toast
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => showToast('Test warning message!', 'warning')}
+                        className="booktarr-btn booktarr-btn-secondary text-sm py-2"
+                      >
+                        Warning Toast
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => showToast('Test info message!', 'info')}
+                        className="booktarr-btn booktarr-btn-secondary text-sm py-2"
+                      >
+                        Info Toast
+                      </button>
+                    </div>
+                  </div>
+                  
                   {/* Dangerous Operations */}
                   <div className="mt-6 pt-4 border-t border-booktarr-error/30">
                     <div className="bg-booktarr-error/10 border border-booktarr-error/30 rounded-lg p-4">
@@ -863,11 +878,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                         <h3 className="text-md font-semibold text-booktarr-error">Danger Zone</h3>
                       </div>
                       <p className="text-sm text-booktarr-textSecondary mb-4">
-                        These operations will permanently delete your data and cannot be undone. Proceed with extreme caution.
+                        These operations will permanently delete your data and cannot be undone. A confirmation toast will appear after completion.
                       </p>
                       <button
                         type="button"
-                        onClick={() => setShowRemoveAllModal(true)}
+                        onClick={() => setShowDeleteModal(true)}
                         className="booktarr-btn booktarr-btn-danger text-sm"
                       >
                         🗑️ Remove All Books & Series
@@ -948,117 +963,51 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         </div>
       </div>
 
-      {/* Remove All Data Modal */}
-      {showRemoveAllModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="booktarr-card w-full max-w-md mx-4">
-            <div className="booktarr-card-header">
-              <div className="flex items-center gap-2">
-                <svg className="w-6 h-6 text-booktarr-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 13.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-                <h3 className="text-lg font-semibold text-booktarr-error">Remove All Books & Series</h3>
-              </div>
-            </div>
-            
-            <div className="booktarr-card-body">
-              {removeAllStep === 0 && (
-                <div>
-                  <div className="bg-booktarr-error/10 border border-booktarr-error/30 rounded-lg p-4 mb-4">
-                    <h4 className="font-semibold text-booktarr-error mb-2">⚠️ WARNING</h4>
-                    <p className="text-sm text-booktarr-textSecondary mb-2">
-                      This action will permanently delete:
-                    </p>
-                    <ul className="text-sm text-booktarr-textSecondary list-disc list-inside space-y-1">
-                      <li>All books in your library</li>
-                      <li>All series information</li>
-                      <li>All reading progress</li>
-                      <li>All ownership statuses</li>
-                      <li>All cached metadata</li>
-                    </ul>
-                    <p className="text-sm text-booktarr-error font-semibold mt-3">
-                      This action cannot be undone!
-                    </p>
-                  </div>
-                  
-                  <p className="text-sm text-booktarr-textSecondary mb-4">
-                    Are you absolutely sure you want to proceed? Your settings and preferences will be preserved.
-                  </p>
-                  
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setRemoveAllStep(1)}
-                      className="booktarr-btn booktarr-btn-danger flex-1"
-                    >
-                      Yes, I understand the risks
-                    </button>
-                    <button
-                      onClick={resetRemoveAllModal}
-                      className="booktarr-btn booktarr-btn-secondary px-4"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {removeAllStep === 1 && (
-                <div>
-                  <div className="bg-booktarr-error/10 border border-booktarr-error/30 rounded-lg p-4 mb-4">
-                    <h4 className="font-semibold text-booktarr-error mb-2">Final Confirmation</h4>
-                    <p className="text-sm text-booktarr-textSecondary mb-3">
-                      To confirm this destructive action, please type <strong className="text-booktarr-text">DELETE</strong> in the box below:
-                    </p>
-                    
-                    <input
-                      type="text"
-                      value={removeAllConfirmation}
-                      onChange={(e) => setRemoveAllConfirmation(e.target.value)}
-                      placeholder="Type DELETE to confirm"
-                      className="booktarr-form-input mb-3"
-                      autoFocus
-                    />
-                    
-                    <p className="text-xs text-booktarr-textMuted">
-                      This must be typed exactly as shown (all caps).
-                    </p>
-                  </div>
-                  
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleRemoveAllData}
-                      disabled={removeAllConfirmation !== 'DELETE' || removeAllLoading}
-                      className="booktarr-btn booktarr-btn-danger flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {removeAllLoading ? (
-                        <div className="flex items-center gap-2">
-                          <div className="booktarr-loading-shimmer w-4 h-4 rounded-full"></div>
-                          Removing...
-                        </div>
-                      ) : (
-                        '🗑️ Remove All Data'
-                      )}
-                    </button>
-                    <button
-                      onClick={resetRemoveAllModal}
-                      disabled={removeAllLoading}
-                      className="booktarr-btn booktarr-btn-secondary px-4"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="px-6 py-3 bg-booktarr-surface2/50 rounded-b-lg border-t border-booktarr-border">
-              <p className="text-xs text-booktarr-textMuted text-center">
-                Make sure you have backups of any important data before proceeding.
-              </p>
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-red-600 mb-4">⚠️ Confirm Data Deletion</h3>
+            <p className="text-gray-700 mb-4">
+              This will permanently delete ALL books and series from your library. This action cannot be undone.
+            </p>
+            <p className="text-gray-700 mb-4">
+              Type <strong>DELETE</strong> to confirm:
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="Type DELETE here"
+              className="w-full p-2 border border-gray-300 rounded mb-4"
+              autoFocus
+            />
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeleteConfirmText('');
+                }}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRemoveAllData}
+                disabled={deleteConfirmText !== 'DELETE'}
+                className={`px-4 py-2 rounded text-white ${
+                  deleteConfirmText === 'DELETE'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : 'bg-gray-400 cursor-not-allowed'
+                }`}
+              >
+                Delete All Data
+              </button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 };

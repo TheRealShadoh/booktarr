@@ -33,7 +33,6 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
   const [newSeries, setNewSeries] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [categoryToRemove, setCategoryToRemove] = useState('');
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Calculate statistics for selected books
   const stats = useMemo(() => {
@@ -72,11 +71,6 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
   };
 
   const handleBulkDelete = async () => {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
-
     try {
       setLoading(true);
       
@@ -312,22 +306,9 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
                   </svg>
                   <span className="text-red-400 font-medium">Warning</span>
                 </div>
-                <p className="text-red-300 text-sm mb-3">
-                  This will permanently delete {selectedBooks.length} books from your library. This action cannot be undone.
+                <p className="text-red-300 text-sm">
+                  This will permanently delete {selectedBooks.length} books from your library. A confirmation toast will appear after deletion.
                 </p>
-                {!confirmDelete && (
-                  <button
-                    onClick={() => setConfirmDelete(true)}
-                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
-                  >
-                    I understand, confirm deletion
-                  </button>
-                )}
-                {confirmDelete && (
-                  <div className="text-red-400 text-sm font-medium">
-                    Deletion confirmed. Click "Execute" to proceed.
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -405,7 +386,7 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
             </button>
             <button
               onClick={executeOperation}
-              disabled={loading || (operation === 'delete' && !confirmDelete)}
+              disabled={loading}
               className="booktarr-btn booktarr-btn-primary"
             >
               {loading ? (

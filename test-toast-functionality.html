@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toast Functionality Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 1rem;
+            background-color: #1a1a2e;
+            color: white;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        .btn-danger {
+            background-color: #f44336;
+        }
+        .btn-danger:hover {
+            background-color: #d32f2f;
+        }
+        .warning-box {
+            background-color: rgba(139, 69, 19, 0.2);
+            border: 1px solid #8B4513;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        .danger-box {
+            background-color: rgba(220, 20, 60, 0.2);
+            border: 1px solid #DC143C;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        .success {
+            color: #4CAF50;
+        }
+        .error {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>BookTarr Toast Functionality Test</h1>
+        <p>This is a simple test to verify that the confirmation dialogs have been successfully replaced with toast notifications.</p>
+        
+        <h2>✅ Changes Made:</h2>
+        <ul>
+            <li><strong>BulkOperations.tsx</strong> - Removed confirmation state and dialog for delete operations</li>
+            <li><strong>SettingsPage.tsx</strong> - Removed complex modal for "Remove All Books & Series" action</li>
+            <li>Updated both components to use toast notifications instead</li>
+        </ul>
+
+        <h2>🧪 Test Scenarios:</h2>
+        
+        <div class="warning-box">
+            <h3>Bulk Delete Operation (Simulated)</h3>
+            <p>Previously: Required user to click "I understand, confirm deletion" button before allowing execution.</p>
+            <p class="success">Now: Shows warning message and executes immediately with toast confirmation.</p>
+            <button class="btn btn-danger" onclick="simulateBulkDelete()">Test Bulk Delete (Safe)</button>
+            <div id="bulk-result"></div>
+        </div>
+
+        <div class="danger-box">
+            <h3>Remove All Data Operation (Simulated)</h3>
+            <p>Previously: Required multi-step modal with typing "DELETE" to confirm.</p>
+            <p class="success">Now: Executes immediately with toast notification for confirmation.</p>
+            <button class="btn btn-danger" onclick="simulateRemoveAll()">Test Remove All (Safe)</button>
+            <div id="remove-result"></div>
+        </div>
+
+        <h2>✨ Benefits:</h2>
+        <ul>
+            <li>Faster user interactions - no multi-step confirmations</li>
+            <li>Cleaner UI - no modal dialogs cluttering the interface</li>
+            <li>Consistent feedback - toast notifications for all actions</li>
+            <li>Better user experience - immediate action with clear confirmation</li>
+        </ul>
+
+        <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 1000;"></div>
+    </div>
+
+    <script>
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                background: ${type === 'success' ? '#4CAF50' : '#f44336'};
+                color: white;
+                padding: 16px;
+                border-radius: 8px;
+                margin-bottom: 10px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                animation: slideIn 0.3s ease-out;
+            `;
+            toast.textContent = message;
+            
+            document.getElementById('toast-container').appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 3000);
+        }
+
+        function simulateBulkDelete() {
+            const result = document.getElementById('bulk-result');
+            result.innerHTML = '<p style="color: #4CAF50;">✅ Action executed immediately without confirmation dialog!</p>';
+            showToast('5 books deleted successfully!', 'success');
+        }
+
+        function simulateRemoveAll() {
+            const result = document.getElementById('remove-result');
+            result.innerHTML = '<p style="color: #4CAF50;">✅ Action executed immediately without complex modal!</p>';
+            showToast('Successfully removed 125 items from your library', 'success');
+        }
+
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

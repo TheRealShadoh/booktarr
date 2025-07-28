@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import LoadingSpinner from './LoadingSpinner';
+import { useStateManager } from '../hooks/useStateManager';
 
 interface Job {
   name: string;
@@ -19,6 +20,7 @@ interface JobsSectionProps {
 }
 
 const JobsSection: React.FC<JobsSectionProps> = ({ className = '' }) => {
+  const { showToast } = useStateManager();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +66,7 @@ const JobsSection: React.FC<JobsSectionProps> = ({ className = '' }) => {
       ));
     } catch (err) {
       console.error('Error updating job:', err);
-      alert('Failed to update job');
+      showToast('Failed to update job', 'error');
     } finally {
       setUpdatingJobs(prev => {
         const newSet = new Set(prev);
@@ -75,8 +77,6 @@ const JobsSection: React.FC<JobsSectionProps> = ({ className = '' }) => {
   };
 
   const triggerJob = async (jobName: string) => {
-    if (!window.confirm(`Are you sure you want to manually run the ${jobName} job?`)) return;
-    
     setTriggeringJobs(prev => new Set(prev).add(jobName));
     try {
       const response = await fetch(`/api/jobs/${jobName}/trigger`, {
@@ -85,12 +85,12 @@ const JobsSection: React.FC<JobsSectionProps> = ({ className = '' }) => {
       
       if (!response.ok) throw new Error('Failed to trigger job');
       
-      alert(`Job ${jobName} has been triggered`);
+      showToast(`Job ${jobName} has been triggered successfully!`, 'success');
       // Refresh jobs after a short delay
       setTimeout(fetchJobs, 2000);
     } catch (err) {
       console.error('Error triggering job:', err);
-      alert('Failed to trigger job');
+      showToast('Failed to trigger job', 'error');
     } finally {
       setTriggeringJobs(prev => {
         const newSet = new Set(prev);

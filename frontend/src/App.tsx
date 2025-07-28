@@ -33,6 +33,7 @@ const AppInner: React.FC = () => {
     state,
     setCurrentPage,
     showToast,
+    clearToast,
     loadBooks,
     undo,
     redo,
@@ -236,9 +237,7 @@ const AppInner: React.FC = () => {
         <Toast
           message={state.toast.message}
           type={state.toast.type}
-          onClose={() => {
-            // Toast will be cleared automatically
-          }}
+          onClose={clearToast}
         />
       )}
 
