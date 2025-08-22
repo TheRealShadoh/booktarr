@@ -1,0 +1,325 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # Backend Tests and Quality Checks
+  backend-tests:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: booktarr_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-cov coverage[toml]
+    
+    - name: Run backend tests with coverage
+      working-directory: ./backend
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/booktarr_test
+        SECRET_KEY: test-secret-key-for-ci
+      run: |
+        python -m pytest tests/ \
+          --cov=services \
+          --cov=routes \
+          --cov=auth \
+          --cov=clients \
+          --cov-report=xml \
+          --cov-report=html \
+          --cov-report=term-missing \
+          --cov-fail-under=80
+    
+    - name: Upload backend coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+    
+    - name: Backend type checking
+      working-directory: ./backend
+      run: |
+        pip install mypy
+        mypy services/ routes/ auth/ clients/ --ignore-missing-imports
+    
+    - name: Backend linting
+      working-directory: ./backend
+      run: |
+        pip install flake8 black isort
+        flake8 services/ routes/ auth/ clients/ --max-line-length=120
+        black --check services/ routes/ auth/ clients/
+        isort --check-only services/ routes/ auth/ clients/
+
+  # Frontend Tests and Quality Checks
+  frontend-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+    
+    - name: TypeScript compilation check
+      working-directory: ./frontend
+      run: npx tsc --noEmit
+    
+    - name: ESLint check
+      working-directory: ./frontend
+      run: npx eslint src/ --ext .ts,.tsx --max-warnings 0
+    
+    - name: Prettier check
+      working-directory: ./frontend
+      run: npx prettier --check src/
+    
+    - name: Run frontend unit tests with coverage
+      working-directory: ./frontend
+      run: |
+        npm run test -- --coverage --watchAll=false --ci
+      env:
+        CI: true
+    
+    - name: Upload frontend coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./frontend/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
+
+  # E2E Tests
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install backend dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+    
+    - name: Install Playwright browsers
+      working-directory: ./frontend
+      run: npx playwright install --with-deps
+    
+    - name: Build frontend
+      working-directory: ./frontend
+      run: npm run build
+    
+    - name: Start backend server
+      working-directory: ./backend
+      run: |
+        uvicorn main:app --host 0.0.0.0 --port 8000 &
+        sleep 10
+      env:
+        DATABASE_URL: sqlite:///./test.db
+        SECRET_KEY: test-secret-key-for-ci
+    
+    - name: Start frontend server
+      working-directory: ./frontend
+      run: |
+        npm start &
+        sleep 15
+      env:
+        CI: false
+    
+    - name: Run Playwright tests
+      working-directory: ./frontend
+      run: npx playwright test
+    
+    - name: Upload Playwright report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: playwright-report
+        path: frontend/test-results/
+        retention-days: 7
+
+  # Security Scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Snyk to check for vulnerabilities (Python)
+      uses: snyk/actions/python@master
+      continue-on-error: true
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --file=backend/requirements.txt
+    
+    - name: Run Snyk to check for vulnerabilities (Node.js)
+      uses: snyk/actions/node@master
+      continue-on-error: true
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --file=frontend/package.json
+    
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/init@v3
+      with:
+        languages: javascript, python
+    
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+
+  # Build and Deploy (only on main branch)
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, e2e-tests]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+    
+    - name: Build frontend for production
+      working-directory: ./frontend
+      run: npm run build
+    
+    - name: Build Docker images
+      run: |
+        docker build -t booktarr-backend ./backend
+        docker build -t booktarr-frontend ./frontend
+    
+    - name: Run Docker Compose health check
+      run: |
+        docker-compose -f docker-compose.yml up -d
+        sleep 30
+        curl -f http://localhost:8000/api/health || exit 1
+        curl -f http://localhost:3000 || exit 1
+        docker-compose down
+
+  # Quality Gates
+  quality-gate:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, e2e-tests, security-scan]
+    if: always()
+    
+    steps:
+    - name: Check test results
+      run: |
+        if [ "${{ needs.backend-tests.result }}" != "success" ]; then
+          echo "Backend tests failed"
+          exit 1
+        fi
+        if [ "${{ needs.frontend-tests.result }}" != "success" ]; then
+          echo "Frontend tests failed"
+          exit 1
+        fi
+        if [ "${{ needs.e2e-tests.result }}" != "success" ]; then
+          echo "E2E tests failed"
+          exit 1
+        fi
+        echo "All quality gates passed!"
+    
+    - name: Post status to PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const { data: pr } = await github.rest.pulls.get({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.issue.number
+          });
+          
+          const status = "${{ needs.backend-tests.result }}" === "success" && 
+                        "${{ needs.frontend-tests.result }}" === "success" && 
+                        "${{ needs.e2e-tests.result }}" === "success" ? "✅" : "❌";
+          
+          const comment = `## Quality Gate Report ${status}
+          
+          | Check | Status |
+          |-------|--------|
+          | Backend Tests | ${{ needs.backend-tests.result }} |
+          | Frontend Tests | ${{ needs.frontend-tests.result }} |
+          | E2E Tests | ${{ needs.e2e-tests.result }} |
+          | Security Scan | ${{ needs.security-scan.result }} |
+          
+          Coverage reports and detailed results are available in the workflow artifacts.`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });

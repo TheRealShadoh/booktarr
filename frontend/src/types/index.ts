@@ -50,6 +50,7 @@ export enum MetadataSource {
   SKOOLIB = 'skoolib',
   GOOGLE_BOOKS = 'google_books',
   OPEN_LIBRARY = 'open_library',
+  AMAZON = 'amazon',
 }
 
 export enum ReadingStatus {
@@ -58,6 +59,7 @@ export enum ReadingStatus {
   READ = 'read',
   WISHLIST = 'wishlist',
   DNF = 'dnf', // Did Not Finish
+  WANT_TO_READ = 'want_to_read',
 }
 
 export interface BooksResponse {
@@ -405,6 +407,23 @@ export interface BookMatch {
 }
 
 // Series API types
+export interface Series {
+  id: number;
+  name: string;
+  description?: string;
+  total_books?: number;
+  author?: string;
+  publisher?: string;
+  first_published?: string;
+  last_published?: string;
+  status?: string;
+  genres: string[];
+  tags: string[];
+  cover_url?: string;
+  created_date: string;
+  last_updated: string;
+}
+
 export interface SeriesInfo {
   id: number;
   name: string;

@@ -14,6 +14,10 @@ from routes.images import router as images_router
 from routes.jobs import router as jobs_router
 from routes.logs import router as logs_router
 from routes.import_route import router as import_router
+from routes.amazon import router as amazon_router
+from routes.advanced_search import router as advanced_search_router
+from routes.calendar import router as calendar_router
+from routes.bulk import router as bulk_router
 
 # Import library router directly from books module
 try:
@@ -85,6 +89,10 @@ app.include_router(images_router, prefix="/api/images")
 app.include_router(jobs_router, prefix="/api")
 app.include_router(logs_router, prefix="/api")
 app.include_router(import_router, prefix="/api/import")
+app.include_router(amazon_router, prefix="/api/amazon")
+app.include_router(advanced_search_router, prefix="/api/search")
+app.include_router(calendar_router, prefix="/api/calendar")
+app.include_router(bulk_router, prefix="/api/bulk")
 
 # Mount static files for cover images
 static_dir = os.path.join(os.path.dirname(__file__), "static")

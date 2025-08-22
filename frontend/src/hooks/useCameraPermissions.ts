@@ -1,6 +1,6 @@
 /**
- * Camera permissions hook
- * Handles camera access permissions and device enumeration
+ * Enhanced camera permissions hook
+ * Handles camera access permissions, device enumeration, and mobile features
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 
@@ -10,6 +10,16 @@ interface CameraDevice {
   deviceId: string;
   label: string;
   kind: 'videoinput';
+  facingMode?: 'user' | 'environment';
+  capabilities?: MediaTrackCapabilities;
+}
+
+interface CameraCapabilities {
+  torch?: boolean;
+  zoom?: boolean;
+  focusMode?: string[];
+  exposureMode?: string[];
+  whiteBalanceMode?: string[];
 }
 
 interface CameraPermissionsState {
@@ -18,6 +28,8 @@ interface CameraPermissionsState {
   devices: CameraDevice[];
   selectedDeviceId: string | null;
   error: string | null;
+  isMobile: boolean;
+  capabilities: CameraCapabilities;
 }
 
 export const useCameraPermissions = () => {
@@ -27,6 +39,8 @@ export const useCameraPermissions = () => {
     devices: [],
     selectedDeviceId: null,
     error: null,
+    isMobile: false,
+    capabilities: {},
   });
   
   // Use ref to track current state to avoid dependency cycles
@@ -35,6 +49,15 @@ export const useCameraPermissions = () => {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  // Detect mobile device
+  const detectMobile = useCallback(() => {
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent) ||
+                     ('ontouchstart' in window) ||
+                     (navigator.maxTouchPoints > 0);
+    return isMobile;
+  }, []);
 
   // Check if camera is supported
   useEffect(() => {
@@ -45,7 +68,9 @@ export const useCameraPermissions = () => {
         typeof navigator.mediaDevices.enumerateDevices === 'function'
       );
 
-      setState(prev => ({ ...prev, isSupported }));
+      const isMobile = detectMobile();
+
+      setState(prev => ({ ...prev, isSupported, isMobile }));
 
       if (!isSupported) {
         setState(prev => ({
@@ -73,11 +98,48 @@ export const useCameraPermissions = () => {
       const hasPermission = videoDevices.some(device => device.label !== '');
       
       if (hasPermission) {
+        const enhancedDevices = await Promise.all(
+          videoDevices.map(async (device) => {
+            const enhancedDevice: CameraDevice = {
+              deviceId: device.deviceId,
+              label: device.label,
+              kind: device.kind as 'videoinput'
+            };
+
+            // Try to determine facing mode from label
+            const label = device.label.toLowerCase();
+            if (label.includes('back') || label.includes('rear') || label.includes('environment')) {
+              enhancedDevice.facingMode = 'environment';
+            } else if (label.includes('front') || label.includes('user') || label.includes('selfie')) {
+              enhancedDevice.facingMode = 'user';
+            }
+
+            // Get device capabilities if possible
+            try {
+              const stream = await navigator.mediaDevices.getUserMedia({
+                video: { deviceId: device.deviceId }
+              });
+              const track = stream.getVideoTracks()[0];
+              enhancedDevice.capabilities = track.getCapabilities?.();
+              track.stop();
+            } catch (error) {
+              // Couldn't get capabilities, continue without them
+            }
+
+            return enhancedDevice;
+          })
+        );
+
+        // Prefer back camera on mobile devices
+        const isMobile = stateRef.current.isMobile;
+        const backCamera = enhancedDevices.find(d => d.facingMode === 'environment');
+        const defaultDevice = isMobile && backCamera ? backCamera : enhancedDevices[0];
+
         setState(prev => ({
           ...prev,
           permissionState: 'granted',
-          devices: videoDevices as CameraDevice[],
-          selectedDeviceId: videoDevices[0]?.deviceId || null,
+          devices: enhancedDevices,
+          selectedDeviceId: defaultDevice?.deviceId || null,
         }));
       } else {
         // Check if Permission API is available
@@ -226,12 +288,88 @@ export const useCameraPermissions = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.isSupported]); // Remove checkPermission dependency to prevent circular dependency
 
+  // Mobile-specific utility methods
+  const getBackCamera = useCallback(() => {
+    return state.devices.find(device => device.facingMode === 'environment');
+  }, [state.devices]);
+
+  const getFrontCamera = useCallback(() => {
+    return state.devices.find(device => device.facingMode === 'user');
+  }, [state.devices]);
+
+  const hasFlash = useCallback(() => {
+    const selectedDevice = state.devices.find(d => d.deviceId === state.selectedDeviceId);
+    return selectedDevice?.capabilities && 'torch' in selectedDevice.capabilities ? Boolean((selectedDevice.capabilities as any).torch) : false;
+  }, [state.devices, state.selectedDeviceId]);
+
+  const hasZoom = useCallback(() => {
+    const selectedDevice = state.devices.find(d => d.deviceId === state.selectedDeviceId);
+    return selectedDevice?.capabilities && 'zoom' in selectedDevice.capabilities ? Boolean((selectedDevice.capabilities as any).zoom) : false;
+  }, [state.devices, state.selectedDeviceId]);
+
+  const switchToBackCamera = useCallback(() => {
+    const backCamera = getBackCamera();
+    if (backCamera) {
+      selectDevice(backCamera.deviceId);
+    }
+  }, [getBackCamera, selectDevice]);
+
+  const switchToFrontCamera = useCallback(() => {
+    const frontCamera = getFrontCamera();
+    if (frontCamera) {
+      selectDevice(frontCamera.deviceId);
+    }
+  }, [getFrontCamera, selectDevice]);
+
+  const getOptimalConstraints = useCallback((scanType: 'barcode' | 'document' = 'barcode') => {
+    const baseConstraints: MediaTrackConstraints = {
+      facingMode: { ideal: 'environment' },
+      frameRate: { ideal: 30, max: 30 }
+    };
+
+    if (state.isMobile) {
+      // Mobile-optimized constraints
+      if (scanType === 'barcode') {
+        return {
+          ...baseConstraints,
+          width: { ideal: 1920, max: 1920 },
+          height: { ideal: 1080, max: 1080 },
+          focusMode: 'continuous',
+          exposureMode: 'continuous'
+        };
+      } else {
+        // Document scanning needs higher resolution
+        return {
+          ...baseConstraints,
+          width: { ideal: 2560, max: 3840 },
+          height: { ideal: 1440, max: 2160 },
+          focusMode: 'single-shot'
+        };
+      }
+    } else {
+      // Desktop constraints
+      return {
+        ...baseConstraints,
+        width: { ideal: 1280, max: 1920 },
+        height: { ideal: 720, max: 1080 }
+      };
+    }
+  }, [state.isMobile]);
+
   return {
     ...state,
     requestPermission,
     selectDevice,
     getStream,
     checkPermission,
+    // Mobile-specific methods
+    getBackCamera,
+    getFrontCamera,
+    hasFlash,
+    hasZoom,
+    switchToBackCamera,
+    switchToFrontCamera,
+    getOptimalConstraints,
   };
 };
 

@@ -4,7 +4,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import BookCard from '../BookCard';
-import { Book, MetadataSource } from '../../types';
+import { Book, MetadataSource, ReadingStatus } from '../../types';
 
 const mockBook: Book = {
   isbn: '9780439139595',
@@ -29,7 +29,9 @@ const mockBook: Book = {
   ],
   metadata_source: MetadataSource.GOOGLE_BOOKS,
   added_date: '2023-01-01T00:00:00Z',
-  last_updated: '2023-01-01T00:00:00Z'
+  last_updated: '2023-01-01T00:00:00Z',
+  reading_status: ReadingStatus.UNREAD,
+  times_read: 0
 };
 
 describe('BookCard', () => {
