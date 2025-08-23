@@ -376,13 +376,13 @@ class CSVImportService:
                 except ImportError:
                     from services.series_metadata import SeriesMetadataService
                     
-                # Force fresh metadata fetch during import to ensure accuracy
+                # Fetch metadata using local-first approach (checks database first)
                 try:
                     metadata_service = SeriesMetadataService()
-                    # Use force_external=True to bypass local cache during import
-                    result = await metadata_service.fetch_and_update_series(series_name, authors[0] if authors else None, force_external=True)
+                    # Use local-first approach: checks database first, then external APIs if needed
+                    result = await metadata_service.fetch_and_update_series(series_name, authors[0] if authors else None)
                     await metadata_service.close()
-                    print(f"Successfully fetched metadata for series: {series_name}")
+                    print(f"Successfully processed metadata for series: {series_name}")
                 except Exception as e:
                     print(f"Warning: Failed to fetch series metadata for '{series_name}': {e}")
                     # Continue without failing the book import

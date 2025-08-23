@@ -136,7 +136,7 @@ class SeriesMetadataService:
     
     def _is_metadata_current(self, metadata: Dict[str, Any], max_age_days: int = 30) -> bool:
         """
-        Check if metadata is current (not older than max_age_days)
+        Check if metadata is current and high-quality
         """
         try:
             last_updated = metadata.get("last_updated")
@@ -146,13 +146,37 @@ class SeriesMetadataService:
             last_update_date = datetime.fromisoformat(last_updated)
             age_days = (datetime.now() - last_update_date).days
             
-            # Also consider metadata current if it has good coverage
+            total_books = metadata.get("total_books", 0)
+            
+            # Enhanced quality checks for series metadata
             has_good_coverage = (
-                metadata.get("total_books", 0) > 0 and
+                total_books > 0 and
                 metadata.get("description") and
                 metadata.get("volumes") and
                 len(metadata.get("volumes", [])) > 0
             )
+            
+            # Special validation for known problematic series
+            series_name = metadata.get("name", "").lower()
+            
+            # For known large series, validate total_books is reasonable
+            if "bleach" in series_name and total_books < 70:
+                logger.info(f"Bleach series has suspiciously low volume count: {total_books}, considering outdated")
+                return False
+                
+            if "naruto" in series_name and total_books < 70:
+                logger.info(f"Naruto series has suspiciously low volume count: {total_books}, considering outdated")
+                return False
+                
+            if "one piece" in series_name and total_books < 100:
+                logger.info(f"One Piece series has suspiciously low volume count: {total_books}, considering outdated")
+                return False
+                
+            # For any series, if total_books is very small but there's a description,
+            # it might be incomplete data from an earlier import
+            if total_books <= 10 and metadata.get("description") and age_days < 7:
+                logger.info(f"Series {metadata.get('name')} has low volume count ({total_books}) despite recent update, checking external sources")
+                return False
             
             # If metadata has good coverage, allow longer cache time (60 days)
             max_age = 60 if has_good_coverage else max_age_days

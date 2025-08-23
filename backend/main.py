@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
         scheduler.register_job(
             name="metadata_update",
             description="Updates missing metadata for all books from online sources",
-            interval_hours=4.0,
+            interval_hours=168.0,  # Weekly by default (1 week)
             job_function=metadata_update_job,
             enabled=True
         )
