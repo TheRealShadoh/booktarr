@@ -184,11 +184,11 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
     <div className="space-y-6">
       {/* Summary and controls */}
       <div className="booktarr-card">
-        <div className="booktarr-card-header">
+        <header className="booktarr-card-header">
           <div className="flex items-center justify-between">
-            <h2 className="text-booktarr-text text-lg font-semibold">
+            <h1 className="text-booktarr-text text-lg font-semibold">
               Your Library
-            </h2>
+            </h1>
             <div className="flex items-center space-x-4">
               {/* Display Mode Toggle */}
               <div className="flex items-center space-x-2 bg-booktarr-surface2 rounded-lg p-1">
@@ -199,6 +199,8 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
                       ? 'bg-booktarr-accent text-white' 
                       : 'text-booktarr-textSecondary hover:text-booktarr-text'
                   }`}
+                  aria-label="Display books individually"
+                  aria-pressed={displayMode === 'individual'}
                 >
                   Individual
                 </button>
@@ -209,6 +211,8 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
                       ? 'bg-booktarr-accent text-white' 
                       : 'text-booktarr-textSecondary hover:text-booktarr-text'
                   }`}
+                  aria-label="Display books by series"
+                  aria-pressed={displayMode === 'series'}
                 >
                   Series
                 </button>
@@ -219,6 +223,8 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
                       ? 'bg-booktarr-accent text-white' 
                       : 'text-booktarr-textSecondary hover:text-booktarr-text'
                   }`}
+                  aria-label="Display books by authors"
+                  aria-pressed={displayMode === 'authors'}
                 >
                   Authors
                 </button>
@@ -332,7 +338,7 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
               )}
             </div>
           </div>
-        </div>
+        </header>
         
         <div className="booktarr-card-body">
           <div className="flex items-center space-x-4 text-sm text-booktarr-textSecondary">

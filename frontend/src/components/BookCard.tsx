@@ -67,7 +67,19 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid', c
 
   if (viewMode === 'list') {
     return (
-      <div className="booktarr-book-card flex p-4 space-x-4 hover:bg-booktarr-hover transition-colors cursor-pointer" onClick={handleClick}>
+      <article 
+        className="booktarr-book-card flex p-4 space-x-4 hover:bg-booktarr-hover transition-colors cursor-pointer" 
+        onClick={handleClick}
+        role="button"
+        tabIndex={0}
+        aria-label={`View details for ${book.title} by ${formatAuthors(book.authors)}`}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleClick();
+          }
+        }}
+      >
         <div className="flex-shrink-0 w-16 h-24 relative">
           {(book.cover_url || book.thumbnail_url) && !imageError ? (
             <img 
@@ -136,7 +148,7 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid', c
             <div className="mt-2 flex flex-wrap gap-1">
               {book.categories.slice(0, 3).map((category, index) => (
                 <span 
-                  key={index} 
+                  key={`${book.isbn}-category-${index}-${category}`} 
                   className="px-2 py-1 bg-booktarr-surface2 text-booktarr-textSecondary text-xs rounded-full border border-booktarr-border"
                 >
                   {category}
@@ -150,14 +162,23 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid', c
             </div>
           )}
         </div>
-      </div>
+      </article>
     );
   }
 
   return (
-    <div 
+    <article 
       className={`booktarr-book-card group cursor-pointer ${className}`}
       onClick={handleClick}
+      role="button"
+      tabIndex={0}
+      aria-label={`View details for ${book.title} by ${formatAuthors(book.authors)}`}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleClick();
+        }
+      }}
     >
       <div className="relative overflow-hidden rounded-t-lg">
         {(book.cover_url || book.thumbnail_url) && !imageError ? (
@@ -289,7 +310,7 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid', c
           </div>
         )}
       </div>
-    </div>
+    </article>
   );
 };
 

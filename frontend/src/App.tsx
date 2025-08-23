@@ -68,6 +68,69 @@ const AppInner: React.FC = () => {
     };
   }, [showToast]);
 
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't trigger shortcuts if user is typing in an input
+      if (event.target instanceof HTMLInputElement || 
+          event.target instanceof HTMLTextAreaElement || 
+          (event.target as HTMLElement)?.contentEditable === 'true') {
+        return;
+      }
+
+      // Check for Ctrl/Cmd key combinations
+      const isCtrlOrCmd = event.ctrlKey || event.metaKey;
+
+      if (isCtrlOrCmd) {
+        switch (event.key.toLowerCase()) {
+          case 'l':
+            event.preventDefault();
+            setCurrentPage('library');
+            break;
+          case 's':
+            event.preventDefault();
+            setCurrentPage('settings');
+            break;
+          case 'n':
+            event.preventDefault();
+            setCurrentPage('add');
+            break;
+          case 'f':
+            event.preventDefault();
+            // Focus search input if available
+            const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
+            if (searchInput) {
+              searchInput.focus();
+            }
+            break;
+          case 'z':
+            if (!event.shiftKey) {
+              event.preventDefault();
+              undo();
+            }
+            break;
+          case 'y':
+            event.preventDefault();
+            redo();
+            break;
+        }
+      }
+
+      // Handle escape key to close modals or go back
+      if (event.key === 'Escape') {
+        if (state.currentPage === 'book-details' || state.currentPage === 'series-details') {
+          setCurrentPage('library');
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [setCurrentPage, undo, redo, state.currentPage]);
+
   // Performance monitoring
   useEffect(() => {
     const interval = setInterval(() => {

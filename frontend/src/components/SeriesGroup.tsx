@@ -211,14 +211,14 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
               {booksWithMissing.map((item, index) => 
                 item.type === 'book' ? (
                   <BookCard 
-                    key={item.book.isbn} 
+                    key={`${seriesName}-${item.book.isbn}-${index}`} 
                     book={item.book} 
                     onClick={onBookClick}
                     viewMode={viewMode}
                   />
                 ) : (
                   <MissingBookCard
-                    key={`missing-${item.position}`}
+                    key={`${seriesName}-missing-${item.position}-${index}`}
                     seriesName={seriesName}
                     position={item.position}
                     bookTitle={item.title}
@@ -233,14 +233,14 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
               {booksWithMissing.map((item, index) => 
                 item.type === 'book' ? (
                   <BookCard 
-                    key={item.book.isbn} 
+                    key={`${seriesName}-${item.book.isbn}-${index}`} 
                     book={item.book} 
                     onClick={onBookClick}
                     viewMode={viewMode}
                   />
                 ) : (
                   <MissingBookCard
-                    key={`missing-${item.position}`}
+                    key={`${seriesName}-missing-${item.position}-${index}`}
                     seriesName={seriesName}
                     position={item.position}
                     bookTitle={item.title}

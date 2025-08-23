@@ -157,12 +157,23 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
     onPageChange(itemId as CurrentPage);
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent, itemId: string) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleItemClick(itemId);
+    }
+  };
+
   const renderNavItem = (item: NavigationItem) => (
     <button
       key={item.id}
       onClick={() => handleItemClick(item.id)}
+      onKeyDown={(e) => handleKeyDown(e, item.id)}
       className={`booktarr-sidebar-item w-full ${item.isActive ? 'active' : ''}`}
+      aria-label={item.label}
+      aria-current={item.isActive ? 'page' : undefined}
       title={isCollapsed ? item.label : undefined}
+      tabIndex={0}
     >
       <div className="flex items-center justify-between w-full">
         <div className="flex items-center space-x-3">
@@ -181,9 +192,13 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
   );
 
   return (
-    <div className={`booktarr-sidebar flex flex-col h-full ${isCollapsed ? 'w-16' : 'w-64'} transition-all duration-300 ease-in-out`}>
+    <aside 
+      className={`booktarr-sidebar flex flex-col h-full ${isCollapsed ? 'w-16' : 'w-64'} transition-all duration-300 ease-in-out`}
+      role="navigation"
+      aria-label="Main navigation"
+    >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-booktarr-border">
+      <header className="flex items-center justify-between p-4 border-b border-booktarr-border">
         {!isCollapsed && (
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-booktarr-accent rounded-lg flex items-center justify-center">
@@ -198,6 +213,7 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
           <button
             onClick={onToggleCollapse}
             className="p-2 rounded-lg hover:bg-booktarr-hover transition-colors"
+            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             <svg
@@ -210,39 +226,49 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
             </svg>
           </button>
         )}
-      </div>
+      </header>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 space-y-1">
+      <nav className="flex-1 py-4 space-y-1" role="navigation" aria-label="Application navigation">
         {/* Main Navigation */}
-        <div className="px-3 space-y-1">
+        <section className="px-3 space-y-1" aria-labelledby="main-nav-heading">
+          {!isCollapsed && (
+            <h2 id="main-nav-heading" className="sr-only">Main Navigation</h2>
+          )}
           {navigationItems.map(renderNavItem)}
-        </div>
+        </section>
 
         {/* Separator */}
-        <div className="my-4 mx-3 border-t border-booktarr-border"></div>
+        <div className="my-4 mx-3 border-t border-booktarr-border" role="separator"></div>
 
         {/* System Navigation */}
-        <div className="px-3 space-y-1">
+        <section className="px-3 space-y-1" aria-labelledby="system-nav-heading">
+          {!isCollapsed && (
+            <h2 id="system-nav-heading" className="sr-only">System Navigation</h2>
+          )}
           {systemItems.map(renderNavItem)}
-        </div>
+        </section>
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-booktarr-border">
+      <footer className="p-4 border-t border-booktarr-border">
         {!isCollapsed && (
-          <div className="text-xs text-booktarr-textMuted">
+          <div className="text-xs text-booktarr-textMuted" role="contentinfo">
             <div className="flex items-center justify-between">
-              <span>v1.0.0</span>
+              <span aria-label="Application version">v1.0.0</span>
               <div className="flex items-center space-x-1">
-                <div className="w-2 h-2 bg-booktarr-success rounded-full"></div>
+                <div 
+                  className="w-2 h-2 bg-booktarr-success rounded-full" 
+                  role="status"
+                  aria-label="Connection status indicator"
+                ></div>
                 <span>Online</span>
               </div>
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </footer>
+    </aside>
   );
 };
 
