@@ -1,8 +1,7 @@
 /**
  * Enhanced BookDetailsPage - Comprehensive book management with all the bells and whistles
  */
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Book } from '../types';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import LoadingSpinner from './LoadingSpinner';
 import MetadataEditor from './MetadataEditor';
 
@@ -132,7 +131,6 @@ const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack,
     total_time_estimate?: number;
   }>({});
 
-  const progressRef = useRef<HTMLDivElement>(null);
 
   const fetchBookDetails = useCallback(async () => {
     try {
@@ -573,7 +571,7 @@ const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack,
                 <div className="flex flex-wrap gap-2">
                   {customTags.map((tag, index) => (
                     <span
-                      key={index}
+                      key={`tag-${tag}-${index}`}
                       className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-booktarr-accent/10 text-booktarr-accent border border-booktarr-accent/20"
                     >
                       {tag}
@@ -837,7 +835,7 @@ const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack,
                       {bookDetails.categories?.length > 0 ? (
                         bookDetails.categories.map((category, index) => (
                           <span
-                            key={index}
+                            key={`category-${category}-${index}`}
                             className="px-2 py-1 bg-booktarr-accent/10 text-booktarr-accent text-xs rounded-full border border-booktarr-accent/20"
                           >
                             {category}
@@ -857,7 +855,7 @@ const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack,
                   <div className="flex flex-wrap gap-2">
                     {bookDetails.collections.map((collection, index) => (
                       <span
-                        key={index}
+                        key={`collection-${collection}-${index}`}
                         className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full border border-blue-200"
                       >
                         📚 {collection}
@@ -1017,7 +1015,7 @@ const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack,
                         <div className="mt-2 flex flex-wrap gap-1">
                           {quote.tags.map((tag, index) => (
                             <span
-                              key={index}
+                              key={`quote-tag-${tag}-${index}`}
                               className="px-2 py-1 bg-booktarr-accent/10 text-booktarr-accent text-xs rounded-full"
                             >
                               {tag}
@@ -1079,7 +1077,7 @@ const BookDetailsPage: React.FC<BookDetailsPageProps> = ({ bookId, isbn, onBack,
                 <div className="grid md:grid-cols-2 gap-4">
                   {bookDetails.editions.map((edition, index) => (
                     <div 
-                      key={edition.id || index} 
+                      key={edition.id || edition.isbn_13 || `edition-${index}`} 
                       className={`p-4 rounded-lg border transition-all ${
                         selectedEdition === (edition.isbn_13 || edition.id.toString())
                           ? 'border-booktarr-accent bg-booktarr-accent/5'

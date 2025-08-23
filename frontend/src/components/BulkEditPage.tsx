@@ -3,7 +3,7 @@
  */
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { BooksBySeriesMap, Book } from '../types';
+import { BooksBySeriesMap } from '../types';
 import BookCard from './BookCard';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -115,18 +115,6 @@ const BulkEditPage: React.FC<BulkEditPageProps> = ({
     showToast(`Selected all books from "${seriesName}"`, 'success');
   };
 
-  const handleSelectByAuthor = (authorName: string) => {
-    const authorBooks = allBooks.filter(book => book.authors.includes(authorName));
-    const authorISBNs = authorBooks.map(book => book.isbn);
-    
-    setSelectedBooks(prev => {
-      const newSet = new Set(prev);
-      authorISBNs.forEach(isbn => newSet.add(isbn));
-      return newSet;
-    });
-    
-    showToast(`Selected all books by "${authorName}"`, 'success');
-  };
 
   const handleBulkEdit = async () => {
     if (selectedBooks.size === 0) {

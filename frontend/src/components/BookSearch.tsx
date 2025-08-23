@@ -164,7 +164,7 @@ const BookSearch: React.FC<BookSearchProps> = ({
         <div className="absolute top-full left-0 right-0 mt-1 bg-booktarr-surface border border-booktarr-border rounded-lg shadow-lg z-50 max-h-96 overflow-auto">
           {searchResults.map((result, index) => (
             <button
-              key={index}
+              key={result.type === 'book' ? `book-${result.book?.isbn || result.book?.title}` : `add-new-${result.searchQuery}`}
               onClick={() => handleResultSelect(result)}
               className={`w-full text-left px-4 py-3 hover:bg-booktarr-hover transition-colors flex items-center space-x-3 ${
                 index === selectedIndex ? 'bg-booktarr-hover' : ''

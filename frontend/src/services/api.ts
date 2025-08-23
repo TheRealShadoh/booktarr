@@ -13,7 +13,6 @@ import {
   SettingsInfo,
   SettingsHealth,
   APIError,
-  CacheStatsResponse,
   MetadataSourcesResponse,
   UpdateReadingProgressRequest,
   ReadingProgressResponse,

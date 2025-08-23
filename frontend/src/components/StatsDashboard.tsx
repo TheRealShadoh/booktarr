@@ -2,11 +2,10 @@
  * Combined Analytics Dashboard component
  * Displays comprehensive library statistics, analytics, and insights
  */
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useStateManager } from '../hooks/useStateManager';
-import { Book, BooksBySeriesMap } from '../types';
+import { Book } from '../types';
 import LoadingSpinner from './LoadingSpinner';
-import ErrorMessage from './ErrorMessage';
 
 interface StatItem {
   label: string;
@@ -36,7 +35,6 @@ interface AuthorStats {
 
 const StatsDashboard: React.FC = () => {
   const { state, showToast } = useStateManager();
-  const [loading, setLoading] = useState(false);
   const [selectedTimeframe, setSelectedTimeframe] = useState('all');
 
   // Calculate comprehensive statistics

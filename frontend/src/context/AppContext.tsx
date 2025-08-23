@@ -2,12 +2,12 @@
  * Global application context for state management
  * Provides centralized state management with Context API
  */
-import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useEffect, useCallback } from 'react';
 import { BooksBySeriesMap, Settings, Book } from '../types';
 import { booktarrAPI } from '../services/api';
 
 // Types
-export type CurrentPage = 'library' | 'settings' | 'wanted' | 'activity' | 'logs' | 'add' | 'collections' | 'advanced-search' | 'analytics' | 'book-details' | 'recommendations' | 'challenges' | 'series-management' | 'series-details' | 'release-calendar';
+export type CurrentPage = 'library' | 'settings' | 'wanted' | 'activity' | 'logs' | 'add' | 'collections' | 'advanced-search' | 'analytics' | 'book-details' | 'recommendations' | 'challenges' | 'series-management' | 'series-details' | 'release-calendar' | 'error-boundary-test';
 
 export interface AppState {
   // Core data
@@ -282,19 +282,19 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
   // Convenience methods
-  const setLoading = (loading: boolean) => {
+  const setLoading = useCallback((loading: boolean) => {
     dispatch({ type: 'SET_LOADING', payload: loading });
-  };
+  }, []);
 
-  const setError = (error: string | null) => {
+  const setError = useCallback((error: string | null) => {
     dispatch({ type: 'SET_ERROR', payload: error });
-  };
+  }, []);
 
-  const setCurrentPage = (page: CurrentPage) => {
+  const setCurrentPage = useCallback((page: CurrentPage) => {
     dispatch({ type: 'SET_CURRENT_PAGE', payload: page });
-  };
+  }, []);
 
-  const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info') => {
     const id = Date.now().toString();
     dispatch({ type: 'SET_TOAST', payload: { message, type, id } });
     
@@ -302,14 +302,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setTimeout(() => {
       dispatch({ type: 'CLEAR_TOAST' });
     }, 5000);
-  };
+  }, []);
 
-  const clearToast = () => {
+  const clearToast = useCallback(() => {
     dispatch({ type: 'CLEAR_TOAST' });
-  };
+  }, []);
 
   // Data methods
-  const loadBooks = async () => {
+  const loadBooks = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -325,9 +325,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setLoading, setError, showToast]);
 
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       dispatch({ type: 'SET_SETTINGS_LOADING', payload: true });
       
@@ -339,9 +339,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     } finally {
       dispatch({ type: 'SET_SETTINGS_LOADING', payload: false });
     }
-  };
+  }, [showToast]);
 
-  const updateSettings = async (settingsUpdate: Partial<Settings>) => {
+  const updateSettings = useCallback(async (settingsUpdate: Partial<Settings>) => {
     try {
       dispatch({ type: 'SET_SETTINGS_LOADING', payload: true });
       
@@ -356,26 +356,28 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     } finally {
       dispatch({ type: 'SET_SETTINGS_LOADING', payload: false });
     }
-  };
+  }, [showToast]);
 
-  const addBook = (book: Book) => {
+  const addBook = useCallback((book: Book) => {
     // Push to history before making changes
     pushHistory({ books: state.books });
     dispatch({ type: 'ADD_BOOK', payload: book });
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.books]);
 
-  const removeBook = (isbn: string) => {
+  const removeBook = useCallback((isbn: string) => {
     // Push to history before making changes
     pushHistory({ books: state.books });
     dispatch({ type: 'REMOVE_BOOK', payload: isbn });
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.books]);
 
   // Search methods
-  const setSearchQuery = (query: string) => {
+  const setSearchQuery = useCallback((query: string) => {
     dispatch({ type: 'SET_SEARCH_QUERY', payload: query });
-  };
+  }, []);
 
-  const performSearch = (query: string) => {
+  const performSearch = useCallback((query: string) => {
     if (!query.trim()) {
       dispatch({ type: 'SET_FILTERED_BOOKS', payload: state.books });
       return;
@@ -400,20 +402,20 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
     dispatch({ type: 'SET_FILTERED_BOOKS', payload: filtered });
     dispatch({ type: 'SET_SEARCH_QUERY', payload: query });
-  };
+  }, [state.books]);
 
   // History methods
-  const undo = () => {
+  const undo = useCallback(() => {
     dispatch({ type: 'UNDO' });
-  };
+  }, []);
 
-  const redo = () => {
+  const redo = useCallback(() => {
     dispatch({ type: 'REDO' });
-  };
+  }, []);
 
-  const pushHistory = (changes: Partial<AppState>) => {
+  const pushHistory = useCallback((changes: Partial<AppState>) => {
     dispatch({ type: 'PUSH_HISTORY', payload: changes });
-  };
+  }, []);
 
   // Initialize data on mount
   useEffect(() => {
@@ -422,7 +424,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     };
     
     initializeApp();
-  }, []);
+  }, [loadBooks, loadSettings]);
 
   // Context value
   const contextValue: AppContextType = {

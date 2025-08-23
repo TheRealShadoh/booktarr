@@ -4,7 +4,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Book } from '../types';
 import LoadingSpinner from './LoadingSpinner';
-import Toast from './Toast';
 import SimpleBarcodeScanner from './SimpleBarcodeScanner';
 import ScanReviewPage from './ScanReviewPage';
 import { useStateManager } from '../hooks/useStateManager';
@@ -22,11 +21,8 @@ interface BookSearchPageProps {
 
 const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded, initialSearchQuery }) => {
   const {
-    state,
     searchWithCaching,
     addBookWithOptimizations,
-    showToast,
-    getPendingUpdates,
     hasPendingUpdates
   } = useStateManager();
 
@@ -100,7 +96,7 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded, initialSea
         clearTimeout(searchDebounce);
       }
     };
-  }, [query, handleSearch]);
+  }, [query, handleSearch, searchDebounce]);
 
   const handleAddBook = async (book: Book, source: string) => {
     setAddingBooks(prev => new Set(prev).add(book.isbn));
@@ -108,7 +104,7 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded, initialSea
 
     try {
       // Use optimistic updates
-      const result = await addBookWithOptimizations(book, source);
+      await addBookWithOptimizations(book, source);
       
       // Mark as recently added for visual feedback
       setRecentlyAdded(prev => new Set(prev).add(book.isbn));

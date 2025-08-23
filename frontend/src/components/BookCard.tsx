@@ -1,12 +1,11 @@
 /**
  * Enhanced BookCard component with Sonarr-inspired styling and reading progress
  */
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Book, ReadingStatus } from '../types';
 import ReadingStatusBadge from './ReadingStatusBadge';
 import ReadingProgressBar from './ReadingProgressBar';
 import StarRating from './StarRating';
-import { booktarrAPI } from '../services/api';
 
 interface BookCardProps {
   book: Book;
@@ -15,24 +14,26 @@ interface BookCardProps {
   className?: string;
 }
 
-const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid', className = '' }) => {
+const BookCard: React.FC<BookCardProps> = React.memo(({ book, onClick, viewMode = 'grid', className = '' }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     if (onClick) {
       onClick(book);
     }
-  };
+  }, [onClick, book]);
 
-  const formatAuthors = (authors: string[]) => {
+  const formatAuthors = useMemo(() => {
+    const authors = book.authors;
     if (authors.length === 0) return 'Unknown Author';
     if (authors.length === 1) return authors[0];
     if (authors.length === 2) return `${authors[0]} & ${authors[1]}`;
     return `${authors[0]} et al.`;
-  };
+  }, [book.authors]);
 
-  const formatPublishedDate = (date: string | Date | null | undefined) => {
+  const formattedPublishedDate = useMemo(() => {
+    const date = book.published_date;
     if (!date) return 'Unknown';
     try {
       const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -40,15 +41,15 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid', c
     } catch {
       return 'Unknown';
     }
-  };
+  }, [book.published_date]);
 
-  const getSeriesInfo = (): string | undefined => {
+  const seriesInfo = useMemo((): string | undefined => {
     if (!book.series) return undefined;
     if (book.series_position) {
       return `${book.series} #${book.series_position}`;
     }
     return book.series;
-  };
+  }, [book.series, book.series_position]);
 
   const formatPrice = (price: number, currency: string = 'USD'): string => {
     return new Intl.NumberFormat('en-US', {
@@ -57,13 +58,13 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid', c
     }).format(price);
   };
 
-  const handleImageLoad = () => {
+  const handleImageLoad = useCallback(() => {
     setImageLoaded(true);
-  };
+  }, []);
 
-  const handleImageError = () => {
+  const handleImageError = useCallback(() => {
     setImageError(true);
-  };
+  }, []);
 
   if (viewMode === 'list') {
     return (
@@ -72,7 +73,7 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid', c
         onClick={handleClick}
         role="button"
         tabIndex={0}
-        aria-label={`View details for ${book.title} by ${formatAuthors(book.authors)}`}
+        aria-label={`View details for ${book.title} by ${formatAuthors}`}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
@@ -103,16 +104,16 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid', c
             {book.title}
           </h3>
           
-          <p className="booktarr-book-author text-sm text-booktarr-textSecondary mb-2 truncate" title={formatAuthors(book.authors)}>
-            {formatAuthors(book.authors)}
+          <p className="booktarr-book-author text-sm text-booktarr-textSecondary mb-2 truncate" title={formatAuthors}>
+            {formatAuthors}
           </p>
           
           <div className="flex items-center space-x-4 text-sm text-booktarr-textMuted mb-2">
             <ReadingStatusBadge status={book.reading_status || ReadingStatus.UNREAD} />
-            <span>{formatPublishedDate(book.published_date)}</span>
-            {getSeriesInfo() && (
-              <span className="text-booktarr-accent truncate" title={getSeriesInfo()}>
-                {getSeriesInfo()}
+            <span>{formattedPublishedDate}</span>
+            {seriesInfo && (
+              <span className="text-booktarr-accent truncate" title={seriesInfo}>
+                {seriesInfo}
               </span>
             )}
             {book.page_count && (
@@ -172,7 +173,7 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid', c
       onClick={handleClick}
       role="button"
       tabIndex={0}
-      aria-label={`View details for ${book.title} by ${formatAuthors(book.authors)}`}
+      aria-label={`View details for ${book.title} by ${formatAuthors}`}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
@@ -256,20 +257,20 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid', c
           {book.title}
         </h3>
         
-        <p className="booktarr-book-author" title={formatAuthors(book.authors)}>
-          {formatAuthors(book.authors)}
+        <p className="booktarr-book-author" title={formatAuthors}>
+          {formatAuthors}
         </p>
         
         <div className="flex items-center justify-between text-xs text-booktarr-textMuted mt-2">
-          <span>{formatPublishedDate(book.published_date)}</span>
+          <span>{formattedPublishedDate}</span>
           {book.page_count && (
             <span>{book.page_count}p</span>
           )}
         </div>
         
-        {getSeriesInfo() && (
-          <div className="booktarr-book-series mt-2 font-medium" title={getSeriesInfo()}>
-            {getSeriesInfo()}
+        {seriesInfo && (
+          <div className="booktarr-book-series mt-2 font-medium" title={seriesInfo}>
+            {seriesInfo}
           </div>
         )}
 
@@ -312,6 +313,6 @@ const BookCard: React.FC<BookCardProps> = ({ book, onClick, viewMode = 'grid', c
       </div>
     </article>
   );
-};
+});
 
 export default BookCard;

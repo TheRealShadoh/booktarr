@@ -53,11 +53,9 @@ const SeriesGroup: React.FC<SeriesGroupProps> = ({
     totalBooks: number;
     knownBooks: Array<{ position: number; title: string; author: string }>;
   } | null>(null);
-  const [loadingSeriesInfo, setLoadingSeriesInfo] = useState(false);
 
   // Skip API calls for now - just use owned books
   useEffect(() => {
-    setLoadingSeriesInfo(false);
     setSeriesInfo(null); // No API data for now
   }, [seriesName, books]);
 

@@ -2,8 +2,8 @@
  * Hook for keyboard shortcuts and undo/redo functionality
  * Provides global keyboard navigation and actions
  */
-import { useEffect, useCallback } from 'react';
-import { useAppContext, CurrentPage } from '../context/AppContext';
+import { useEffect, useCallback, useMemo } from 'react';
+import { useAppContext } from '../context/AppContext';
 
 interface KeyboardShortcut {
   key: string;
@@ -19,7 +19,7 @@ interface KeyboardShortcut {
 export const useKeyboardShortcuts = () => {
   const { state, setCurrentPage, undo, redo, showToast } = useAppContext();
 
-  const shortcuts: KeyboardShortcut[] = [
+  const shortcuts: KeyboardShortcut[] = useMemo(() => [
     // Navigation shortcuts
     {
       key: 'l',
@@ -160,7 +160,8 @@ export const useKeyboardShortcuts = () => {
       description: 'Show keyboard shortcuts help',
       preventDefault: true
     }
-  ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [setCurrentPage, undo, redo, state.canRedo, state.canUndo]);
 
   const showShortcutsHelp = useCallback(() => {
     const helpText = shortcuts

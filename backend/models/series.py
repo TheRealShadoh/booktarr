@@ -1,6 +1,7 @@
 from typing import Optional, List
 from datetime import date
 from sqlmodel import SQLModel, Field, Relationship
+from pydantic import validator
 
 
 class Series(SQLModel, table=True):
@@ -10,7 +11,7 @@ class Series(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True)
     description: Optional[str] = None
-    total_books: Optional[int] = None
+    total_books: Optional[int] = Field(default=None, ge=0)  # Must be >= 0
     author: Optional[str] = None
     publisher: Optional[str] = None
     first_published: Optional[date] = None
@@ -27,6 +28,15 @@ class Series(SQLModel, table=True):
 
     # Relationships
     volumes: List["SeriesVolume"] = Relationship(back_populates="series")
+    
+    @validator('total_books')
+    def validate_total_books(cls, v):
+        """Ensure total_books is reasonable"""
+        if v is not None and v < 0:
+            raise ValueError('total_books cannot be negative')
+        if v is not None and v > 10000:  # Reasonable upper limit
+            raise ValueError('total_books seems unreasonably high (>10000)')
+        return v
 
 
 class SeriesVolume(SQLModel, table=True):

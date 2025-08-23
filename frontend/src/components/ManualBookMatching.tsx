@@ -49,7 +49,6 @@ const ManualBookMatching: React.FC<ManualBookMatchingProps> = ({
     
     try {
       // Search for similar books using title and author
-      const searchQuery = `${book.title} ${book.authors.join(' ')}`.trim();
       // TODO: Implement actual search API call
       // For now, mock some results
       await new Promise(resolve => setTimeout(resolve, 1000));

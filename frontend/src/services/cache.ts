@@ -237,7 +237,6 @@ class ClientCacheService {
    */
   async cleanup(): Promise<void> {
     // Clean memory cache
-    const now = Date.now();
     const keysToDelete: string[] = [];
     
     this.memoryCache.forEach((entry, key) => {

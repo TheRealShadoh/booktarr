@@ -314,7 +314,7 @@ describe('BookCard with Real Data Patterns', () => {
     it('handles unusual publication date formats', () => {
       const bookWithDateObject = {
         ...realBookData[0],
-        published_date: new Date('2023-01-17')
+        published_date: new Date('2023-01-17').toISOString().split('T')[0]
       };
       
       render(<BookCard book={bookWithDateObject} />);

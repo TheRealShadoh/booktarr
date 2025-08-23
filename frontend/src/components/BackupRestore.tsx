@@ -25,7 +25,6 @@ const BackupRestore: React.FC = () => {
     showToast, 
     batchAddBooks,
     updateSettingsWithOptimizations,
-    exportData,
     syncWithServer
   } = useStateManager();
 

@@ -1,7 +1,7 @@
 /**
  * Enhanced BookList component with Sonarr-style individual book display
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import SeriesGroup from './SeriesGroup';
 import SeriesCard from './SeriesCard';
 import SeriesDetailsPage from './SeriesDetailsPage';
@@ -23,7 +23,8 @@ interface BookListProps {
   onBookClick?: (book: Book) => void;
 }
 
-const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, onBookClick }) => {
+const BookList: React.FC<BookListProps> = React.memo(({ books, loading, error, onRefresh, onBookClick }) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [expandedSeries, setExpandedSeries] = useState<Set<string>>(new Set());
   const [expandedAuthors, setExpandedAuthors] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -99,19 +100,7 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
       .sort((a, b) => a.author.localeCompare(b.author));
   }, [books]);
 
-  const handleToggleSeries = (seriesName: string) => {
-    setExpandedSeries(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(seriesName)) {
-        newSet.delete(seriesName);
-      } else {
-        newSet.add(seriesName);
-      }
-      return newSet;
-    });
-  };
-
-  const handleToggleAuthor = (author: string) => {
+  const handleToggleAuthor = useCallback((author: string) => {
     setExpandedAuthors(prev => {
       const newSet = new Set(prev);
       if (newSet.has(author)) {
@@ -121,23 +110,23 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
       }
       return newSet;
     });
-  };
+  }, []);
 
-  const handleExpandAll = () => {
+  const handleExpandAll = useCallback(() => {
     if (displayMode === 'series') {
       setExpandedSeries(new Set(seriesGroups.map(group => group.seriesName)));
     } else if (displayMode === 'authors') {
       setExpandedAuthors(new Set(authorGroups.map(group => group.author)));
     }
-  };
+  }, [displayMode, seriesGroups, authorGroups]);
 
-  const handleCollapseAll = () => {
+  const handleCollapseAll = useCallback(() => {
     if (displayMode === 'series') {
       setExpandedSeries(new Set());
     } else if (displayMode === 'authors') {
       setExpandedAuthors(new Set());
     }
-  };
+  }, [displayMode]);
 
   if (loading) {
     return (
@@ -386,7 +375,7 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
         }>
           {allBooks.map((book, index) => (
             <BookCard 
-              key={book.isbn || `book-${index}-${book.title}`} 
+              key={book.isbn || `book-${book.title}-${book.authors[0] || 'unknown'}-${index}`} 
               book={book} 
               viewMode={viewMode}
               onClick={onBookClick}
@@ -413,7 +402,7 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
           {/* Add Standalone books as individual cards if they exist */}
           {seriesGroups.find(group => group.seriesName === 'Standalone')?.books.map((book, index) => (
             <BookCard 
-              key={book.isbn || `standalone-${index}-${book.title}`} 
+              key={book.isbn || `standalone-${book.title}-${book.authors[0] || 'unknown'}-${index}`} 
               book={book} 
               viewMode={viewMode}
               onClick={onBookClick}
@@ -444,6 +433,6 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
       )}
     </div>
   );
-};
+});
 
 export default BookList;

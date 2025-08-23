@@ -39,8 +39,6 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
     viewMode: 'grid'
   });
 
-  const [activeFilters, setActiveFilters] = useState<string[]>([]);
-
   // Extract unique values for filter options
   const getUniqueValues = (books: Book[], key: string) => {
     const values = new Set<string>();
@@ -62,7 +60,6 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   const uniqueAuthors = getUniqueValues(books, 'authors');
   const uniqueGenres = getUniqueValues(books, 'categories');
   const uniqueSeries = getUniqueValues(books, 'series').filter(s => s !== '');
-  const uniqueLanguages = getUniqueValues(books, 'language');
 
   const handleFilterChange = (filterType: keyof FilterState, value: any) => {
     const newFilters = { ...filters, [filterType]: value };
@@ -167,7 +164,6 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
       viewMode: 'grid'
     };
     setFilters(defaultFilters);
-    setActiveFilters([]);
     applyFilters(defaultFilters);
   };
 

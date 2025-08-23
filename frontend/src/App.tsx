@@ -1,10 +1,9 @@
 /**
- * Main App component with enhanced state management
- * Now uses Context API with optimistic updates, caching, and keyboard shortcuts
+ * Main App component with enhanced state management and comprehensive error boundaries
+ * Now uses Context API with optimistic updates, caching, keyboard shortcuts, and production-level error handling
  */
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import BookList from './components/BookList';
-import IndividualBooksPage from './components/IndividualBooksPage';
 import SettingsPage from './components/SettingsPage';
 import WantedPage from './components/WantedPage';
 import CollectionsPage from './components/CollectionsPage';
@@ -24,6 +23,10 @@ import SeriesManagement from './components/SeriesManagement';
 import SeriesDetailsPage from './components/SeriesDetailsPage';
 import LogsPage from './components/LogsPage';
 import ReleaseCalendarPage from './components/ReleaseCalendarPage';
+import ErrorBoundary from './components/ErrorBoundary';
+import PageErrorBoundary from './components/PageErrorBoundary';
+import ComponentErrorBoundary from './components/ComponentErrorBoundary';
+import ErrorBoundaryTestPage from './components/ErrorBoundaryTestPage';
 import { AppProvider } from './context/AppContext';
 import { useStateManager } from './hooks/useStateManager';
 import './styles/tailwind.css';
@@ -38,8 +41,7 @@ const AppInner: React.FC = () => {
     loadBooks,
     undo,
     redo,
-    getPerformanceMetrics,
-    cleanup
+    getPerformanceMetrics
   } = useStateManager();
 
   const [selectedBookISBN, setSelectedBookISBN] = React.useState<string | null>(null);
@@ -51,12 +53,27 @@ const AppInner: React.FC = () => {
   useEffect(() => {
     const handleError = (error: ErrorEvent) => {
       console.error('Global error:', error);
-      showToast('An unexpected error occurred', 'error');
+      // Check if error was already handled by error boundary
+      if (!(error.error as any)?.handledByErrorBoundary) {
+        showToast('An unexpected error occurred. Please try refreshing the page.', 'error');
+      }
     };
     
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       console.error('Unhandled promise rejection:', event);
-      showToast('An unexpected error occurred', 'error');
+      
+      // More specific error messages based on rejection reason
+      let errorMessage = 'An unexpected error occurred.';
+      
+      if (event.reason?.message) {
+        if (event.reason.message.includes('fetch')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (event.reason.message.includes('API')) {
+          errorMessage = 'API error. Please try again in a moment.';
+        }
+      }
+      
+      showToast(errorMessage, 'error');
     };
     
     window.addEventListener('error', handleError);
@@ -67,6 +84,22 @@ const AppInner: React.FC = () => {
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     };
   }, [showToast]);
+
+  // Error reporting helper
+  const reportError = useCallback((error: Error, errorInfo: React.ErrorInfo) => {
+    console.group('🚨 Error Boundary Report');
+    console.error('Error:', error);
+    console.error('Component Stack:', errorInfo.componentStack);
+    console.error('Current Page:', state.currentPage);
+    console.error('Timestamp:', new Date().toISOString());
+    console.groupEnd();
+    
+    // Mark error as handled to prevent global error handler from showing toast
+    (error as any).handledByErrorBoundary = true;
+    
+    // Show user-friendly toast
+    showToast('A component error was recovered. If this continues, please refresh the page.', 'warning');
+  }, [state.currentPage, showToast]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -113,6 +146,13 @@ const AppInner: React.FC = () => {
             event.preventDefault();
             redo();
             break;
+          case 'e':
+            // Ctrl+E for Error Boundary Test Page (development only)
+            if (process.env.NODE_ENV === 'development') {
+              event.preventDefault();
+              setCurrentPage('error-boundary-test');
+            }
+            break;
         }
       }
 
@@ -141,224 +181,359 @@ const AppInner: React.FC = () => {
     return () => clearInterval(interval);
   }, [getPerformanceMetrics]);
 
-  const handleBookClick = (book: any) => {
-    console.log('Book clicked:', book);
-    console.log('Book ISBN:', book.isbn);
-    console.log('Book ISBN13:', book.isbn_13);
-    console.log('Book ISBN10:', book.isbn_10);
-    
+  const handleBookClick = useCallback((book: any) => {
     const isbn = book.isbn || book.isbn_13 || book.isbn_10;
-    console.log('Using ISBN:', isbn);
-    console.log('Setting selectedBookISBN to:', isbn);
-    console.log('Setting currentPage to: book-details');
-    
     setSelectedBookISBN(isbn);
     setCurrentPage('book-details');
-    
-    console.log('State updates dispatched');
-  };
+  }, [setCurrentPage]);
 
-  const handleBackToLibrary = () => {
+  const handleBackToLibrary = useCallback(() => {
     setSelectedBookISBN(null);
     setCurrentPage('library');
-  };
+  }, [setCurrentPage]);
 
-  const handleSeriesClick = (seriesName: string) => {
-    console.log('Series clicked:', seriesName);
+  const handleSeriesClick = useCallback((seriesName: string) => {
     setSelectedSeriesName(seriesName);
     setCurrentPage('series-details');
-  };
+  }, [setCurrentPage]);
 
-  const renderCurrentPage = () => {
-    console.log('Rendering page:', state.currentPage, 'selectedBookISBN:', selectedBookISBN);
+  const renderCurrentPage = useMemo(() => {
     
     switch (state.currentPage) {
       case 'library':
         return (
-          <BookList
-            books={state.filteredBooks}
-            loading={state.loading}
-            error={state.error}
-            onRefresh={loadBooks}
-            onBookClick={handleBookClick}
-          />
+          <PageErrorBoundary 
+            pageName="Book Library" 
+            onNavigateBack={() => setCurrentPage('library')}
+          >
+            <BookList
+              books={state.filteredBooks}
+              loading={state.loading}
+              error={state.error}
+              onRefresh={loadBooks}
+              onBookClick={handleBookClick}
+            />
+          </PageErrorBoundary>
         );
       case 'book-details':
         return (
-          <BookDetailsPage
-            isbn={selectedBookISBN || undefined}
-            onBack={handleBackToLibrary}
-            onSeriesClick={handleSeriesClick}
-          />
+          <PageErrorBoundary 
+            pageName="Book Details" 
+            onNavigateBack={handleBackToLibrary}
+          >
+            <BookDetailsPage
+              isbn={selectedBookISBN || undefined}
+              onBack={handleBackToLibrary}
+              onSeriesClick={handleSeriesClick}
+            />
+          </PageErrorBoundary>
         );
       case 'settings':
         return (
-          <SettingsPage
-            settings={state.settings}
-            onUpdateSettings={async (settings) => {
-              // This will be handled by the enhanced settings update in the SettingsPage itself
-              // No need to return anything as the interface expects Promise<void>
-            }}
-            onValidateUrl={async (url) => {
-              // Placeholder for URL validation
-              return { valid: true, message: 'URL is valid' };
-            }}
-            loading={state.settingsLoading}
-            error={state.error}
-          />
+          <PageErrorBoundary 
+            pageName="Settings" 
+            onNavigateBack={() => setCurrentPage('library')}
+          >
+            <SettingsPage
+              settings={state.settings}
+              onUpdateSettings={async (settings) => {
+                // This will be handled by the enhanced settings update in the SettingsPage itself
+                // No need to return anything as the interface expects Promise<void>
+              }}
+              onValidateUrl={async (url) => {
+                // Placeholder for URL validation
+                return { valid: true, message: 'URL is valid' };
+              }}
+              loading={state.settingsLoading}
+              error={state.error}
+            />
+          </PageErrorBoundary>
         );
       case 'add':
-        return <BookSearchPage onBookAdded={loadBooks} initialSearchQuery={searchQuery} />;
+        return (
+          <PageErrorBoundary 
+            pageName="Add Book" 
+            onNavigateBack={() => setCurrentPage('library')}
+          >
+            <BookSearchPage onBookAdded={loadBooks} initialSearchQuery={searchQuery} />
+          </PageErrorBoundary>
+        );
       case 'wanted':
         return (
-          <WantedPage
-            books={state.filteredBooks}
-            loading={state.loading}
-            error={state.error}
-            onRefresh={loadBooks}
-            onBookClick={handleBookClick}
-          />
+          <PageErrorBoundary 
+            pageName="Wanted Books" 
+            onNavigateBack={() => setCurrentPage('library')}
+          >
+            <WantedPage
+              books={state.filteredBooks}
+              loading={state.loading}
+              error={state.error}
+              onRefresh={loadBooks}
+              onBookClick={handleBookClick}
+            />
+          </PageErrorBoundary>
         );
       case 'collections':
         return (
-          <CollectionsPage
-            books={state.filteredBooks}
-            loading={state.loading}
-            error={state.error}
-            onRefresh={loadBooks}
-            onBookClick={handleBookClick}
-          />
+          <PageErrorBoundary 
+            pageName="Collections" 
+            onNavigateBack={() => setCurrentPage('library')}
+          >
+            <CollectionsPage
+              books={state.filteredBooks}
+              loading={state.loading}
+              error={state.error}
+              onRefresh={loadBooks}
+              onBookClick={handleBookClick}
+            />
+          </PageErrorBoundary>
         );
       case 'advanced-search':
         return (
-          <AdvancedSearchPage
-            books={state.filteredBooks}
-            loading={state.loading}
-            error={state.error}
-            onBookClick={handleBookClick}
-          />
+          <PageErrorBoundary 
+            pageName="Advanced Search" 
+            onNavigateBack={() => setCurrentPage('library')}
+          >
+            <AdvancedSearchPage
+              books={state.filteredBooks}
+              loading={state.loading}
+              error={state.error}
+              onBookClick={handleBookClick}
+            />
+          </PageErrorBoundary>
         );
       case 'analytics':
-        return <StatsDashboard />;
+        return (
+          <PageErrorBoundary 
+            pageName="Analytics Dashboard" 
+            onNavigateBack={() => setCurrentPage('library')}
+          >
+            <StatsDashboard />
+          </PageErrorBoundary>
+        );
       case 'recommendations':
         return (
-          <RecommendationsPage
-            books={state.filteredBooks}
-            loading={state.loading}
-            error={state.error}
-            onBookClick={handleBookClick}
-          />
+          <PageErrorBoundary 
+            pageName="Recommendations" 
+            onNavigateBack={() => setCurrentPage('library')}
+          >
+            <RecommendationsPage
+              books={state.filteredBooks}
+              loading={state.loading}
+              error={state.error}
+              onBookClick={handleBookClick}
+            />
+          </PageErrorBoundary>
         );
       case 'challenges':
         return (
-          <ReadingChallengesPage
-            books={state.filteredBooks}
-            loading={state.loading}
-            error={state.error}
-          />
+          <PageErrorBoundary 
+            pageName="Reading Challenges" 
+            onNavigateBack={() => setCurrentPage('library')}
+          >
+            <ReadingChallengesPage
+              books={state.filteredBooks}
+              loading={state.loading}
+              error={state.error}
+            />
+          </PageErrorBoundary>
         );
       case 'series-management':
-        return <SeriesManagement />;
+        return (
+          <PageErrorBoundary 
+            pageName="Series Management" 
+            onNavigateBack={() => setCurrentPage('library')}
+          >
+            <SeriesManagement />
+          </PageErrorBoundary>
+        );
       case 'series-details':
         return selectedSeriesName ? (
-          <SeriesDetailsPage
-            seriesName={selectedSeriesName}
-            ownedBooks={Object.values(state.filteredBooks).flat()}
-            onBack={() => {
+          <PageErrorBoundary 
+            pageName="Series Details" 
+            onNavigateBack={() => {
               setSelectedSeriesName(null);
               setCurrentPage('library');
             }}
-            onBookClick={handleBookClick}
-          />
+          >
+            <SeriesDetailsPage
+              seriesName={selectedSeriesName}
+              ownedBooks={Object.values(state.filteredBooks).flat()}
+              onBack={() => {
+                setSelectedSeriesName(null);
+                setCurrentPage('library');
+              }}
+              onBookClick={handleBookClick}
+            />
+          </PageErrorBoundary>
         ) : (
-          <SeriesManagement />
+          <PageErrorBoundary 
+            pageName="Series Management" 
+            onNavigateBack={() => setCurrentPage('library')}
+          >
+            <SeriesManagement />
+          </PageErrorBoundary>
         );
       case 'activity':
         return (
-          <ReadingTimelinePage
-            books={state.filteredBooks}
-            loading={state.loading}
-            error={state.error}
-            onBookClick={handleBookClick}
-          />
+          <PageErrorBoundary 
+            pageName="Reading Activity" 
+            onNavigateBack={() => setCurrentPage('library')}
+          >
+            <ReadingTimelinePage
+              books={state.filteredBooks}
+              loading={state.loading}
+              error={state.error}
+              onBookClick={handleBookClick}
+            />
+          </PageErrorBoundary>
         );
       case 'logs':
-        return <LogsPage />;
+        return (
+          <PageErrorBoundary 
+            pageName="System Logs" 
+            onNavigateBack={() => setCurrentPage('library')}
+          >
+            <LogsPage />
+          </PageErrorBoundary>
+        );
       case 'release-calendar':
         return (
-          <ReleaseCalendarPage
-            books={Object.values(state.filteredBooks).flat()}
-            loading={state.loading}
-            error={state.error}
-          />
+          <PageErrorBoundary 
+            pageName="Release Calendar" 
+            onNavigateBack={() => setCurrentPage('library')}
+          >
+            <ReleaseCalendarPage
+              books={Object.values(state.filteredBooks).flat()}
+              loading={state.loading}
+              error={state.error}
+            />
+          </PageErrorBoundary>
+        );
+      case 'error-boundary-test':
+        return (
+          <PageErrorBoundary 
+            pageName="Error Boundary Test" 
+            onNavigateBack={() => setCurrentPage('library')}
+          >
+            <ErrorBoundaryTestPage />
+          </PageErrorBoundary>
         );
       default:
         // Fallback to library for unknown pages
         console.warn(`Unknown page: ${state.currentPage}, redirecting to library`);
-        setCurrentPage('library');
         return (
-          <BookList
-            books={state.filteredBooks}
-            loading={state.loading}
-            error={state.error}
-            onRefresh={loadBooks}
-            onBookClick={handleBookClick}
-          />
+          <PageErrorBoundary 
+            pageName="Book Library" 
+            onNavigateBack={() => setCurrentPage('library')}
+          >
+            <BookList
+              books={state.filteredBooks}
+              loading={state.loading}
+              error={state.error}
+              onRefresh={loadBooks}
+              onBookClick={handleBookClick}
+            />
+          </PageErrorBoundary>
         );
     }
-  };
+  }, [state.currentPage, state.filteredBooks, state.loading, state.error, state.settings, state.settingsLoading, selectedBookISBN, selectedSeriesName, handleBookClick, handleBackToLibrary, handleSeriesClick, loadBooks, searchQuery, setCurrentPage]);
 
   return (
     <div className="h-screen overflow-hidden">
-      {/* PWA Components */}
-      <OfflineIndicator />
-      <PWAUpdateNotification />
-      <PWAInstallPrompt />
+      {/* PWA Components with Error Boundaries */}
+      <ComponentErrorBoundary componentName="Offline Indicator" showMinimal={true}>
+        <OfflineIndicator />
+      </ComponentErrorBoundary>
       
-      {/* Toast Notifications */}
+      <ComponentErrorBoundary componentName="PWA Update Notification" showMinimal={true}>
+        <PWAUpdateNotification />
+      </ComponentErrorBoundary>
+      
+      <ComponentErrorBoundary componentName="PWA Install Prompt" showMinimal={true}>
+        <PWAInstallPrompt />
+      </ComponentErrorBoundary>
+      
+      {/* Toast Notifications with Error Boundary */}
       {state.toast && (
-        <Toast
-          message={state.toast.message}
-          type={state.toast.type}
-          onClose={clearToast}
-        />
+        <ComponentErrorBoundary componentName="Toast Notification" showMinimal={true}>
+          <Toast
+            message={state.toast.message}
+            type={state.toast.type}
+            onClose={clearToast}
+          />
+        </ComponentErrorBoundary>
       )}
 
-
-      <MainLayout
-        currentPage={state.currentPage}
-        onPageChange={setCurrentPage}
-        books={Object.values(state.books).flat()}
-        onFilterChange={(filteredBooks) => {
-          // Convert filtered books back to series format
-          const filteredSeries: any = {};
-          filteredBooks.forEach(book => {
-            const seriesName = book.series || 'Standalone';
-            if (!filteredSeries[seriesName]) {
-              filteredSeries[seriesName] = [];
-            }
-            filteredSeries[seriesName].push(book);
-          });
-          // This will be handled by the search functionality in the context
-        }}
-        onBookSelect={handleBookClick}
-        onSearchAddBook={(query) => {
-          setSearchQuery(query);
-          setCurrentPage('add');
-        }}
+      {/* Main Layout with Error Boundary */}
+      <ErrorBoundary 
+        name="MainLayout" 
+        onError={reportError}
       >
-        {renderCurrentPage()}
-      </MainLayout>
+        <MainLayout
+          currentPage={state.currentPage}
+          onPageChange={setCurrentPage}
+          books={Object.values(state.books).flat()}
+          onFilterChange={useCallback((filteredBooks) => {
+            // Convert filtered books back to series format
+            const filteredSeries: any = {};
+            filteredBooks.forEach(book => {
+              const seriesName = book.series || 'Standalone';
+              if (!filteredSeries[seriesName]) {
+                filteredSeries[seriesName] = [];
+              }
+              filteredSeries[seriesName].push(book);
+            });
+            // This will be handled by the search functionality in the context
+          }, [])}
+          onBookSelect={handleBookClick}
+          onSearchAddBook={useCallback((query) => {
+            setSearchQuery(query);
+            setCurrentPage('add');
+          }, [setCurrentPage])}
+        >
+          {renderCurrentPage}
+        </MainLayout>
+      </ErrorBoundary>
     </div>
   );
 };
 
-// Main App component with Provider
+// Memoize the inner component to prevent unnecessary re-renders
+const AppInnerMemoized = React.memo(AppInner);
+
+// Main App component with Provider and Top-level Error Boundary
 const App: React.FC = () => {
   return (
-    <AppProvider>
-      <AppInner />
-    </AppProvider>
+    <ErrorBoundary 
+      name="App" 
+      onError={(error, errorInfo) => {
+        // Top-level error logging
+        console.error('🚨 CRITICAL: Top-level app error:', error);
+        console.error('Component Stack:', errorInfo.componentStack);
+        
+        // Store critical error for potential bug reporting
+        try {
+          const criticalError = {
+            message: error.message,
+            stack: error.stack,
+            componentStack: errorInfo.componentStack,
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            url: window.location.href,
+            level: 'CRITICAL'
+          };
+          
+          localStorage.setItem('booktarr_critical_error', JSON.stringify(criticalError));
+        } catch (e) {
+          console.warn('Failed to store critical error:', e);
+        }
+      }}
+    >
+      <AppProvider>
+        <AppInnerMemoized />
+      </AppProvider>
+    </ErrorBoundary>
   );
 };
 

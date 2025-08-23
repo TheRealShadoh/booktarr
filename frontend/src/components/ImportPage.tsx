@@ -1,9 +1,9 @@
 /**
  * Import page component for importing book lists from various formats
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Book, ReadingStatus, MetadataSource, CSVImportResponse, CSVPreviewResponse, UnmatchedBook, BookMatch } from '../types';
+import { CSVPreviewResponse, UnmatchedBook, BookMatch } from '../types';
 import LoadingSpinner from './LoadingSpinner';
 import booktarrAPI from '../services/api';
 import ManualBookMatching from './ManualBookMatching';
@@ -27,7 +27,7 @@ interface ImportFormat {
 }
 
 const ImportPage: React.FC = () => {
-  const { showToast, addBook } = useAppContext();
+  const { showToast } = useAppContext();
   const [selectedFormat, setSelectedFormat] = useState<string>('csv');
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
@@ -40,7 +40,7 @@ const ImportPage: React.FC = () => {
   const [unmatchedBooks, setUnmatchedBooks] = useState<UnmatchedBook[]>([]);
   const [showManualMatching, setShowManualMatching] = useState(false);
 
-  const importFormats: ImportFormat[] = [
+  const importFormats: ImportFormat[] = useMemo(() => [
     {
       id: 'csv',
       name: 'CSV',
@@ -85,7 +85,7 @@ const ImportPage: React.FC = () => {
         </svg>
       )
     }
-  ];
+  ], []);
 
   const requiredFields = ['title', 'isbn'];
   const optionalFields = ['author', 'series', 'series_position', 'description', 'published_date', 'page_count', 'categories', 'rating'];
@@ -355,77 +355,6 @@ const ImportPage: React.FC = () => {
     }
   };
 
-  const convertToBook = (row: any): Book | null => {
-    try {
-      let title = '';
-      let isbn = '';
-      let author = '';
-      let series = '';
-      let seriesPosition: number | undefined;
-
-      if (selectedFormat === 'csv') {
-        // Use field mapping for CSV
-        title = row[fieldMapping.title] || '';
-        isbn = row[fieldMapping.isbn] || '';
-        author = row[fieldMapping.author] || '';
-        series = row[fieldMapping.series] || '';
-        seriesPosition = row[fieldMapping.series_position] ? parseInt(row[fieldMapping.series_position]) : undefined;
-      } else if (selectedFormat === 'goodreads') {
-        // Goodreads standard field names
-        title = row['Title'] || '';
-        isbn = row['ISBN'] || row['ISBN13'] || '';
-        author = row['Author'] || '';
-        series = row['Series'] || '';
-        seriesPosition = row['Series Position'] ? parseInt(row['Series Position']) : undefined;
-      } else if (selectedFormat === 'handylib') {
-        // HandyLib tab-delimited format
-        title = row['Title'] || '';
-        isbn = row['ISBN'] || '';
-        author = row['Author'] || '';
-        series = row['Series'] || '';
-        seriesPosition = row['Position'] ? parseInt(row['Position']) : undefined;
-      } else if (selectedFormat === 'hardcover') {
-        // Hardcover JSON format
-        title = row.title || '';
-        isbn = row.isbn || row.isbn13 || '';
-        author = row.author || '';
-        series = row.series || '';
-        seriesPosition = row.seriesPosition ? parseInt(row.seriesPosition) : undefined;
-      }
-
-      if (!title || !isbn) {
-        return null; // Skip rows without required fields
-      }
-
-      const book: Book = {
-        isbn: isbn,
-        title: title,
-        authors: author ? [author] : [],
-        series: series || undefined,
-        series_position: seriesPosition,
-        description: '',
-        published_date: '',
-        page_count: 0,
-        categories: [],
-        thumbnail_url: '',
-        language: 'en',
-        reading_status: ReadingStatus.UNREAD,
-        reading_progress_pages: 0,
-        reading_progress_percentage: 0,
-        personal_rating: 0,
-        times_read: 0,
-        added_date: new Date().toISOString(),
-        last_updated: new Date().toISOString(),
-        pricing: [],
-        metadata_source: MetadataSource.SKOOLIB
-      };
-
-      return book;
-    } catch (error) {
-      console.error('Error converting row to book:', error);
-      return null;
-    }
-  };
 
   const handleImport = async () => {
     if (!importFile || !previewData) return;
@@ -645,9 +574,9 @@ const ImportPage: React.FC = () => {
                 </thead>
                 <tbody>
                   {previewData.slice(0, 5).map((row, index) => (
-                    <tr key={index} className="border-b border-booktarr-border">
+                    <tr key={`preview-row-${index}`} className="border-b border-booktarr-border">
                       {Object.values(row).map((value: any, colIndex) => (
-                        <td key={colIndex} className="p-2 text-booktarr-textSecondary">
+                        <td key={`preview-cell-${index}-${colIndex}`} className="p-2 text-booktarr-textSecondary">
                           {String(value).substring(0, 50)}
                           {String(value).length > 50 && '...'}
                         </td>
@@ -698,7 +627,7 @@ const ImportPage: React.FC = () => {
                 <h3 className="font-medium text-booktarr-text mb-2">Errors:</h3>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {importResult.errors.map((error, index) => (
-                    <div key={index} className="text-sm text-booktarr-error bg-booktarr-surface2 p-2 rounded">
+                    <div key={`error-${index}-${error.substring(0, 20)}`} className="text-sm text-booktarr-error bg-booktarr-surface2 p-2 rounded">
                       {error}
                     </div>
                   ))}
@@ -735,7 +664,7 @@ const ImportPage: React.FC = () => {
           <div className="booktarr-card-body">
             <div className="space-y-4">
               {csvPreview.preview.map((row, index) => (
-                <div key={index} className="border border-booktarr-border rounded-lg p-4">
+                <div key={`csv-preview-${index}-${row.row_number || index}`} className="border border-booktarr-border rounded-lg p-4">
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="font-semibold text-booktarr-text">Row {row.row_number}</h3>
                   </div>

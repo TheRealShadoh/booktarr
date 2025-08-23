@@ -2,7 +2,7 @@
  * SeriesDetailsPage - Comprehensive series view with metadata and volumes
  */
 import React, { useState, useEffect, useMemo } from 'react';
-import { Book, SeriesDetailsResponse, SeriesVolume, SeriesInfo } from '../types';
+import { Book, SeriesDetailsResponse, SeriesVolume } from '../types';
 import LoadingSpinner from './LoadingSpinner';
 import MetadataEditor from './MetadataEditor';
 
@@ -224,7 +224,7 @@ const SeriesDetailsPage: React.FC<SeriesDetailsPageProps> = ({
     );
   }
 
-  const { series, volumes, stats } = seriesData;
+  const { series, stats } = seriesData;
   
   // Provide fallbacks for all objects to prevent undefined errors
   const safeSeries = {
@@ -416,7 +416,7 @@ const SeriesDetailsPage: React.FC<SeriesDetailsPageProps> = ({
                     <div className="flex flex-wrap gap-2">
                       {safeSeries.genres.map((genre, index) => (
                         <span 
-                          key={index}
+                          key={`genre-${genre}-${index}`}
                           className="px-3 py-1 bg-booktarr-accent text-white text-sm rounded-full"
                         >
                           {genre}
@@ -431,7 +431,7 @@ const SeriesDetailsPage: React.FC<SeriesDetailsPageProps> = ({
                     <div className="flex flex-wrap gap-2">
                       {safeSeries.tags.map((tag, index) => (
                         <span 
-                          key={index}
+                          key={`tag-${tag}-${index}`}
                           className="px-3 py-1 bg-booktarr-surface2 text-booktarr-text text-sm rounded-full border border-booktarr-border"
                         >
                           {tag}

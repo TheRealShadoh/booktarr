@@ -5,7 +5,10 @@ from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlmodel import Session, select
 import json
+import logging
 from datetime import date
+
+logger = logging.getLogger(__name__)
 
 try:
     from backend.database import get_session
@@ -216,6 +219,28 @@ async def update_volume_status(
     
     if not volume:
         raise HTTPException(status_code=404, detail=f"Volume {position} not found in series '{series_name}'")
+    
+    # Validate the status change to prevent integrity issues
+    if status == "owned":
+        try:
+            from backend.services.series_integrity_service import SeriesIntegrityService
+        except ImportError:
+            from services.series_integrity_service import SeriesIntegrityService
+        
+        with SeriesIntegrityService() as integrity_service:
+            validation = integrity_service.prevent_volume_count_exceeding_total(series.id, status)
+            
+            if not validation["valid"] and validation.get("recommend_total_update"):
+                # Auto-fix: Update series total to accommodate the new owned volume
+                volumes = session.exec(
+                    select(SeriesVolume).where(SeriesVolume.series_id == series.id)
+                ).all()
+                owned_count = len([v for v in volumes if v.status == "owned"]) + 1  # +1 for the volume being marked as owned
+                
+                if owned_count > series.total_books:
+                    series.total_books = owned_count
+                    session.add(series)
+                    logger.info(f"Auto-updated series '{series_name}' total_books to {owned_count} to accommodate owned volume")
     
     # Update the status
     volume.status = status
@@ -925,6 +950,78 @@ async def detect_series_for_all_books(
     except Exception as e:
         print(f"Error detecting series for all books: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to detect series: {str(e)}")
+
+
+@router.get("/integrity/health")
+async def get_series_health_report(
+    session: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    """Get comprehensive health report for all series data integrity."""
+    
+    try:
+        try:
+            from backend.services.series_integrity_service import SeriesIntegrityService
+        except ImportError:
+            from services.series_integrity_service import SeriesIntegrityService
+        
+        with SeriesIntegrityService() as integrity_service:
+            health_report = integrity_service.get_series_health_report()
+            return {
+                "success": True,
+                **health_report
+            }
+        
+    except Exception as e:
+        print(f"Error generating health report: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate health report: {str(e)}")
+
+
+@router.post("/integrity/fix-all")
+async def fix_all_integrity_issues(
+    session: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    """Fix all series integrity issues (completion ratios > 100%)."""
+    
+    try:
+        try:
+            from backend.services.series_integrity_service import SeriesIntegrityService
+        except ImportError:
+            from services.series_integrity_service import SeriesIntegrityService
+        
+        with SeriesIntegrityService() as integrity_service:
+            result = integrity_service.fix_all_series_ratios()
+            return {
+                "success": True,
+                **result
+            }
+        
+    except Exception as e:
+        print(f"Error fixing integrity issues: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fix integrity issues: {str(e)}")
+
+
+@router.get("/integrity/audit")
+async def audit_series_integrity(
+    session: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    """Audit all series for integrity issues without fixing them."""
+    
+    try:
+        try:
+            from backend.services.series_integrity_service import SeriesIntegrityService
+        except ImportError:
+            from services.series_integrity_service import SeriesIntegrityService
+        
+        with SeriesIntegrityService() as integrity_service:
+            audit_result = integrity_service.audit_all_series()
+            return {
+                "success": True,
+                **audit_result
+            }
+        
+    except Exception as e:
+        print(f"Error auditing series integrity: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to audit series integrity: {str(e)}")
 
 
 @router.post("/enrich-all-covers")

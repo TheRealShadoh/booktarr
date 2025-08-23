@@ -283,7 +283,7 @@ const SimpleScanner: React.FC<SimpleScannerProps> = ({ onComplete, onClose }) =>
             <div className="flex flex-wrap gap-2">
               {scannedISBNs.map((isbn, index) => (
                 <div
-                  key={index}
+                  key={`simple-scanned-${isbn}-${index}`}
                   className="bg-booktarr-surface2 px-3 py-1 rounded-full text-sm text-booktarr-text flex items-center gap-2"
                 >
                   <span>{isbn}</span>

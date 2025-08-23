@@ -491,7 +491,7 @@ const MobileBarcodeScanner: React.FC<MobileBarcodeScannerProps> = ({
             <div className="flex flex-wrap gap-2">
               {recentScans.slice(-3).map((isbn, index) => (
                 <div
-                  key={index}
+                  key={`recent-${isbn}-${index}`}
                   className="px-2 py-1 bg-green-600/20 text-green-400 text-xs rounded"
                 >
                   {isbn}

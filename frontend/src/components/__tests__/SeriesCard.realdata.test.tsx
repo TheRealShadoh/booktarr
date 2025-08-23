@@ -21,10 +21,12 @@ const oshiNoKoSeries: Book[] = [
     language: 'English',
     cover_url: 'https://m.media-amazon.com/images/I/51jhRrffW5L._SL500_.jpg',
     categories: ['Fantasy'],
+    pricing: [],
     reading_status: ReadingStatus.READ,
     metadata_source: MetadataSource.AMAZON,
     added_date: '2025-07-18T00:00:00Z',
-    last_updated: '2025-07-18T00:00:00Z'
+    last_updated: '2025-07-18T00:00:00Z',
+    times_read: 1
   },
   {
     isbn: '9781975363192',
@@ -38,10 +40,12 @@ const oshiNoKoSeries: Book[] = [
     language: 'English',
     cover_url: 'https://m.media-amazon.com/images/I/51QoSmYxGwL._SL500_.jpg',
     categories: ['Fantasy'],
+    pricing: [],
     reading_status: ReadingStatus.READING,
     metadata_source: MetadataSource.AMAZON,
     added_date: '2025-07-18T00:00:00Z',
-    last_updated: '2025-07-18T00:00:00Z'
+    last_updated: '2025-07-18T00:00:00Z',
+    times_read: 0
   },
   {
     isbn: '9781975363215',
@@ -55,10 +59,12 @@ const oshiNoKoSeries: Book[] = [
     language: 'English',
     cover_url: 'https://m.media-amazon.com/images/I/51K82bGqk3L._SL500_.jpg',
     categories: ['Romance'],
+    pricing: [],
     reading_status: ReadingStatus.UNREAD,
     metadata_source: MetadataSource.AMAZON,
     added_date: '2025-07-18T00:00:00Z',
-    last_updated: '2025-07-18T00:00:00Z'
+    last_updated: '2025-07-18T00:00:00Z',
+    times_read: 0
   }
 ];
 
@@ -76,10 +82,12 @@ const standaloneBooks: Book[] = [
     language: 'English',
     cover_url: 'https://example.com/hobbit.jpg',
     categories: ['Fantasy', 'Adventure'],
+    pricing: [],
     reading_status: ReadingStatus.READ,
     metadata_source: MetadataSource.GOOGLE_BOOKS,
     added_date: '2025-01-01T00:00:00Z',
-    last_updated: '2025-01-01T00:00:00Z'
+    last_updated: '2025-01-01T00:00:00Z',
+    times_read: 1
   }
 ];
 

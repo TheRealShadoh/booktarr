@@ -2,8 +2,6 @@
  * Wanted page component with Missing From Series and Wantlist functionality
  */
 import React, { useState, useMemo } from 'react';
-import BookCard from './BookCard';
-import MissingBookCard from './MissingBookCard';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import { BooksBySeriesMap, Book } from '../types';

@@ -2,8 +2,7 @@
  * Reading challenges and goals page
  */
 import React, { useState, useMemo } from 'react';
-import { useAppContext } from '../context/AppContext';
-import { BooksBySeriesMap, Book, ReadingStatus } from '../types';
+import { BooksBySeriesMap, ReadingStatus } from '../types';
 import LoadingSpinner from './LoadingSpinner';
 
 interface ReadingChallengesPageProps {
@@ -47,10 +46,11 @@ const ReadingChallengesPage: React.FC<ReadingChallengesPageProps> = ({
   loading,
   error
 }) => {
-  const { showToast } = useAppContext();
   const [activeTab, setActiveTab] = useState<'challenges' | 'goals' | 'achievements'>('challenges');
   const [showCompletedChallenges, setShowCompletedChallenges] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [newGoalModalOpen, setNewGoalModalOpen] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [customGoals, setCustomGoals] = useState<ReadingGoal[]>([]);
 
   // Calculate reading statistics
@@ -103,9 +103,6 @@ const ReadingChallengesPage: React.FC<ReadingChallengesPageProps> = ({
 
   // Generate challenges based on reading history
   const challenges = useMemo((): Challenge[] => {
-    const baseYear = readingStats.booksThisYear || 1;
-    const basePage = readingStats.pagesThisYear || 1000;
-    
     return [
       {
         id: 'annual-reading',
@@ -229,9 +226,6 @@ const ReadingChallengesPage: React.FC<ReadingChallengesPageProps> = ({
     setNewGoalModalOpen(true);
   };
 
-  const handleCompleteChallenge = (challengeId: string) => {
-    showToast('Challenge marked as completed!', 'success');
-  };
 
   const completedChallengesCount = challenges.filter(c => c.completed).length;
   const totalChallengesCount = challenges.length;

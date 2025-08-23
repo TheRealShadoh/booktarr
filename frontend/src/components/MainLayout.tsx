@@ -30,7 +30,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   onBookSelect,
   onSearchAddBook
 }) => {
-  const { device, breakpoints, getResponsiveValue } = useResponsive();
+  const { device, getResponsiveValue } = useResponsive();
   const mainRef = useRef<HTMLDivElement>(null);
   
   // Responsive state management

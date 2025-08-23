@@ -2,7 +2,7 @@
  * Enhanced Settings page component with optimistic updates and state management
  */
 import React, { useState, useEffect } from 'react';
-import { SettingsPageProps, Settings, SettingsUpdateRequest } from '../types';
+import { SettingsPageProps, SettingsUpdateRequest } from '../types';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import Toast from './Toast';
@@ -25,7 +25,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   const {
     state,
     updateSettingsWithOptimizations,
-    getCacheInfo,
     clearCache,
     exportData,
     syncWithServer,

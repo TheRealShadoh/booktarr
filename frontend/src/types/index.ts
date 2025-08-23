@@ -488,3 +488,44 @@ export interface UpdateVolumeStatusResponse {
     status: string;
   };
 }
+
+// Error Boundary types
+export interface ErrorBoundaryState {
+  hasError: boolean;
+  error?: Error;
+  errorInfo?: React.ErrorInfo;
+  errorId?: string;
+  timestamp?: Date;
+}
+
+export interface ErrorBoundaryProps {
+  children: React.ReactNode;
+  fallback?: React.ComponentType<ErrorFallbackProps>;
+  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  isolate?: boolean;
+  name?: string;
+}
+
+export interface ErrorFallbackProps {
+  error?: Error;
+  errorInfo?: React.ErrorInfo;
+  resetError?: () => void;
+  errorBoundaryName?: string;
+  timestamp?: Date;
+}
+
+export interface ErrorDetails {
+  message: string;
+  stack?: string;
+  componentStack?: string;
+  errorBoundary?: string;
+  timestamp: Date;
+  userAgent: string;
+  url: string;
+}
+
+export interface ErrorRecoveryAction {
+  label: string;
+  action: () => void;
+  variant: 'primary' | 'secondary' | 'danger';
+}

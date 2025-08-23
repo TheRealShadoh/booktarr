@@ -221,7 +221,7 @@ export const MetadataEditor: React.FC<MetadataEditorProps> = ({
                   <h3 className="text-lg font-medium text-booktarr-text">Search Results</h3>
                   {searchResults.map((result, index) => (
                     <div
-                      key={index}
+                      key={`metadata-result-${result.title}-${result.source}-${index}`}
                       className="border border-booktarr-border rounded-lg p-4 hover:bg-booktarr-hover bg-booktarr-surface2"
                     >
                       <div className="flex gap-4">
