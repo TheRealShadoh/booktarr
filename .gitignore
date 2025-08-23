@@ -212,3 +212,4 @@ target/
 
 # pyright
 pyrightconfig.json
+backend/backend/static/*

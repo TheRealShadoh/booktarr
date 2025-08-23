@@ -235,8 +235,18 @@ class SeriesMetadataService:
     async def _fetch_from_enhanced_patterns(self, series_name: str, author: str = None) -> Optional[Dict[str, Any]]:
         """Fetch series using enhanced patterns for book series"""
         
-        # Known series patterns for popular book series
+        # Known series patterns for popular manga and book series
         known_series = {
+            "bleach": {
+                "author": "Kubo, Tite",
+                "total_books": 74,
+                "status": "completed",
+                "description": "Ichigo Kurosaki, a teenager with the ability to see spirits, becomes a Soul Reaper and fights evil spirits known as Hollows.",
+                "genres": ["Action", "Supernatural", "Adventure"],
+                "first_published": "2001-08-07",
+                "last_published": "2016-08-22",
+                "books": []  # Will be generated
+            },
             "blood and ash": {
                 "author": "Jennifer L. Armentrout",
                 "total_books": 5,
@@ -286,38 +296,58 @@ class SeriesMetadataService:
             
             # Convert to our series format
             volumes = []
-            for book_info in pattern_data["books"]:
-                # Try to get additional info from Google Books
-                book_details = await self._get_book_details_from_google(
-                    book_info["title"], 
-                    pattern_data["author"]
-                )
-                
-                volume = {
-                    "position": book_info["position"],
-                    "title": book_info["title"],
-                    "isbn_13": book_details.get("isbn_13") if book_details else None,
-                    "isbn_10": book_details.get("isbn_10") if book_details else None,
-                    "publisher": book_details.get("publisher") if book_details else None,
-                    "published_date": book_details.get("release_date") if book_details else None,
-                    "page_count": book_details.get("page_count") if book_details else None,
-                    "description": book_details.get("description") if book_details else None,
-                    "cover_url": book_details.get("cover_url") if book_details else None,
-                    "status": "missing"
-                }
-                volumes.append(volume)
+            
+            # Handle special case for manga series with generated volumes
+            if series_key == "bleach":
+                # Generate all 74 Bleach volumes
+                for i in range(1, pattern_data["total_books"] + 1):
+                    volume = {
+                        "position": i,
+                        "title": f"Bleach, Vol. {i}",
+                        "isbn_13": None,
+                        "isbn_10": None,
+                        "publisher": "VIZ Media",
+                        "published_date": None,
+                        "page_count": 200,  # Average manga volume
+                        "description": None,
+                        "cover_url": None,
+                        "status": "missing"
+                    }
+                    volumes.append(volume)
+            else:
+                # Handle series with explicit book lists
+                for book_info in pattern_data["books"]:
+                    # Try to get additional info from Google Books
+                    book_details = await self._get_book_details_from_google(
+                        book_info["title"], 
+                        pattern_data["author"]
+                    )
+                    
+                    volume = {
+                        "position": book_info["position"],
+                        "title": book_info["title"],
+                        "isbn_13": book_details.get("isbn_13") if book_details else None,
+                        "isbn_10": book_details.get("isbn_10") if book_details else None,
+                        "publisher": book_details.get("publisher") if book_details else None,
+                        "published_date": book_details.get("release_date") if book_details else None,
+                        "page_count": book_details.get("page_count") if book_details else None,
+                        "description": book_details.get("description") if book_details else None,
+                        "cover_url": book_details.get("cover_url") if book_details else None,
+                        "status": "missing"
+                    }
+                    volumes.append(volume)
             
             return {
                 "name": series_name,
                 "author": pattern_data["author"],
-                "description": None,
+                "description": pattern_data.get("description"),
                 "publisher": None,
                 "total_books": pattern_data["total_books"],
-                "status": "completed",
-                "genres": [],
+                "status": pattern_data.get("status", "completed"),
+                "genres": pattern_data.get("genres", []),
                 "tags": [],
-                "first_published": None,
-                "last_published": None,
+                "first_published": pattern_data.get("first_published"),
+                "last_published": pattern_data.get("last_published"),
                 "volumes": volumes
             }
         

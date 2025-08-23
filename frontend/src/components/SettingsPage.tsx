@@ -499,6 +499,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                         placeholder="Enter your Google Books API key"
                         data-testid="google-api-key-input"
                         className="booktarr-form-input"
+                        autoComplete="new-password"
                       />
                       <p className="text-sm text-booktarr-textSecondary mt-1">
                         Optional: Provides higher rate limits for Google Books API
@@ -516,6 +517,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                         placeholder="Enter your Open Library API key"
                         data-testid="open-library-api-key-input"
                         className="booktarr-form-input"
+                        autoComplete="new-password"
                       />
                       <p className="text-sm text-booktarr-textSecondary mt-1">
                         Optional: Provides higher rate limits for Open Library API

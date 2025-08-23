@@ -50,12 +50,27 @@ async def get_series_details(
         series = Series(
             name=series_name,
             author=authors[0] if authors else None,
-            total_books=len(owned_books),  # Will be updated when we get external data
+            total_books=len(owned_books),  # Temporary - will be updated with external data
             status="unknown"
         )
         session.add(series)
         session.commit()
         session.refresh(series)
+        
+        # Try to get complete series metadata from external sources
+        try:
+            from backend.services.series_metadata import SeriesMetadataService
+            metadata_service = SeriesMetadataService()
+            try:
+                await metadata_service.fetch_and_update_series(series_name, series.author)
+                # Refresh the series from database after update
+                session.refresh(series)
+            except Exception as e:
+                print(f"Warning: Could not fetch external metadata for '{series_name}': {e}")
+            finally:
+                await metadata_service.close()
+        except ImportError:
+            print(f"Warning: SeriesMetadataService not available for '{series_name}'")
     
     # Get all volumes for this series
     statement = select(SeriesVolume).where(SeriesVolume.series_id == series.id)
