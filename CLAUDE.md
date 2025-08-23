@@ -2,6 +2,161 @@
 
 **IMPORTANT**: When working on this codebase, always use the `library-app-developer` agent for comprehensive code reviews and improvements. This agent will analyze the code, create detailed task lists, and ensure all tests use real sample data from `sample_data/HandyLib.csv`.
 
+## 🔧 MCP Server Configuration & Best Practices
+
+### Available MCP Servers
+
+This project has the following MCP (Model Context Protocol) servers configured:
+
+#### 1. **playwright** - Browser Automation & Testing
+- **Purpose**: Comprehensive browser automation for testing and UI validation
+- **Key Commands**:
+  - `mcp__playwright__browser_navigate` - Navigate to URLs
+  - `mcp__playwright__browser_snapshot` - Capture page accessibility tree
+  - `mcp__playwright__browser_click` - Click elements
+  - `mcp__playwright__browser_type` - Type text into fields
+  - `mcp__playwright__browser_take_screenshot` - Capture screenshots
+  - `mcp__playwright__browser_console_messages` - Get console output
+- **Best Practices**:
+  - Always take snapshots before interacting with elements
+  - Use descriptive element descriptions for audit trail
+  - Capture screenshots for visual verification
+  - Check console messages for JavaScript errors
+
+#### 2. **context7** - Documentation Retrieval
+- **Purpose**: Fetch up-to-date documentation for any library or framework
+- **Key Commands**:
+  - `mcp__context7__resolve-library-id` - Find library IDs (use first)
+  - `mcp__context7__get-library-docs` - Retrieve documentation
+- **Best Practices**:
+  - Always resolve library ID first unless user provides exact format
+  - Use for getting current API docs beyond knowledge cutoff
+  - Specify topic parameter for focused documentation
+  - Use appropriate token limit based on need
+
+#### 3. **sequential-thinking** - Structured Problem Solving
+- **Purpose**: Break down complex problems with iterative thinking
+- **Key Commands**:
+  - `mcp__sequential-thinking__sequentialthinking` - Step-by-step analysis
+- **Best Practices**:
+  - Use for complex multi-step problems
+  - Allow for revision and branching of thoughts
+  - Mark thoughts as revisions when reconsidering
+  - Continue until satisfactory solution reached
+
+#### 4. **browsermcp** - Simple Browser Control
+- **Purpose**: Basic browser automation (simpler alternative to playwright)
+- **Key Commands**:
+  - `mcp__browsermcp__browser_navigate` - Navigate to URL
+  - `mcp__browsermcp__browser_snapshot` - Get page structure
+  - `mcp__browsermcp__browser_click` - Click elements
+- **Best Practices**:
+  - Use for simpler browser tasks
+  - Prefer playwright for comprehensive testing
+  - Good for quick web interactions
+
+### MCP Usage Guidelines
+
+1. **Tool Naming Convention**: All MCP tools follow format `mcp__[server]__[action]`
+2. **Error Handling**: MCP tools may fail - always handle errors gracefully
+3. **Performance**: MCP operations may be slow - set appropriate timeouts
+4. **Security**: Never store credentials in MCP server configurations
+5. **Debugging**: Use verbose output when troubleshooting MCP issues
+
+### Common MCP Workflows
+
+#### Visual Testing Workflow
+```
+1. Navigate: mcp__playwright__browser_navigate
+2. Wait for load: mcp__playwright__browser_wait_for
+3. Take snapshot: mcp__playwright__browser_snapshot
+4. Interact: mcp__playwright__browser_click/type
+5. Screenshot: mcp__playwright__browser_take_screenshot
+6. Check errors: mcp__playwright__browser_console_messages
+```
+
+#### Documentation Lookup Workflow
+```
+1. Resolve ID: mcp__context7__resolve-library-id
+2. Get docs: mcp__context7__get-library-docs
+3. Apply learnings to code
+```
+
+#### Problem Solving Workflow
+```
+1. Define problem clearly
+2. Use mcp__sequential-thinking__sequentialthinking
+3. Iterate through thoughts
+4. Revise as needed
+5. Arrive at solution
+```
+
+### Troubleshooting MCP Issues
+
+- **Connection Issues**: Check MCP server is running
+- **Permission Errors**: Verify MCP has necessary permissions
+- **Timeout Errors**: Increase timeout or retry operation
+- **Not Found Errors**: Verify resource/element exists
+- **Rate Limiting**: Add delays between operations
+
+### MCP Best Practices for BookTarr
+
+1. **Use Playwright for all UI testing** - Ensures consistent test results
+2. **Document all browser interactions** - Take screenshots and snapshots
+3. **Fetch latest library docs** - Use context7 for current API information
+4. **Break down complex features** - Use sequential-thinking for planning
+5. **Validate UI changes** - Always verify with browser automation
+
+### Addressing MCP Warnings
+
+When MCP servers show warnings, follow these fix actions:
+
+#### Browser Not Installed Warning (Playwright)
+```bash
+# If you see "browser not installed" warning:
+mcp__playwright__browser_install
+```
+
+#### Connection Timeout Warnings
+- Increase timeout in operations that may take longer
+- Add retry logic for flaky operations
+- Check network connectivity
+
+#### Element Not Found Warnings
+1. Take snapshot first: `mcp__playwright__browser_snapshot`
+2. Verify element exists in snapshot
+3. Use correct ref from snapshot
+4. Ensure page is fully loaded
+
+#### Resource Not Available Warnings
+- Verify MCP server is running
+- Check server logs for errors
+- Restart MCP server if needed
+- Verify resource permissions
+
+### MCP Server Health Checks
+
+Periodically verify MCP servers are functioning:
+
+1. **Playwright Health Check**:
+   ```
+   - Navigate to a known URL
+   - Take a snapshot
+   - Verify response
+   ```
+
+2. **Context7 Health Check**:
+   ```
+   - Resolve a known library (e.g., 'react')
+   - Verify response format
+   ```
+
+3. **Sequential Thinking Health Check**:
+   ```
+   - Submit simple problem
+   - Verify thought process starts
+   ```
+
 ## Visual Development
 
 ### Design Principles
