@@ -22,6 +22,7 @@ except ImportError:
 class CSVImportService:
     def __init__(self):
         self.book_search_service = BookSearchService()
+        self._series_metadata_fetched = set()  # Track which series we've already fetched metadata for
     
     async def import_handylib_csv(self, csv_file_path: str, user_id: int = 1) -> Dict[str, Any]:
         """
@@ -34,6 +35,9 @@ class CSVImportService:
         Started Reading Date, Finished Reading Date, Favorite, Comments, Tags, 
         BookShelf, Settings
         """
+        # Clear series metadata tracking for fresh import
+        self._series_metadata_fetched.clear()
+        
         results = {
             "imported": 0,
             "updated": 0,
@@ -345,6 +349,7 @@ class CSVImportService:
             statement = select(Series).where(Series.name == series_name)
             existing_series = session.exec(statement).first()
             
+            series_created = False
             if not existing_series:
                 # Create basic series record
                 author = authors[0] if authors else None
@@ -358,19 +363,26 @@ class CSVImportService:
                 )
                 session.add(series)
                 session.commit()
+                series_created = True
+                print(f"Created new series record: {series_name}")
                 
-                # Trigger background metadata fetch (async)
+            # Only fetch metadata once per series during import session
+            if series_created or series_name not in self._series_metadata_fetched:
+                self._series_metadata_fetched.add(series_name)
+                
+                # Import series metadata service
                 try:
                     from backend.services.series_metadata import SeriesMetadataService
                 except ImportError:
                     from services.series_metadata import SeriesMetadataService
                     
-                # Note: In a production system, this would be a background task
-                # For now, we'll do it synchronously but with error handling
+                # Force fresh metadata fetch during import to ensure accuracy
                 try:
                     metadata_service = SeriesMetadataService()
-                    await metadata_service.fetch_and_update_series(series_name, author)
+                    # Use force_external=True to bypass local cache during import
+                    result = await metadata_service.fetch_and_update_series(series_name, authors[0] if authors else None, force_external=True)
                     await metadata_service.close()
+                    print(f"Successfully fetched metadata for series: {series_name}")
                 except Exception as e:
                     print(f"Warning: Failed to fetch series metadata for '{series_name}': {e}")
                     # Continue without failing the book import
