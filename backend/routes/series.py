@@ -31,6 +31,9 @@ async def get_series_details(
 ) -> Dict[str, Any]:
     """Get detailed information about a series including all volumes and ownership status."""
     
+    # Force refresh the session to get latest data
+    session.expire_all()
+    
     # First check if we have series info in the database
     statement = select(Series).where(Series.name == series_name)
     series = session.exec(statement).first()
@@ -43,26 +46,27 @@ async def get_series_details(
         if not owned_books:
             raise HTTPException(status_code=404, detail=f"Series '{series_name}' not found")
         
-        # Create series entry from first book
+        # Create series entry from first book with minimal data
         first_book = owned_books[0]
         authors = json.loads(first_book.authors) if first_book.authors else []
         
+        # Create basic series record - metadata service will populate the rest
         series = Series(
             name=series_name,
             author=authors[0] if authors else None,
-            total_books=len(owned_books),  # Temporary - will be updated with external data
+            total_books=1,  # Will be updated by metadata service
             status="unknown"
         )
         session.add(series)
         session.commit()
         session.refresh(series)
         
-        # Try to get complete series metadata from external sources
+        # Get complete series metadata from external sources
         try:
             from backend.services.series_metadata import SeriesMetadataService
             metadata_service = SeriesMetadataService()
             try:
-                await metadata_service.fetch_and_update_series(series_name, series.author)
+                await metadata_service.fetch_and_update_series(series_name, series.author, session=session)
                 # Refresh the series from database after update
                 session.refresh(series)
             except Exception as e:
@@ -801,8 +805,17 @@ async def list_all_series(
 ) -> Dict[str, Any]:
     """List all series in the user's library."""
     
+    # Force refresh the session to get latest data
+    session.expire_all()
+    
     statement = select(Series).order_by(Series.name)
     all_series = session.exec(statement).all()
+    
+    # Debug: Print all series being processed
+    print(f"Processing {len(all_series)} series from database")
+    for s in all_series:
+        if 'bleach' in s.name.lower():
+            print(f"Found Bleach: ID={s.id}, total_books={s.total_books}, status={s.status}")
     
     series_list = []
     for series in all_series:
@@ -812,15 +825,13 @@ async def list_all_series(
         
         owned_count = len([v for v in volumes if v.status == "owned"])
         
-        # Use the actual number of volumes or series.total_books, whichever makes more sense
-        total_count = max(len(volumes), series.total_books or 0)
+        # Debug logging for Bleach  
+        if 'bleach' in series.name.lower():
+            print(f"DEBUG: Bleach series - ID={series.id}, total_books={series.total_books}, volumes={len(volumes)}, owned={owned_count}, status={series.status}")
+            print(f"DEBUG: Query result - display_total will be: {series.total_books or max(len(volumes), owned_count)}")
         
-        # If we have more owned than total, adjust total
-        if owned_count > total_count:
-            total_count = owned_count
-        
-        # Use the larger of series.total_books or actual volume count for consistency
-        display_total = max(series.total_books, total_count) if series.total_books and total_count else (series.total_books or total_count)
+        # Always use series.total_books from metadata service
+        display_total = series.total_books or max(len(volumes), owned_count)
         
         series_list.append({
             "id": series.id,

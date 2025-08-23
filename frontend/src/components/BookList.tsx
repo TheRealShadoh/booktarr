@@ -384,9 +384,9 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
           (gridSize === 'compact' ? 'booktarr-book-grid' : 'booktarr-book-grid-large') : 
           'space-y-4'
         }>
-          {allBooks.map((book) => (
+          {allBooks.map((book, index) => (
             <BookCard 
-              key={book.isbn} 
+              key={book.isbn || `book-${index}-${book.title}`} 
               book={book} 
               viewMode={viewMode}
               onClick={onBookClick}
@@ -411,9 +411,9 @@ const BookList: React.FC<BookListProps> = ({ books, loading, error, onRefresh, o
             />
           ))}
           {/* Add Standalone books as individual cards if they exist */}
-          {seriesGroups.find(group => group.seriesName === 'Standalone')?.books.map((book) => (
+          {seriesGroups.find(group => group.seriesName === 'Standalone')?.books.map((book, index) => (
             <BookCard 
-              key={book.isbn || `standalone-${book.title}`} 
+              key={book.isbn || `standalone-${index}-${book.title}`} 
               book={book} 
               viewMode={viewMode}
               onClick={onBookClick}

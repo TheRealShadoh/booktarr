@@ -28,48 +28,56 @@ class SeriesMetadataService:
         self.google_client = GoogleBooksClient()
         self.anilist_client = AniListClient()
     
-    async def fetch_and_update_series(self, series_name: str, author: str = None, force_external: bool = False) -> Dict[str, Any]:
+    async def fetch_and_update_series(self, series_name: str, author: str = None, force_external: bool = False, session: Session = None) -> Dict[str, Any]:
         """
         Fetch comprehensive series information with local-first approach
         """
         try:
+            print(f"fetch_and_update_series called for: {series_name} (force_external={force_external})")
+            
             # STEP 1: Check local database first (unless force_external is True)
             if not force_external:
                 local_data = await self._get_local_series_metadata(series_name)
-                if local_data and self._is_metadata_current(local_data):
-                    logger.info(f"Using cached metadata for series: {series_name}")
-                    return local_data
-                elif local_data:
-                    logger.info(f"Local metadata found but outdated for series: {series_name}")
+                print(f"Local data found for {series_name}: {bool(local_data)}")
+                if local_data:
+                    print(f"Local metadata - total_books: {local_data.get('total_books')}, status: {local_data.get('status')}")
+                    is_current = self._is_metadata_current(local_data)
+                    print(f"Is metadata current: {is_current}")
+                    if is_current:
+                        logger.info(f"Using cached metadata for series: {series_name}")
+                        return local_data
+                    else:
+                        logger.info(f"Local metadata found but outdated for series: {series_name}")
             
             # STEP 2: Fetch from external APIs if not in cache or force_external=True
+            print(f"Fetching external metadata for: {series_name}")
             series_data = None
             
-            # Check if this looks like a manga series (Japanese characters or known manga authors)
-            is_likely_manga = self._is_likely_manga_series(series_name, author)
-            
-            if is_likely_manga:
-                # For manga, try AniList first (has complete volume counts)
-                series_data = await self._fetch_from_anilist(series_name, author)
+            # First check our known series database with accurate counts
+            series_data = await self._fetch_from_enhanced_patterns(series_name, author)
             
             if not series_data:
-                # Try Google Books for all series types
-                series_data = await self._fetch_from_google_books(series_name, author)
-            
-            if not series_data and not is_likely_manga:
-                # For non-manga, try enhanced detection patterns
-                series_data = await self._fetch_from_enhanced_patterns(series_name, author)
-            
-            if not series_data:
-                # Try AniList even for non-manga series (some light novels are there)
-                series_data = await self._fetch_from_anilist(series_name, author)
+                # Check if this looks like a manga series (Japanese characters or known manga authors)
+                is_likely_manga = self._is_likely_manga_series(series_name, author)
+                
+                if is_likely_manga:
+                    # For manga, try AniList (has volume counts)
+                    series_data = await self._fetch_from_anilist(series_name, author)
+                
+                if not series_data:
+                    # Try Google Books for all series types
+                    series_data = await self._fetch_from_google_books(series_name, author)
+                
+                if not series_data and not is_likely_manga:
+                    # Try AniList even for non-manga series (some light novels are there)
+                    series_data = await self._fetch_from_anilist(series_name, author)
             
             if not series_data:
                 # Create basic series data from owned books
                 series_data = await self._create_basic_series_data(series_name, author)
             
             # STEP 3: Update database with fetched information (this persists the metadata)
-            result = await self._update_series_in_db(series_data)
+            result = await self._update_series_in_db(series_data, session=session)
             logger.info(f"Updated and cached metadata for series: {series_name}")
             return result
             
@@ -375,7 +383,7 @@ class SeriesMetadataService:
     async def _fetch_from_enhanced_patterns(self, series_name: str, author: str = None) -> Optional[Dict[str, Any]]:
         """Fetch series using enhanced patterns for book series"""
         
-        # Known series patterns for popular manga and book series
+        # Known series patterns for popular manga and book series with accurate volume counts
         known_series = {
             "bleach": {
                 "author": "Kubo, Tite",
@@ -386,6 +394,111 @@ class SeriesMetadataService:
                 "first_published": "2001-08-07",
                 "last_published": "2016-08-22",
                 "books": []  # Will be generated
+            },
+            "tokyo ghoul": {
+                "author": "Ishida, Sui",
+                "total_books": 14,
+                "status": "completed",
+                "description": "Ken Kaneki becomes a half-ghoul after a deadly encounter and must navigate the dangerous world of ghouls in Tokyo.",
+                "genres": ["Dark Fantasy", "Supernatural", "Horror"],
+                "first_published": "2011-09-08",
+                "last_published": "2014-09-18",
+                "books": []
+            },
+            "citrus": {
+                "author": "Saburouta",
+                "total_books": 10,
+                "status": "completed",
+                "description": "Step-sisters Yuzu and Mei navigate their complicated feelings for each other.",
+                "genres": ["Romance", "Yuri", "School Life"],
+                "first_published": "2012-11-17",
+                "last_published": "2018-08-18",
+                "books": []
+            },
+            "naruto": {
+                "author": "Kishimoto, Masashi",
+                "total_books": 72,
+                "status": "completed",
+                "description": "Naruto Uzumaki's journey to become the Hokage of his village.",
+                "genres": ["Action", "Adventure", "Ninja"],
+                "first_published": "1999-09-21",
+                "last_published": "2014-11-10",
+                "books": []
+            },
+            "one piece": {
+                "author": "Oda, Eiichiro",
+                "total_books": 107,  # As of 2024
+                "status": "ongoing",
+                "description": "Monkey D. Luffy's adventure to find the One Piece and become Pirate King.",
+                "genres": ["Adventure", "Pirates", "Comedy"],
+                "first_published": "1997-07-22",
+                "books": []
+            },
+            "death note": {
+                "author": "Ohba, Tsugumi",
+                "total_books": 12,
+                "status": "completed",
+                "description": "Light Yagami finds a notebook that kills anyone whose name is written in it.",
+                "genres": ["Psychological Thriller", "Supernatural", "Crime"],
+                "first_published": "2003-12-01",
+                "last_published": "2006-05-15",
+                "books": []
+            },
+            "attack on titan": {
+                "author": "Isayama, Hajime",
+                "total_books": 34,
+                "status": "completed",
+                "description": "Humanity fights for survival against giant humanoid Titans.",
+                "genres": ["Dark Fantasy", "Post-Apocalyptic", "Military"],
+                "first_published": "2009-09-09",
+                "last_published": "2021-04-09",
+                "books": []
+            },
+            "my hero academia": {
+                "author": "Horikoshi, Kohei",
+                "total_books": 40,  # As of 2024
+                "status": "ongoing",
+                "description": "Izuku Midoriya's journey to become the greatest hero.",
+                "genres": ["Superhero", "School", "Action"],
+                "first_published": "2014-07-07",
+                "books": []
+            },
+            "demon slayer": {
+                "author": "Gotouge, Koyoharu",
+                "total_books": 23,
+                "status": "completed",
+                "description": "Tanjiro Kamado fights demons to save his sister and avenge his family.",
+                "genres": ["Historical", "Supernatural", "Action"],
+                "first_published": "2016-02-15",
+                "last_published": "2020-12-04",
+                "books": []
+            },
+            "fullmetal alchemist": {
+                "author": "Arakawa, Hiromu",
+                "total_books": 27,
+                "status": "completed",
+                "description": "Brothers Edward and Alphonse Elric search for the Philosopher's Stone.",
+                "genres": ["Adventure", "Dark Fantasy", "Steampunk"],
+                "first_published": "2001-07-12",
+                "last_published": "2010-06-11",
+                "books": []
+            },
+            "the rising of the shield hero": {
+                "author": "Aneko, Yusagi",
+                "total_books": 22,  # Light novel series
+                "status": "completed",
+                "description": "Naofumi Iwatani is summoned to another world as the Shield Hero.",
+                "genres": ["Isekai", "Fantasy", "Adventure"],
+                "books": []
+            },
+            "spy x family": {
+                "author": "Endo, Tatsuya",
+                "total_books": 13,  # As of 2024
+                "status": "ongoing",
+                "description": "A spy family with secrets must maintain their cover while completing missions.",
+                "genres": ["Comedy", "Action", "Family"],
+                "first_published": "2019-03-25",
+                "books": []
             },
             "blood and ash": {
                 "author": "Jennifer L. Armentrout",
@@ -576,11 +689,32 @@ class SeriesMetadataService:
                 "volumes": volumes
             }
     
-    async def _update_series_in_db(self, series_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _update_series_in_db(self, series_data: Dict[str, Any], session: Session = None) -> Dict[str, Any]:
         """
         Update the database with series information with validation
         """
-        with get_db_session() as session:
+        use_existing_session = session is not None
+        
+        if use_existing_session:
+            # Use the provided session (from CSV import) - don't commit, let the caller control the transaction
+            return await self._update_series_in_session(series_data, session, commit_changes=False)
+        else:
+            # Create a new session for standalone calls - commit the changes
+            with get_db_session() as session:
+                return await self._update_series_in_session(series_data, session, commit_changes=True)
+    
+    async def _update_series_in_session(self, series_data: Dict[str, Any], session: Session, commit_changes: bool = True) -> Dict[str, Any]:
+        """
+        Update the database with series information using provided session
+        
+        Args:
+            series_data: Series information to update
+            session: Database session to use
+            commit_changes: Whether to commit changes (True for standalone calls, False when used within other transactions)
+        """
+        try:
+            print(f"Updating series in database: {series_data['name']} (commit_changes={commit_changes})")
+            
             # Get or create series record
             statement = select(Series).where(Series.name == series_data["name"])
             series = session.exec(statement).first()
@@ -590,11 +724,18 @@ class SeriesMetadataService:
                 select(Book).where(Book.series_name == series_data["name"])
             ).all())
             
-            # Ensure total_books is at least as large as owned books
-            validated_total_books = max(
-                series_data.get("total_books", 0), 
-                owned_books_count
-            )
+            # Use the total from API data if available and reasonable
+            api_total = series_data.get("total_books", 0)
+            
+            # If API gives us a reasonable total (greater than owned), use it
+            # Otherwise, ensure at least as large as owned books
+            if api_total >= owned_books_count:
+                validated_total_books = api_total
+            else:
+                # API data seems incomplete, use owned count as minimum
+                validated_total_books = owned_books_count
+            
+            print(f"Series '{series_data['name']}': api_total={api_total}, validated_total_books={validated_total_books}, owned_books={owned_books_count}")
             
             if not series:
                 # Convert date strings to date objects for new series
@@ -626,15 +767,18 @@ class SeriesMetadataService:
                     last_updated=date.today()
                 )
                 session.add(series)
-                session.commit()
-                session.refresh(series)
+                if commit_changes:
+                    session.commit()
+                    session.refresh(series)
+                else:
+                    session.flush()  # Make changes visible within transaction
             else:
                 # Update existing series with validation
                 series.author = series_data.get("author") or series.author
                 series.description = series_data.get("description") or series.description
-                # Only update total_books if the new value is larger or if current is 0
-                if validated_total_books > series.total_books or series.total_books == 0:
-                    series.total_books = validated_total_books
+                # Always update total_books if we have better data from API
+                # This ensures we get accurate counts like Bleach = 74
+                series.total_books = validated_total_books
                 series.publisher = series_data.get("publisher") or series.publisher
                 series.status = series_data.get("status", series.status)
                 series.genres = json.dumps(series_data.get("genres", json.loads(series.genres) if series.genres else []))
@@ -659,7 +803,10 @@ class SeriesMetadataService:
                     series.last_published = last_pub or series.last_published
                 series.last_updated = date.today()
                 session.add(series)
-                session.commit()
+                if commit_changes:
+                    session.commit()
+                else:
+                    session.flush()  # Make changes visible within transaction
             
             # Update volumes
             for volume_data in series_data.get("volumes", []):
@@ -700,14 +847,23 @@ class SeriesMetadataService:
                     volume.cover_url = volume_data.get("cover_url") or volume.cover_url
                     session.add(volume)
             
-            session.commit()
+            if commit_changes:
+                session.commit()
+            else:
+                session.flush()  # Make changes visible within transaction
             
+            print(f"Successfully updated series '{series_data['name']}' with total_books={series.total_books}")
             return {
                 "success": True,
                 "message": f"Updated series '{series_data['name']}'",
                 "series_id": series.id,
                 "volumes_updated": len(series_data.get("volumes", []))
             }
+            
+        except Exception as e:
+            print(f"Error updating series in database: {e}")
+            session.rollback()
+            raise
     
     async def validate_and_fix_series_data(self, series_name: str = None) -> Dict[str, Any]:
         """

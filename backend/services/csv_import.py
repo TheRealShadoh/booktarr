@@ -349,6 +349,19 @@ class CSVImportService:
             statement = select(Series).where(Series.name == series_name)
             existing_series = session.exec(statement).first()
             
+            try:
+                print(f"SERIES CHECK for '{series_name}':")
+                print(f"  - existing_series found: {existing_series is not None}")
+                if existing_series:
+                    print(f"  - existing total_books: {existing_series.total_books}")
+                    print(f"  - existing status: {existing_series.status}")
+            except UnicodeEncodeError:
+                print(f"SERIES CHECK for <series with unicode chars>:")
+                print(f"  - existing_series found: {existing_series is not None}")
+                if existing_series:
+                    print(f"  - existing total_books: {existing_series.total_books}")
+                    print(f"  - existing status: {existing_series.status}")
+            
             series_created = False
             if not existing_series:
                 # Create basic series record
@@ -364,11 +377,25 @@ class CSVImportService:
                 session.add(series)
                 session.commit()
                 series_created = True
-                print(f"Created new series record: {series_name}")
+                print(f"Created new series record: {series_name} with initial total_books=1")
                 
             # Only fetch metadata once per series during import session
-            if series_created or series_name not in self._series_metadata_fetched:
+            should_fetch_metadata = series_created or series_name not in self._series_metadata_fetched
+            try:
+                print(f"METADATA DECISION for '{series_name}':")
+                print(f"  - series_created: {series_created}")
+                print(f"  - series_name in _series_metadata_fetched: {series_name in self._series_metadata_fetched}")
+                print(f"  - should_fetch_metadata: {should_fetch_metadata}")
+                print(f"  - _series_metadata_fetched contents: {list(self._series_metadata_fetched)}")
+            except UnicodeEncodeError:
+                print(f"METADATA DECISION for <series with unicode chars>:")
+                print(f"  - series_created: {series_created}")
+                print(f"  - should_fetch_metadata: {should_fetch_metadata}")
+                print(f"  - _series_metadata_fetched length: {len(self._series_metadata_fetched)}")
+            
+            if should_fetch_metadata:
                 self._series_metadata_fetched.add(series_name)
+                print(f"Starting metadata fetch for series: {series_name}")
                 
                 # Import series metadata service
                 try:
@@ -379,16 +406,35 @@ class CSVImportService:
                 # Fetch metadata using local-first approach (checks database first)
                 try:
                     metadata_service = SeriesMetadataService()
+                    print(f"Calling fetch_and_update_series for: {series_name}")
+                    
                     # Use local-first approach: checks database first, then external APIs if needed
-                    result = await metadata_service.fetch_and_update_series(series_name, authors[0] if authors else None)
+                    # CRITICAL: Pass the same session to ensure updates are visible
+                    # Always force external fetch during import to get accurate volume counts
+                    force_external = True  # Always fetch to get accurate counts like Bleach=74
+                    result = await metadata_service.fetch_and_update_series(series_name, authors[0] if authors else None, force_external=force_external, session=session)
                     await metadata_service.close()
-                    print(f"Successfully processed metadata for series: {series_name}")
+                    
+                    print(f"Metadata fetch completed for {series_name}, result keys: {list(result.keys()) if result else 'None'}")
+                    
+                    # Verify the series was actually updated
+                    updated_series = session.exec(select(Series).where(Series.name == series_name)).first()
+                    if updated_series:
+                        print(f"After metadata update - {series_name}: total_books={updated_series.total_books}, status={updated_series.status}")
+                    else:
+                        print(f"Could not find series {series_name} after metadata update")
+                        
                 except Exception as e:
-                    print(f"Warning: Failed to fetch series metadata for '{series_name}': {e}")
+                    print(f"Failed to fetch series metadata for '{series_name}': {e}")
+                    import traceback
+                    traceback.print_exc()
                     # Continue without failing the book import
                     
         except Exception as e:
-            print(f"Error ensuring series exists: {e}")
+            try:
+                print(f"Error ensuring series exists: {str(e)}")
+            except UnicodeEncodeError:
+                print(f"Error ensuring series exists: <Unicode encoding error>")
             # Don't fail the book import if series creation fails
     
     async def close(self):

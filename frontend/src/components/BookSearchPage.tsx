@@ -383,17 +383,17 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded, initialSea
 
                           {result.book.categories && result.book.categories.length > 0 && (
                             <div className="flex flex-wrap gap-1 mb-3">
-                              {result.book.categories.slice(0, 3).map((category, index) => (
+                              {result.book.categories.slice(0, 3).filter(cat => cat && cat.trim()).map((category, index) => (
                                 <span 
-                                  key={index} 
+                                  key={`${result.book.isbn}-cat-${index}-${category}`} 
                                   className="px-2 py-1 bg-booktarr-surface2 text-booktarr-textSecondary text-xs rounded-full border border-booktarr-border"
                                 >
                                   {category}
                                 </span>
                               ))}
-                              {result.book.categories.length > 3 && (
-                                <span className="px-2 py-1 bg-booktarr-surface2 text-booktarr-textSecondary text-xs rounded-full border border-booktarr-border">
-                                  +{result.book.categories.length - 3}
+                              {result.book.categories.filter(cat => cat && cat.trim()).length > 3 && (
+                                <span key={`${result.book.isbn}-more-cats`} className="px-2 py-1 bg-booktarr-surface2 text-booktarr-textSecondary text-xs rounded-full border border-booktarr-border">
+                                  +{result.book.categories.filter(cat => cat && cat.trim()).length - 3}
                                 </span>
                               )}
                             </div>
