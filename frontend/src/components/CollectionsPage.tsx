@@ -48,7 +48,7 @@ const CollectionsPage: React.FC<CollectionsPageProps> = ({
 
   // Default system collections
   const systemCollections: Collection[] = useMemo(() => {
-    const allBooks = Object.values(books).flat();
+    const allBooks = Object.values(books || {}).flat();
     return [
       {
         id: 'favorites',
@@ -56,9 +56,9 @@ const CollectionsPage: React.FC<CollectionsPageProps> = ({
         description: 'Your favorite books',
         color: '#EF4444',
         icon: 'heart',
-        bookCount: allBooks.filter(book => book.personal_rating && book.personal_rating >= 4).length,
+        bookCount: allBooks.filter(book => book && book.personal_rating && book.personal_rating >= 4).length,
         isSystem: true,
-        books: allBooks.filter(book => book.personal_rating && book.personal_rating >= 4).map(book => book.isbn),
+        books: allBooks.filter(book => book && book.personal_rating && book.personal_rating >= 4).map(book => book.isbn || ''),
         tags: [],
         createdDate: new Date(),
         lastModified: new Date()
@@ -69,9 +69,9 @@ const CollectionsPage: React.FC<CollectionsPageProps> = ({
         description: 'Books you are currently reading',
         color: '#10B981',
         icon: 'book-open',
-        bookCount: allBooks.filter(book => book.reading_status === 'reading').length,
+        bookCount: allBooks.filter(book => book && book.reading_status === 'reading').length,
         isSystem: true,
-        books: allBooks.filter(book => book.reading_status === 'reading').map(book => book.isbn),
+        books: allBooks.filter(book => book && book.reading_status === 'reading').map(book => book.isbn || ''),
         tags: [],
         createdDate: new Date(),
         lastModified: new Date()
@@ -82,9 +82,9 @@ const CollectionsPage: React.FC<CollectionsPageProps> = ({
         description: 'Books on your reading list',
         color: '#F59E0B',
         icon: 'bookmark',
-        bookCount: allBooks.filter(book => book.reading_status === 'unread' || book.reading_status === 'wishlist').length,
+        bookCount: allBooks.filter(book => book && (book.reading_status === 'unread' || book.reading_status === 'wishlist')).length,
         isSystem: true,
-        books: allBooks.filter(book => book.reading_status === 'unread' || book.reading_status === 'wishlist').map(book => book.isbn),
+        books: allBooks.filter(book => book && (book.reading_status === 'unread' || book.reading_status === 'wishlist')).map(book => book.isbn || ''),
         tags: [],
         createdDate: new Date(),
         lastModified: new Date()
@@ -95,9 +95,9 @@ const CollectionsPage: React.FC<CollectionsPageProps> = ({
         description: 'Books you have finished reading',
         color: '#8B5CF6',
         icon: 'check-circle',
-        bookCount: allBooks.filter(book => book.reading_status === 'read').length,
+        bookCount: allBooks.filter(book => book && book.reading_status === 'read').length,
         isSystem: true,
-        books: allBooks.filter(book => book.reading_status === 'read').map(book => book.isbn),
+        books: allBooks.filter(book => book && book.reading_status === 'read').map(book => book.isbn || ''),
         tags: [],
         createdDate: new Date(),
         lastModified: new Date()
@@ -109,6 +109,7 @@ const CollectionsPage: React.FC<CollectionsPageProps> = ({
         color: '#06B6D4',
         icon: 'clock',
         bookCount: allBooks.filter(book => {
+          if (!book || !book.added_date) return false;
           const addedDate = new Date(book.added_date);
           const thirtyDaysAgo = new Date();
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -116,11 +117,12 @@ const CollectionsPage: React.FC<CollectionsPageProps> = ({
         }).length,
         isSystem: true,
         books: allBooks.filter(book => {
+          if (!book || !book.added_date) return false;
           const addedDate = new Date(book.added_date);
           const thirtyDaysAgo = new Date();
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
           return addedDate > thirtyDaysAgo;
-        }).map(book => book.isbn),
+        }).map(book => book.isbn || ''),
         tags: [],
         createdDate: new Date(),
         lastModified: new Date()
@@ -135,8 +137,14 @@ const CollectionsPage: React.FC<CollectionsPageProps> = ({
   // Extract all unique tags from books
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
-    Object.values(books).flat().forEach(book => {
-      book.categories.forEach(category => tagSet.add(category));
+    Object.values(books || {}).flat().forEach(book => {
+      if (book && book.categories && Array.isArray(book.categories)) {
+        book.categories.forEach(category => {
+          if (category && typeof category === 'string') {
+            tagSet.add(category);
+          }
+        });
+      }
     });
     return Array.from(tagSet).sort();
   }, [books]);
@@ -186,8 +194,8 @@ const CollectionsPage: React.FC<CollectionsPageProps> = ({
     const collection = allCollections.find(c => c.id === selectedCollection);
     if (!collection) return [];
 
-    const allBooks = Object.values(books).flat();
-    return allBooks.filter(book => collection.books.includes(book.isbn));
+    const allBooks = Object.values(books || {}).flat();
+    return allBooks.filter(book => book && book.isbn && collection.books.includes(book.isbn));
   };
 
   const getIconElement = (iconName: string, className: string = "w-5 h-5") => {
@@ -495,8 +503,8 @@ const CollectionsPage: React.FC<CollectionsPageProps> = ({
             ) : (
               <div className="flex flex-wrap gap-2">
                 {allTags.map(tag => {
-                  const bookCount = Object.values(books).flat().filter(book => 
-                    book.categories.includes(tag)
+                  const bookCount = Object.values(books || {}).flat().filter(book => 
+                    book && book.categories && Array.isArray(book.categories) && book.categories.includes(tag)
                   ).length;
                   
                   return (

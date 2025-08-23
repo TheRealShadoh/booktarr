@@ -51,7 +51,7 @@ test.describe.serial('BookTarr Clear and Import Tests', () => {
     // Test the import API endpoint by uploading the HandyLib.csv file using the same endpoint as manual import
     const fs = require('fs');
     const path = require('path');
-    const csvPath = '/home/chris/git/booktarr/sample_data/HandyLib.csv';
+    const csvPath = 'C:\\Users\\chris\\git\\booktarr\\sample_data\\HandyLib.csv';
     
     // Read the actual file as buffer
     const fileBuffer = fs.readFileSync(csvPath);
@@ -173,7 +173,7 @@ test.describe.serial('BookTarr Clear and Import Tests', () => {
     console.log('Step 3: Importing CSV file using backend API');
     
     const fs = require('fs');
-    const csvPath = '/home/chris/git/booktarr/sample_data/HandyLib.csv';
+    const csvPath = 'C:\\Users\\chris\\git\\booktarr\\sample_data\\HandyLib.csv';
     const fileBuffer = fs.readFileSync(csvPath);
     
     const importResponse = await page.request.post('/api/books/import', {

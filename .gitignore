@@ -26,7 +26,7 @@ dmypy.json
 *.egg-info/
 dist/
 build/
-
+backend/static/*
 # Node/React
 node_modules/
 npm-debug.log*

@@ -5,7 +5,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Book } from '../types';
 import LoadingSpinner from './LoadingSpinner';
 import Toast from './Toast';
-import IsolatedScanner from './IsolatedScanner';
+import SimpleBarcodeScanner from './SimpleBarcodeScanner';
 import ScanReviewPage from './ScanReviewPage';
 import { useStateManager } from '../hooks/useStateManager';
 
@@ -487,7 +487,7 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded, initialSea
 
       {/* Barcode Scanner */}
       {showScanner && (
-        <IsolatedScanner
+        <SimpleBarcodeScanner
           onComplete={handleScanComplete}
           onClose={() => setShowScanner(false)}
         />

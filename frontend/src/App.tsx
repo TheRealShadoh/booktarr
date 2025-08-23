@@ -23,6 +23,7 @@ import PWAUpdateNotification from './components/PWAUpdateNotification';
 import SeriesManagement from './components/SeriesManagement';
 import SeriesDetailsPage from './components/SeriesDetailsPage';
 import LogsPage from './components/LogsPage';
+import ReleaseCalendarPage from './components/ReleaseCalendarPage';
 import { AppProvider } from './context/AppContext';
 import { useStateManager } from './hooks/useStateManager';
 import './styles/tailwind.css';
@@ -220,8 +221,27 @@ const AppInner: React.FC = () => {
         );
       case 'logs':
         return <LogsPage />;
+      case 'release-calendar':
+        return (
+          <ReleaseCalendarPage
+            books={Object.values(state.filteredBooks).flat()}
+            loading={state.loading}
+            error={state.error}
+          />
+        );
       default:
-        return null;
+        // Fallback to library for unknown pages
+        console.warn(`Unknown page: ${state.currentPage}, redirecting to library`);
+        setCurrentPage('library');
+        return (
+          <BookList
+            books={state.filteredBooks}
+            loading={state.loading}
+            error={state.error}
+            onRefresh={loadBooks}
+            onBookClick={handleBookClick}
+          />
+        );
     }
   };
 

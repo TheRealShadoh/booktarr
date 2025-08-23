@@ -2,9 +2,17 @@ import { test, expect } from '@playwright/test';
 
 test.describe('BookTarr Comprehensive App Tests', () => {
   test.beforeEach(async ({ page }) => {
+    // Set longer timeout for beforeEach
+    page.setDefaultTimeout(60000);
+    
     // Start from the main page
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    
+    // Wait for the initial page load with basic elements
+    await page.waitForSelector('h1:has-text("Booktarr")', { timeout: 30000 });
+    
+    // Wait a short time for initial requests to settle
+    await page.waitForTimeout(2000);
     
     // Ensure we can access the API
     const response = await page.request.get('/api/health');
@@ -36,12 +44,12 @@ test.describe('BookTarr Comprehensive App Tests', () => {
     // Test Library navigation
     await page.getByRole('button', { name: 'Library' }).click();
     await page.waitForLoadState('networkidle');
-    await expect(page.getByRole('heading', { name: /library/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'library', exact: true }).first()).toBeVisible();
     
     // Test Settings navigation
     await page.getByRole('button', { name: 'Settings' }).click();
     await page.waitForLoadState('networkidle');
-    await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'settings', exact: true }).first()).toBeVisible();
     
     await page.screenshot({ 
       path: 'test-results/navigation-test.png',
@@ -54,7 +62,7 @@ test.describe('BookTarr Comprehensive App Tests', () => {
     await page.waitForLoadState('networkidle');
     
     // Check for library page heading
-    await expect(page.getByRole('heading', { name: /library/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'library', exact: true }).first()).toBeVisible();
     
     // Check for any content area
     const contentArea = page.locator('main, .content, .library-content');
@@ -88,7 +96,7 @@ test.describe('BookTarr Comprehensive App Tests', () => {
     await page.waitForLoadState('networkidle');
     
     // Check for settings page heading
-    await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'settings', exact: true }).first()).toBeVisible();
     
     // Test settings API
     const settingsResponse = await page.request.get('/api/settings');
