@@ -23,8 +23,13 @@ class AniListClient:
         """
         Search for a manga series and get complete volume information
         """
+        # Handle special cases for well-known series
+        search_term = self._normalize_series_name(series_name)
+        
+        # AniList doesn't support author filtering in the Media query,
+        # so we always use the same query and ignore the author parameter
         query = """
-        query ($search: String, $author: String) {
+        query ($search: String) {
           Media(search: $search, type: MANGA) {
             id
             title {
@@ -68,15 +73,9 @@ class AniListClient:
         }
         """
         
-        # Handle special cases for well-known series
-        search_term = self._normalize_series_name(series_name)
-        
         variables = {
             "search": search_term
         }
-        
-        if author:
-            variables["author"] = author
         
         try:
             if not self.session:

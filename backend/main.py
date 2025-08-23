@@ -43,11 +43,21 @@ async def lifespan(app: FastAPI):
     except:
         # If API not ready yet, register directly
         from jobs.metadata_update_job import metadata_update_job
+        from jobs.series_metadata_job import series_metadata_update_job
+        
         scheduler.register_job(
             name="metadata_update",
             description="Updates missing metadata for all books from online sources",
             interval_hours=4.0,
             job_function=metadata_update_job,
+            enabled=True
+        )
+        
+        scheduler.register_job(
+            name="series_metadata_update",
+            description="Updates series metadata from external sources (AniList, Google Books)",
+            interval_hours=168.0,  # Weekly by default
+            job_function=series_metadata_update_job,
             enabled=True
         )
     

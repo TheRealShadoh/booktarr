@@ -3,10 +3,13 @@ Series Metadata Service for fetching comprehensive series information from exter
 """
 import json
 import re
+import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime, date
 from sqlmodel import Session, select
 import httpx
+
+logger = logging.getLogger(__name__)
 
 try:
     from backend.models import Series, SeriesVolume, Book
@@ -25,12 +28,21 @@ class SeriesMetadataService:
         self.google_client = GoogleBooksClient()
         self.anilist_client = AniListClient()
     
-    async def fetch_and_update_series(self, series_name: str, author: str = None) -> Dict[str, Any]:
+    async def fetch_and_update_series(self, series_name: str, author: str = None, force_external: bool = False) -> Dict[str, Any]:
         """
-        Fetch comprehensive series information from external APIs and update the database
+        Fetch comprehensive series information with local-first approach
         """
         try:
-            # Try multiple sources in order of preference
+            # STEP 1: Check local database first (unless force_external is True)
+            if not force_external:
+                local_data = await self._get_local_series_metadata(series_name)
+                if local_data and self._is_metadata_current(local_data):
+                    logger.info(f"Using cached metadata for series: {series_name}")
+                    return local_data
+                elif local_data:
+                    logger.info(f"Local metadata found but outdated for series: {series_name}")
+            
+            # STEP 2: Fetch from external APIs if not in cache or force_external=True
             series_data = None
             
             # Check if this looks like a manga series (Japanese characters or known manga authors)
@@ -56,13 +68,100 @@ class SeriesMetadataService:
                 # Create basic series data from owned books
                 series_data = await self._create_basic_series_data(series_name, author)
             
-            # Update database with fetched information
-            return await self._update_series_in_db(series_data)
+            # STEP 3: Update database with fetched information (this persists the metadata)
+            result = await self._update_series_in_db(series_data)
+            logger.info(f"Updated and cached metadata for series: {series_name}")
+            return result
             
         except Exception as e:
-            print(f"Error fetching series metadata for '{series_name}': {e}")
-            # Fallback to basic data from owned books
+            logger.error(f"Error fetching series metadata for '{series_name}': {e}")
+            # Fallback to local data if available, then basic data
+            local_data = await self._get_local_series_metadata(series_name)
+            if local_data:
+                logger.info(f"Using cached metadata as fallback for series: {series_name}")
+                return local_data
             return await self._create_basic_series_data(series_name, author)
+    
+    async def _get_local_series_metadata(self, series_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Get series metadata from local database
+        """
+        try:
+            with get_db_session() as session:
+                # Get series record
+                statement = select(Series).where(Series.name == series_name)
+                series = session.exec(statement).first()
+                
+                if not series:
+                    return None
+                
+                # Get volumes for this series
+                statement = select(SeriesVolume).where(SeriesVolume.series_id == series.id)
+                volumes = session.exec(statement).all()
+                
+                # Convert to the standard format
+                volume_list = []
+                for volume in volumes:
+                    volume_list.append({
+                        "position": volume.position,
+                        "title": volume.title,
+                        "isbn_13": volume.isbn_13,
+                        "isbn_10": volume.isbn_10,
+                        "publisher": volume.publisher,
+                        "published_date": volume.published_date.isoformat() if volume.published_date else None,
+                        "page_count": volume.page_count,
+                        "description": volume.description,
+                        "cover_url": volume.cover_url,
+                        "status": volume.status
+                    })
+                
+                return {
+                    "name": series.name,
+                    "author": series.author,
+                    "description": series.description,
+                    "total_books": series.total_books,
+                    "status": series.status,
+                    "publisher": series.publisher,
+                    "genres": json.loads(series.genres) if series.genres else [],
+                    "tags": json.loads(series.tags) if series.tags else [],
+                    "first_published": series.first_published.isoformat() if series.first_published else None,
+                    "last_published": series.last_published.isoformat() if series.last_published else None,
+                    "last_updated": series.last_updated.isoformat() if series.last_updated else None,
+                    "volumes": volume_list
+                }
+                
+        except Exception as e:
+            logger.error(f"Error getting local series metadata for '{series_name}': {e}")
+            return None
+    
+    def _is_metadata_current(self, metadata: Dict[str, Any], max_age_days: int = 30) -> bool:
+        """
+        Check if metadata is current (not older than max_age_days)
+        """
+        try:
+            last_updated = metadata.get("last_updated")
+            if not last_updated:
+                return False  # No update timestamp, consider outdated
+                
+            last_update_date = datetime.fromisoformat(last_updated)
+            age_days = (datetime.now() - last_update_date).days
+            
+            # Also consider metadata current if it has good coverage
+            has_good_coverage = (
+                metadata.get("total_books", 0) > 0 and
+                metadata.get("description") and
+                metadata.get("volumes") and
+                len(metadata.get("volumes", [])) > 0
+            )
+            
+            # If metadata has good coverage, allow longer cache time (60 days)
+            max_age = 60 if has_good_coverage else max_age_days
+            
+            return age_days < max_age
+            
+        except Exception as e:
+            logger.error(f"Error checking metadata age: {e}")
+            return False
     
     async def _fetch_from_google_books(self, series_name: str, author: str = None) -> Optional[Dict[str, Any]]:
         """
@@ -220,14 +319,31 @@ class SeriesMetadataService:
         # Check for known manga authors (could be expanded)
         if author:
             author_lower = author.lower()
+            
+            # Normalize author name to handle different formats
+            # Convert "Kubo, Tite" to "tite kubo" for matching
+            if ',' in author_lower:
+                parts = [part.strip() for part in author_lower.split(',')]
+                if len(parts) == 2:
+                    # Reverse order: "last, first" -> "first last"
+                    author_normalized = f"{parts[1]} {parts[0]}"
+                else:
+                    author_normalized = author_lower
+            else:
+                author_normalized = author_lower
+            
             manga_author_indicators = [
                 # Common Japanese name patterns
                 "sensei", "san", "kun", "chan",
-                # Known manga authors
+                # Known manga authors (normalized format)
                 "tite kubo", "eiichiro oda", "masashi kishimoto", 
-                "naoshi komi", "tatsuya endo", "gege akutami"
+                "naoshi komi", "tatsuya endo", "gege akutami",
+                "akira toriyama", "hiromu arakawa", "tsugumi ohba"
             ]
-            if any(indicator in author_lower for indicator in manga_author_indicators):
+            
+            # Check both original and normalized author names
+            if any(indicator in author_lower for indicator in manga_author_indicators) or \
+               any(indicator in author_normalized for indicator in manga_author_indicators):
                 return True
         
         return False

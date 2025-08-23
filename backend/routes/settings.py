@@ -21,6 +21,13 @@ class SettingsResponse(BaseModel):
     default_language: str = "en"
     enable_external_metadata: bool = True
     external_metadata_timeout_until: Optional[str] = None  # ISO datetime string
+    
+    # Metadata update scheduling settings
+    enable_metadata_scheduler: bool = True
+    metadata_update_interval: str = "weekly"  # "daily", "weekly", "monthly"
+    series_metadata_update_interval: str = "weekly"  # "daily", "weekly", "monthly"
+    last_metadata_update: Optional[str] = None  # ISO datetime string
+    last_series_metadata_update: Optional[str] = None  # ISO datetime string
 
 
 def load_settings() -> Dict[str, Any]:

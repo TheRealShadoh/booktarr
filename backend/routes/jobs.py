@@ -6,6 +6,8 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from services.job_scheduler import scheduler
 from jobs.metadata_update_job import metadata_update_job
+from jobs.series_metadata_job import series_metadata_update_job
+from routes.settings import load_settings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -81,13 +83,39 @@ async def trigger_job(job_name: str) -> JobTriggerResponse:
 async def register_default_jobs() -> Dict[str, Any]:
     """Register default jobs (called on startup)"""
     try:
+        # Load settings to get user preferences
+        settings = load_settings()
+        
+        # Convert interval settings to hours
+        interval_mapping = {
+            "daily": 24.0,
+            "weekly": 168.0,  # 24 * 7
+            "monthly": 720.0  # 24 * 30
+        }
+        
+        metadata_interval = interval_mapping.get(
+            settings.get("metadata_update_interval", "weekly"), 168.0
+        )
+        series_metadata_interval = interval_mapping.get(
+            settings.get("series_metadata_update_interval", "weekly"), 168.0
+        )
+        
         # Register metadata update job
         scheduler.register_job(
             name="metadata_update",
             description="Updates missing metadata for all books from online sources",
-            interval_hours=4.0,
+            interval_hours=metadata_interval,
             job_function=metadata_update_job,
-            enabled=True
+            enabled=settings.get("enable_metadata_scheduler", True)
+        )
+        
+        # Register series metadata update job
+        scheduler.register_job(
+            name="series_metadata_update",
+            description="Updates series metadata from external sources (AniList, Google Books)",
+            interval_hours=series_metadata_interval,
+            job_function=series_metadata_update_job,
+            enabled=settings.get("enable_metadata_scheduler", True)
         )
         
         return {
