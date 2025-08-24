@@ -100,7 +100,7 @@ app.include_router(jobs_router, prefix="/api")
 app.include_router(logs_router, prefix="/api")
 app.include_router(import_router, prefix="/api/import")
 app.include_router(amazon_router, prefix="/api/amazon")
-app.include_router(advanced_search_router, prefix="/api/search")
+app.include_router(advanced_search_router, prefix="/api/advanced-search")
 app.include_router(calendar_router, prefix="/api/calendar")
 app.include_router(bulk_router, prefix="/api/bulk")
 
@@ -140,4 +140,4 @@ async def redirect_settings():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
+    uvicorn.run(app, host="0.0.0.0", port=8002, reload=False)

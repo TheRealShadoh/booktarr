@@ -1,6 +1,55 @@
-# 🧠 Prompt: Build a Python Backend for a Book Collection App with Metadata Enrichment, Local Caching, and Edition Tracking
+# 📚 BookTarr: Full-Stack Book Collection Management System
+
+**Current Status**: Feature-complete book collection management system with React frontend, Python FastAPI backend, and comprehensive testing suite.
 
 **IMPORTANT**: When working on this codebase, always use the `library-app-developer` agent for comprehensive code reviews and improvements. This agent will analyze the code, create detailed task lists, and ensure all tests use real sample data from `sample_data/HandyLib.csv`.
+
+## 🏗️ System Architecture (Current Implementation)
+
+### Technology Stack
+- **Frontend**: React 18 + TypeScript + Tailwind CSS + React Query
+- **Backend**: Python FastAPI + SQLModel + SQLite
+- **Testing**: Playwright E2E + pytest + React Testing Library  
+- **Deployment**: Cross-platform development server with dynamic IP detection
+- **Mobile**: Progressive Web App with camera barcode scanning
+
+### Current Feature Status ✅
+- ✅ **Book Management**: Add, edit, delete books with metadata enrichment
+- ✅ **Series Tracking**: Complete series management with volume tracking
+- ✅ **CSV Import**: HandyLib format with metadata enrichment
+- ✅ **Barcode Scanning**: Mobile camera support with ISBN detection  
+- ✅ **Search & Filter**: Advanced search across books, series, authors
+- ✅ **Reading Progress**: Track reading status, progress, ratings
+- ✅ **Settings Management**: Configurable metadata sources and preferences
+- ✅ **Dynamic IP Support**: Cross-platform networking with HTTPS
+- ✅ **Comprehensive Testing**: E2E tests with visual verification
+
+### Architecture Diagram
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    BookTarr System                         │
+├─────────────────────┬───────────────────────────────────────┤
+│   Frontend (React)  │          Backend (FastAPI)           │
+│                     │                                       │
+│ ┌─────────────────┐ │ ┌───────────────┐ ┌─────────────────┐ │
+│ │ Component Layer │ │ │   API Routes  │ │   Data Models   │ │
+│ │ - BookCard      │ │ │ - Books       │ │ - Book          │ │  
+│ │ - SeriesCard    │ │ │ - Series      │ │ - Edition       │ │
+│ │ - Scanner       │ │ │ - Reading     │ │ - Series        │ │
+│ │ - Settings      │ │ │ - Import      │ │ - Progress      │ │
+│ └─────────────────┘ │ └───────────────┘ └─────────────────┘ │
+│                     │                                       │
+│ ┌─────────────────┐ │ ┌───────────────┐ ┌─────────────────┐ │
+│ │ Service Layer   │ │ │   Services    │ │   External APIs │ │
+│ │ - API Client    │ │ │ - Metadata    │ │ - Google Books  │ │
+│ │ - State Mgmt    │ │ │ - Import      │ │ - OpenLibrary   │ │
+│ │ - Offline Queue │ │ │ - Series      │ │ - AniList       │ │
+│ └─────────────────┘ │ └───────────────┘ └─────────────────┘ │
+├─────────────────────┴───────────────────────────────────────┤
+│                    Database Layer                          │
+│   SQLite with SQLModel ORM - Books, Series, Progress       │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## 🔧 MCP Server Configuration & Best Practices
 
@@ -182,7 +231,52 @@ Invoke the `@agent-design-review` subagent for thorough design validation when:
 - Before finalizing PRs with visual changes
 - Needing comprehensive accessibility and responsiveness testing
 
-You are building a **Python backend** for a book-tracking application that allows users to manage their book collections, enrich metadata from public and private sources, and track ownership status for each edition. All functions must return structured **JSON**, and all logic should be **testable** and respect API rate limits.
+## 🚀 Cross-Platform Development & Deployment
+
+### Current Development Workflow
+1. **Dynamic IP Detection**: System automatically detects and configures for current network
+2. **Cross-Platform Startup**: Node.js/Python scripts work on Windows, Linux, macOS, containers
+3. **HTTPS Generation**: Automatic SSL certificate creation for mobile camera access
+4. **Hot Reload**: Both frontend and backend support live development
+5. **Comprehensive Testing**: Playwright E2E tests with visual verification
+
+### Development Commands
+```bash
+# Cross-platform startup (replaces .bat/.ps1 files)
+npm run dev                    # Start full development environment
+npm run dev:backend           # Backend only  
+npm run dev:frontend          # Frontend only
+npm run test:e2e              # Run E2E test suite
+
+# Production build
+npm run build                 # Build optimized frontend
+npm run start:prod           # Production server
+
+# Testing & validation  
+npm run test                 # All tests (unit + E2E)
+npm run validate            # System health check
+```
+
+### Network Architecture (Current)
+```
+Mobile Device (Any IP)
+    ↓ HTTPS (auto-generated cert)
+Frontend Server (Dynamic IP:3000)
+    ↓ HTTP Proxy (auto-configured)  
+Backend Server (0.0.0.0:8000)
+    ↓ API Calls
+External Services (Google Books, OpenLibrary, AniList)
+```
+
+### Key Features Implemented ✅
+- ✅ **Dynamic IP Detection**: Works on any network automatically
+- ✅ **SSL Certificate Generation**: Programmatic HTTPS for mobile camera
+- ✅ **Cross-Platform Scripts**: Replace Windows .bat files with Node.js
+- ✅ **Container Ready**: Docker-friendly configuration
+- ✅ **Mobile Optimized**: PWA with offline support and camera scanning
+- ✅ **Comprehensive Testing**: E2E tests covering all major workflows
+
+### Book Collection Management Features ✅
 
 ---
 

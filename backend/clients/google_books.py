@@ -180,6 +180,12 @@ class GoogleBooksClient:
             match5 = pattern5.match(subtitle)
             if match5:
                 return match5.group(2).strip(), int(match5.group(1))
+            
+            # Pattern 6: Subtitle is just a number (common for manga/light novels)
+            if subtitle.strip().isdigit():
+                volume_num = int(subtitle.strip())
+                # Use title as series name
+                return title.strip(), volume_num
         
         # Pattern 5: Check for series mentioned in categories
         categories = volume_info.get("categories", [])

@@ -1,160 +1,344 @@
-# BookTarr - Book Collection Management
+# 📚 BookTarr - Full-Stack Book Collection Management System
 
-A full-stack application for managing book collections with metadata enrichment, local caching, and edition tracking.
+<div align="center">
 
-## Features
+![BookTarr Logo](https://via.placeholder.com/200x100/2563eb/ffffff?text=BookTarr)
 
-- **Multi-source Search**: Search books by ISBN, title, author, or series using Google Books and OpenLibrary APIs
-- **Local-first Caching**: JSON-based caching system for offline access and reduced API calls
-- **Edition Tracking**: Track ownership status ('own', 'want', 'missing') for different book editions
-- **Release Calendar**: Track upcoming releases and recently released books
-- **Metadata Refresh**: Background tasks to refresh stale or incomplete metadata
-- **Rate Limiting**: Respects API rate limits with exponential backoff
-- **React Frontend**: Modern web interface with responsive design
-- **Comprehensive Testing**: Unit tests for all components
+**A modern, feature-complete book collection management system with React frontend, Python FastAPI backend, and comprehensive testing.**
 
-## Quick Start
+[![Node.js](https://img.shields.io/badge/Node.js-16%2B-green)](https://nodejs.org/)
+[![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://www.python.org/)
+[![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Latest-green)](https://fastapi.tiangolo.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Latest-blue)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-### Prerequisites
-- Python 3.8+ with `venv` module
-- Node.js 18+ and npm
+</div>
 
-### Backend Setup
+## ✨ Features
 
-1. **Create and activate virtual environment**
-   ```bash
-   cd backend
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+### 📖 Book Management
+- **Multi-source Search**: Search by ISBN, title, author, or series using Google Books, OpenLibrary, and AniList APIs
+- **Barcode Scanning**: Mobile camera support for ISBN scanning with HTTPS
+- **Metadata Enrichment**: Automatic metadata fetching and enhancement from multiple sources
+- **Series Tracking**: Complete series management with volume tracking and completion status
+- **Reading Progress**: Track reading status, progress, ratings, and notes
 
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+### 🔍 Search & Discovery
+- **Advanced Search**: Filter by genre, author, series, reading status, and more
+- **Intelligent Series Detection**: Automatically detects manga/light novel volume numbers
+- **Cover Art Management**: Automatic cover download, caching, and thumbnail generation
+- **Release Calendar**: Track upcoming releases from tracked series
 
-3. **Start the backend server**
-   ```bash
-   python main.py
-   ```
-   
-   The backend will start on `http://localhost:8000`
+### 📱 Modern Interface
+- **Progressive Web App**: Install as a native app on mobile and desktop
+- **Responsive Design**: Works perfectly on phones, tablets, and desktop
+- **Dark/Light Themes**: Customizable themes and UI preferences
+- **Offline Support**: Works without internet connection using cached data
 
-### Frontend Setup
+### 🔧 Developer Experience
+- **Cross-Platform**: Works on Windows, Linux, macOS, and containers
+- **Dynamic IP Detection**: Automatically configures for any network
+- **HTTPS Development**: Self-signed certificates for mobile camera access
+- **Comprehensive Testing**: E2E tests with Playwright and visual verification
+- **Hot Reload**: Both frontend and backend support live development
 
-1. **Navigate to frontend directory**
-   ```bash
-   cd frontend
-   ```
+## 🚀 Quick Start
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+### One-Command Setup
 
-3. **Start the development server**
-   ```bash
-   npm start
-   ```
-   
-   The frontend will start on `http://localhost:3000`
+```bash
+# Clone the repository
+git clone https://github.com/your-username/booktarr.git
+cd booktarr
 
-### Development Workflow
+# Install all dependencies and start development environment
+npm run dev
+```
 
-1. Start the backend first (it provides the API)
-2. Start the frontend (it will proxy API requests to the backend)
-3. Access the application at `http://localhost:3000`
+That's it! The system will:
+- ✅ Automatically detect your network IP
+- ✅ Generate SSL certificates for HTTPS
+- ✅ Start backend server (FastAPI)
+- ✅ Start frontend server (React + HTTPS)
+- ✅ Configure proxy settings
+- ✅ Open in your browser
 
-### Testing
+### Manual Setup
 
-**Backend Tests**
+If you prefer manual setup:
+
+```bash
+# Install root dependencies
+npm install
+
+# Install frontend dependencies
+cd frontend
+npm install
+cd ..
+
+# Install backend dependencies (Python 3.8+ required)
+cd backend
+pip install -r requirements.txt
+cd ..
+
+# Start development environment
+npm run dev
+```
+
+## 📱 Mobile Access
+
+1. **Start the development server**: `npm run dev`
+2. **Look for the mobile URL**: `https://your-ip:3000`
+3. **Open on your phone**: Navigate to that URL
+4. **Accept certificate warning**: Click through security warnings
+5. **Grant camera permissions**: Enable camera for barcode scanning
+
+The system automatically configures for mobile access with HTTPS and camera support!
+
+## 🏗️ System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    BookTarr System                         │
+├─────────────────────┬───────────────────────────────────────┤
+│   Frontend (React)  │          Backend (FastAPI)           │
+│                     │                                       │
+│ ┌─────────────────┐ │ ┌───────────────┐ ┌─────────────────┐ │
+│ │ Component Layer │ │ │   API Routes  │ │   Data Models   │ │
+│ │ - BookCard      │ │ │ - Books       │ │ - Book          │ │  
+│ │ - SeriesCard    │ │ │ - Series      │ │ - Edition       │ │
+│ │ │ - Scanner     │ │ │ - Reading     │ │ - Series        │ │
+│ │ - Settings      │ │ │ - Import      │ │ - Progress      │ │
+│ └─────────────────┘ │ └───────────────┘ └─────────────────┘ │
+│                     │                                       │
+│ ┌─────────────────┐ │ ┌───────────────┐ ┌─────────────────┐ │
+│ │ Service Layer   │ │ │   Services    │ │   External APIs │ │
+│ │ - API Client    │ │ │ - Metadata    │ │ - Google Books  │ │
+│ │ - State Mgmt    │ │ │ - Import      │ │ - OpenLibrary   │ │
+│ │ - Offline Queue │ │ │ - Series      │ │ - AniList       │ │
+│ └─────────────────┘ │ └───────────────┘ └─────────────────┘ │
+├─────────────────────┴───────────────────────────────────────┤
+│                    Database Layer                          │
+│   SQLite with SQLModel ORM - Books, Series, Progress       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 💻 Development Commands
+
+### Core Commands
+```bash
+npm run dev                    # Start full development environment
+npm run dev:backend           # Backend only  
+npm run dev:frontend          # Frontend only
+npm run build                 # Build for production
+npm run start:prod           # Production server
+```
+
+### Testing & Quality
+```bash
+npm run test                 # All tests (unit + E2E)
+npm run test:e2e            # End-to-end tests with Playwright
+npm run test:backend        # Backend unit tests
+npm run test:frontend       # Frontend unit tests
+npm run validate           # System health check
+```
+
+### Utilities
+```bash
+npm run setup              # Install all dependencies
+npm run cert:generate      # Generate SSL certificates
+npm run cert:clean         # Clean SSL certificates
+npm run clean              # Clean all build artifacts
+```
+
+## 🧪 Testing
+
+BookTarr includes comprehensive testing:
+
+### Backend Tests (pytest)
 ```bash
 cd backend
-source venv/bin/activate
-pytest
+python -m pytest tests/
 ```
 
-**Frontend Tests**
+### Frontend Tests (Playwright E2E)
 ```bash
 cd frontend
-npm test
+npm run test:playwright
 ```
 
-## API Endpoints
+### Visual Testing
+The system includes automated screenshot capture for visual regression testing:
+- Component tests with real data
+- E2E workflow tests
+- Cross-browser compatibility tests
+- Mobile responsive tests
 
-### Search
-- `GET /books/search?q=<query>` - Search books by ISBN, title, author, or series
-
-### Ownership Management
-- `POST /books/editions/{edition_id}/status` - Mark edition as own/want/missing
-- `POST /books/editions/{edition_id}/notes` - Add notes to edition
-- `GET /books/wanted` - Get all wanted books
-- `GET /books/owned` - Get all owned books
-
-### Series & Author Tracking
-- `GET /books/series/{series_name}/missing` - Get missing books from series
-- `GET /books/authors/{author_name}/missing` - Get missing books from author
-- `GET /books/series/{series_name}/upcoming` - Get upcoming releases from series
-- `GET /books/authors/{author_name}/upcoming` - Get upcoming releases from author
-
-### Release Calendar
-- `GET /books/calendar` - Get release calendar
-- `GET /books/recent?days=30` - Get recent releases
-
-### Metadata Management
-- `POST /books/refresh/stale` - Refresh stale metadata
-- `POST /books/refresh/incomplete` - Refresh incomplete metadata
-
-## Architecture
+## 📁 Project Structure
 
 ```
-backend/
-├── models/          # SQLModel database models
-├── clients/         # API clients (Google Books, OpenLibrary, Amazon)
-├── services/        # Business logic services
-├── routes/          # FastAPI route handlers
-├── tests/           # Unit tests
-├── database.py      # Database configuration
-└── main.py          # FastAPI application
+booktarr/
+├── 📁 frontend/              # React TypeScript frontend
+│   ├── 📁 src/
+│   │   ├── 📁 components/    # React components
+│   │   ├── 📁 services/      # API clients and utilities
+│   │   ├── 📁 hooks/         # Custom React hooks
+│   │   └── 📁 types/         # TypeScript definitions
+│   ├── 📁 tests/             # Playwright E2E tests
+│   └── 📄 package.json
+├── 📁 backend/               # Python FastAPI backend
+│   ├── 📁 routes/            # API route handlers
+│   ├── 📁 services/          # Business logic services
+│   ├── 📁 models/            # SQLModel database models
+│   ├── 📁 clients/           # External API clients
+│   ├── 📁 tests/             # Backend unit tests
+│   └── 📄 requirements.txt
+├── 📁 scripts/               # Cross-platform build scripts
+├── 📁 sample_data/           # Sample CSV data for testing
+├── 📄 package.json           # Root package configuration
+└── 📄 README.md
 ```
 
-## Database Schema
+## 🔧 Configuration
 
-- **Book**: Core book information (title, authors, series)
-- **Edition**: Specific editions with ISBNs, formats, publishers
-- **UserEditionStatus**: User ownership status for each edition
+### Environment Variables
 
-## External APIs
+```bash
+# Frontend (.env)
+HTTPS=true                           # Enable HTTPS for mobile camera
+HOST=0.0.0.0                        # Bind to all network interfaces
+REACT_APP_ENABLE_PWA=true           # Enable Progressive Web App
 
-- **Google Books API**: Primary source for book metadata
-- **OpenLibrary API**: Secondary source and additional edition data
-- **Amazon/Audible**: Placeholder for future library sync (requires proper API access)
+# Backend
+DATABASE_URL=sqlite:///booktarr.db   # Database connection
+GOOGLE_BOOKS_API_KEY=your_key_here  # Google Books API (optional)
+```
 
-## Configuration
+### Network Configuration
+The system automatically detects and configures for your current network:
+- ✅ Home WiFi networks (192.168.x.x)
+- ✅ Corporate networks (10.x.x.x)
+- ✅ VPN connections
+- ✅ Mobile hotspots
+- ✅ Docker containers
 
-Environment variables:
-- `DATABASE_URL`: Database connection string
-- `GOOGLE_BOOKS_API_KEY`: Google Books API key (optional but recommended)
-- `CACHE_FILE`: Path to JSON cache file
-- `API_RATE_LIMIT_DELAY`: Delay between API calls
+## 🌐 API Endpoints
 
-## Testing
+### Search & Discovery
+- `GET /api/search/books?query=<query>` - Search books by ISBN, title, or author
+- `GET /api/books/` - Get all books in collection
+- `GET /api/series/` - Get all series with completion status
 
-The application includes comprehensive unit tests:
-- Model tests for database operations
-- Client tests for API interactions (mocked)
-- Service tests for business logic
-- Integration tests for complete workflows
+### Book Management  
+- `POST /api/books/` - Add a new book
+- `PUT /api/books/{book_id}` - Update book information
+- `DELETE /api/books/{book_id}` - Remove book from collection
 
-## Future Enhancements
+### Import & Export
+- `POST /api/books/import` - Import books from CSV
+- `GET /api/books/export` - Export collection to CSV
+- `GET /api/import/history` - View import history
 
-- Amazon/Audible library synchronization
-- CSV import/export functionality
-- Advanced series detection
-- Cover image optimization
-- User authentication system
-- Web interface
+### Reading Progress
+- `PUT /api/reading/progress` - Update reading progress
+- `GET /api/reading/stats` - Get reading statistics
+- `POST /api/reading/books/{isbn}/start-reading` - Start reading a book
 
-## License
+### Settings & Configuration
+- `GET /api/settings/` - Get application settings
+- `PUT /api/settings/` - Update settings
+- `GET /api/health` - Health check endpoint
 
-This project is part of the BookTarr application.
+## 📸 Screenshots
+
+<!-- Screenshots will be added here -->
+
+### Desktop Interface
+![Desktop Library View](screenshots/desktop-library.png)
+![Desktop Series View](screenshots/desktop-series.png)
+
+### Mobile Interface  
+![Mobile Library](screenshots/mobile-library.png)
+![Barcode Scanner](screenshots/mobile-scanner.png)
+
+### Book Management
+![Book Details](screenshots/book-details.png)
+![Metadata Editor](screenshots/metadata-editor.png)
+
+## 🐳 Docker Support
+
+```bash
+# Build and run with Docker Compose
+docker-compose up --build
+
+# Or use the provided Dockerfile
+docker build -t booktarr .
+docker run -p 3000:3000 -p 8000:8000 booktarr
+```
+
+## 🤝 Contributing
+
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Run tests**: `npm run test`
+4. **Commit changes**: `git commit -m 'Add amazing feature'`
+5. **Push to branch**: `git push origin feature/amazing-feature`
+6. **Open a Pull Request**
+
+### Development Guidelines
+- Write tests for new features
+- Follow TypeScript and Python type hints
+- Use the provided linting and formatting tools
+- Update documentation for new features
+
+## 📋 Roadmap
+
+### v1.1 (Next Release)
+- [ ] Advanced search filters
+- [ ] Collection analytics and insights
+- [ ] Enhanced mobile PWA features
+- [ ] Docker production deployment
+
+### v1.2 (Future)
+- [ ] Multi-user support with authentication
+- [ ] Cloud sync and backup
+- [ ] Advanced recommendation engine
+- [ ] Community features and sharing
+
+### v2.0 (Long-term)
+- [ ] Plugin system for custom metadata sources
+- [ ] Advanced cataloging features
+- [ ] Integration with library systems
+- [ ] AI-powered book recommendations
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **Google Books API** - Primary metadata source
+- **OpenLibrary** - Additional book data
+- **AniList** - Manga and light novel metadata
+- **React Community** - Frontend framework and ecosystem
+- **FastAPI** - Modern Python web framework
+- **Playwright** - E2E testing framework
+
+## 💬 Support
+
+- 📧 **Email**: support@booktarr.dev
+- 💬 **Discord**: [BookTarr Community](https://discord.gg/booktarr)
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/your-username/booktarr/issues)
+- 📖 **Documentation**: [docs.booktarr.dev](https://docs.booktarr.dev)
+
+---
+
+<div align="center">
+
+**Built with ❤️ by the BookTarr team**
+
+[![Follow on GitHub](https://img.shields.io/github/followers/your-username?style=social)](https://github.com/your-username)
+[![Star on GitHub](https://img.shields.io/github/stars/your-username/booktarr?style=social)](https://github.com/your-username/booktarr)
+
+</div>

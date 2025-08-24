@@ -3,7 +3,7 @@
 ## 📊 Overview
 This document tracks all development tasks, bug fixes, and feature implementations for the BookTarr book collection management application.
 
-**Last Updated**: January 2025  
+**Last Updated**: August 24, 2025  
 **Project Status**: 🟢 Active Development
 
 ---
@@ -114,15 +114,52 @@ This document tracks all development tasks, bug fixes, and feature implementatio
   - Made Amazon sync pages mobile-friendly
   - Added responsive layouts for auth flow
 
+### 🚀 Cross-Platform Development (NEW)
+- [x] **Replace .bat/.ps1 files with Node.js scripts** - Cross-platform startup system
+  - Created scripts/dev-server.js for universal development startup
+  - Implemented dynamic IP detection for any network
+  - Built SSL certificate generation with node-forge
+  - Added system validation and health checks
+
+- [x] **Dynamic IP detection and configuration** - Works on any network automatically
+  - Automatically detects best network IP (192.168.x.x > 10.x.x.x > others)
+  - Updates frontend proxy configuration dynamically
+  - Supports WiFi, VPN, mobile hotspot, Docker
+  - No manual network configuration needed
+
+- [x] **Programmatic SSL certificate generation** - HTTPS for mobile camera access
+  - Self-signed certificate creation with proper SANs
+  - Supports all detected IP addresses and hostnames
+  - Automatic certificate renewal and management
+  - Cross-platform certificate storage and deployment
+
+- [x] **ISBN search fix** - Resolve "My Dress Up Darling vol 12" detection issue
+  - Fixed routing conflict between search routers
+  - Enhanced Google Books subtitle parsing for volume numbers
+  - Added pattern for manga/light novel volume detection (subtitle = "12")
+  - Now correctly returns "My Dress-up Darling" series with volume 12
+
+- [x] **System architecture documentation updates**
+  - Updated CLAUDE.md with current implementation status
+  - Added comprehensive README with setup instructions
+  - Documented cross-platform development workflow
+  - Created development command reference
+
 ---
 
 ## 🔄 In Progress Tasks
 
-### 🎯 Current Focus
-- [ ] **Monitor barcode scanner in production**
-  - Verify camera permissions work across browsers
-  - Test on various mobile devices
-  - Gather user feedback on scanning accuracy
+### 🎯 Current Focus  
+- [ ] **Frontend proxy port configuration** - Update frontend to match backend port 8002
+  - Backend now running on port 8002 due to port conflicts
+  - Frontend proxy still configured for port 8000
+  - Need to update frontend proxy settings or standardize backend port
+
+- [ ] **Take screenshots for README** - Professional screenshots of all major features
+  - Desktop library view and series management
+  - Mobile interface and barcode scanner
+  - Settings and configuration pages
+  - Book details and metadata editor
 
 ---
 
