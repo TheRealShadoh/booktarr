@@ -121,8 +121,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                 </button>
               )}
               
-              <h1 className="text-lg sm:text-xl font-semibold text-booktarr-text capitalize">
-                {currentPage}
+              <h1 className="page-title capitalize">
+                {currentPage.replace('-', ' ')}
               </h1>
               
               {/* Page-specific actions */}

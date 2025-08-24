@@ -129,7 +129,7 @@ const BookSearch: React.FC<BookSearchProps> = ({
   };
 
   return (
-    <div ref={searchRef} className={`relative ${className}`}>
+    <div ref={searchRef} className={`search-container ${className}`}>
       <input
         ref={inputRef}
         type="text"
@@ -137,11 +137,11 @@ const BookSearch: React.FC<BookSearchProps> = ({
         onChange={(e) => setSearchTerm(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className="w-full booktarr-form-input pl-10 pr-4"
+        className="w-full booktarr-form-input pl-12 pr-12"
         data-testid="search-input"
       />
       <svg 
-        className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-booktarr-textMuted" 
+        className="search-icon" 
         fill="none" 
         stroke="currentColor" 
         viewBox="0 0 24 24"
@@ -161,13 +161,13 @@ const BookSearch: React.FC<BookSearchProps> = ({
 
       {/* Search results dropdown */}
       {showDropdown && searchResults.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-booktarr-surface border border-booktarr-border rounded-lg shadow-lg z-50 max-h-96 overflow-auto">
+        <div className="search-dropdown">
           {searchResults.map((result, index) => (
             <button
               key={result.type === 'book' ? `book-${result.book?.isbn || result.book?.title}` : `add-new-${result.searchQuery}`}
               onClick={() => handleResultSelect(result)}
-              className={`w-full text-left px-4 py-3 hover:bg-booktarr-hover transition-colors flex items-center space-x-3 ${
-                index === selectedIndex ? 'bg-booktarr-hover' : ''
+              className={`search-result-item ${
+                index === selectedIndex ? 'selected' : ''
               }`}
             >
               <div className="flex-1">

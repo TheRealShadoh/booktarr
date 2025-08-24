@@ -23,7 +23,14 @@
       "mcp__playwright__browser_close",
       "mcp__browsermcp__browser_navigate",
       "mcp__browsermcp__browser_screenshot",
-      "mcp__browsermcp__browser_click"
+      "mcp__browsermcp__browser_click",
+      "mcp__browsermcp__browser_wait",
+      "mcp__browsermcp__browser_snapshot",
+      "mcp__browsermcp__browser_get_console_logs",
+      "Read(/C:\\c\\Users\\chris\\git\\booktarr\\frontend/**)",
+      "Read(/C:\\c\\Users\\chris\\git\\booktarr/**)",
+      "Read(/C:\\c\\Users\\chris\\git\\booktarr\\frontend/**)",
+      "mcp__playwright__browser_hover"
     ],
     "deny": []
   }

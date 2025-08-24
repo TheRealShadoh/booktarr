@@ -6,7 +6,7 @@ import SeriesGroup from './SeriesGroup';
 import SeriesCard from './SeriesCard';
 import SeriesDetailsPage from './SeriesDetailsPage';
 import BookCard from './BookCard';
-import LoadingSpinner from './LoadingSpinner';
+import BookCardSkeleton from './BookCardSkeleton';
 import ErrorMessage from './ErrorMessage';
 import BulkEditPage from './BulkEditPage';
 import { BooksBySeriesMap, Book } from '../types';
@@ -130,8 +130,24 @@ const BookList: React.FC<BookListProps> = React.memo(({ books, loading, error, o
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner size="large" message="Loading your book collection..." />
+      <div className="space-y-6">
+        {/* Loading header */}
+        <div className="booktarr-card">
+          <div className="booktarr-card-header">
+            <div className="flex items-center justify-between">
+              <div className="h-6 bg-booktarr-surface2 rounded booktarr-loading-skeleton w-32" />
+              <div className="flex space-x-2">
+                <div className="h-8 bg-booktarr-surface2 rounded booktarr-loading-skeleton w-24" />
+                <div className="h-8 bg-booktarr-surface2 rounded booktarr-loading-skeleton w-20" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Loading grid */}
+        <div className={`booktarr-book-grid ${gridSize === 'large' ? 'booktarr-book-grid-large' : ''}`}>
+          <BookCardSkeleton count={12} />
+        </div>
       </div>
     );
   }
