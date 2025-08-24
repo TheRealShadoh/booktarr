@@ -20,6 +20,16 @@ router = APIRouter()
 amazon_client = AmazonClient()
 integration_service = AmazonIntegrationService()
 
+@router.get("/status")
+async def get_amazon_status():
+    """Get Amazon integration status"""
+    return {
+        "status": "available",
+        "kindle_connected": False,
+        "audible_connected": False,
+        "last_sync": None
+    }
+
 class AuthUrlRequest(BaseModel):
     redirect_uri: str
 

@@ -10,6 +10,133 @@ except ImportError:
 
 router = APIRouter(prefix="/search", tags=["search"])
 
+@router.get("/suggestions")
+async def get_search_suggestions(
+    query: str = Query(..., description="Search query for suggestions"),
+    max_results: int = Query(5, description="Maximum number of suggestions to return")
+) -> Dict[str, Any]:
+    """
+    Get search suggestions based on query
+    """
+    try:
+        # Basic suggestions - in production, implement proper suggestion logic
+        suggestions = []
+        if query:
+            # Mock suggestions based on query
+            suggestions = [
+                f"{query} - Complete Series",
+                f"{query} - Author Works", 
+                f"{query} - Volume 1",
+                f"{query} - Latest Release"
+            ][:max_results]
+        
+        return {
+            "suggestions": suggestions,
+            "query": query,
+            "total": len(suggestions)
+        }
+    except Exception as e:
+        return {
+            "suggestions": [],
+            "error": str(e),
+            "query": query,
+            "total": 0
+        }
+
+@router.get("/isbn/{isbn}")
+async def search_by_isbn(
+    isbn: str,
+    include_external: bool = Query(True, description="Include external API search")
+) -> Dict[str, Any]:
+    """
+    Search for a book by ISBN
+    """
+    try:
+        from clients.google_books import GoogleBooksClient
+        
+        google_client = GoogleBooksClient()
+        try:
+            # Search by ISBN
+            result = await google_client.search_by_isbn(isbn)
+            
+            return {
+                "success": True,
+                "isbn": isbn,
+                "book": result if result else None,
+                "source": "google_books" if result else None
+            }
+        finally:
+            await google_client.close()
+            
+    except Exception as e:
+        return {
+            "success": False,
+            "isbn": isbn,
+            "error": str(e),
+            "book": None
+        }
+
+@router.post("/advanced")
+async def advanced_search(
+    request: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Advanced search with multiple parameters
+    """
+    try:
+        query = request.get("query", "")
+        search_type = request.get("search_type", "auto")
+        include_external = request.get("include_external", True)
+        include_owned = request.get("include_owned", True)
+        
+        # Basic search implementation
+        results = []
+        
+        if query:
+            from clients.google_books import GoogleBooksClient
+            google_client = GoogleBooksClient()
+            
+            try:
+                if search_type == "isbn" or (search_type == "auto" and query.replace("-", "").isdigit()):
+                    # ISBN search
+                    result = await google_client.search_by_isbn(query)
+                    if result:
+                        results.append({
+                            "book": result,
+                            "relevance_score": 1.0,
+                            "source": "google_books"
+                        })
+                else:
+                    # Title/author search  
+                    google_results = await google_client.search_by_title(query)
+                    for i, book in enumerate(google_results[:10]):
+                        if book:
+                            results.append({
+                                "book": book,
+                                "relevance_score": 1.0 - (i * 0.1),
+                                "source": "google_books"
+                            })
+            finally:
+                await google_client.close()
+        
+        return {
+            "success": True,
+            "query": query,
+            "search_type": search_type,
+            "results": results,
+            "total": len(results),
+            "local_results": 0,
+            "external_results": len(results)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "query": request.get("query", ""),
+            "results": [],
+            "total": 0
+        }
+
 @router.get("/books-direct")
 async def search_books_direct(
     query: str = Query(..., description="Search query for books"),
