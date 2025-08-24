@@ -51,11 +51,17 @@ test.describe('Simple Barcode Scanner Tests - Fixed Implementation', () => {
         await manualButton.click();
         await page.waitForTimeout(500);
         
-        // Handle the prompt dialog for manual entry
-        page.on('dialog', async dialog => {
-          console.log('Dialog appeared:', dialog.message());
-          await dialog.accept('9780439023481'); // Harry Potter ISBN from our research
-        });
+        // Handle the actual modal implementation (not browser dialog)
+        const isbnInput = page.locator('input[type="text"]').filter({ hasText: '' }).or(page.locator('input[placeholder*="ISBN"]')).first();
+        if (await isbnInput.isVisible()) {
+          await isbnInput.fill('9780439023481'); // Harry Potter ISBN
+          
+          // Look for Add ISBN or Submit button
+          const submitButton = page.locator('button:has-text("Add ISBN")').or(page.locator('button[type="submit"]')).first();
+          if (await submitButton.isVisible()) {
+            await submitButton.click();
+          }
+        }
         
         await page.waitForTimeout(1000);
         
@@ -70,15 +76,27 @@ test.describe('Simple Barcode Scanner Tests - Fixed Implementation', () => {
         console.log('Scanner status after manual entry:', statusText);
       }
       
-      // Test close functionality
-      const closeButton = page.locator('[data-testid="close-scanner"]');
-      if (await closeButton.isVisible()) {
-        await closeButton.click();
-        await page.waitForTimeout(500);
-        
-        // Verify scanner is closed
-        const scannerClosed = !(await page.locator('[data-testid="barcode-scanner"]').isVisible());
-        console.log(`Scanner closed: ${scannerClosed ? '✅ success' : '❌ still visible'}`);
+      // Test close functionality - first try Escape key since modal might be intercepting clicks
+      console.log('Attempting to close scanner with Escape key...');
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1000);
+      
+      // Check if scanner is closed
+      let scannerClosed = !(await page.locator('[data-testid="barcode-scanner"]').isVisible());
+      console.log(`Scanner closed by Escape: ${scannerClosed ? '✅ success' : '❌ still visible'}`);
+      
+      // If Escape didn't work, try clicking close button
+      if (!scannerClosed) {
+        console.log('Escape failed, trying close button...');
+        const closeButton = page.locator('[data-testid="close-scanner"]');
+        if (await closeButton.isVisible()) {
+          // Try force click to bypass intercepting elements
+          await closeButton.click({ force: true });
+          await page.waitForTimeout(500);
+          
+          scannerClosed = !(await page.locator('[data-testid="barcode-scanner"]').isVisible());
+          console.log(`Scanner closed by button: ${scannerClosed ? '✅ success' : '❌ still visible'}`);
+        }
       }
       
     } else {

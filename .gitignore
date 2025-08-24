@@ -213,3 +213,4 @@ target/
 # pyright
 pyrightconfig.json
 backend/backend/static/*
+backend/book_cache.json

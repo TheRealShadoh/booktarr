@@ -861,8 +861,8 @@ const SimpleBarcodeScanner: React.FC<SimpleBarcodeScannerProps> = ({ onComplete,
 
       {/* Mobile-Friendly ISBN Input Modal */}
       {showISBNModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-60 flex items-center justify-center p-4">
-          <div className="bg-booktarr-surface border border-booktarr-border rounded-lg p-6 w-full max-w-sm">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" style={{ zIndex: 9999 }} onClick={handleISBNCancel}>
+          <div className="bg-booktarr-surface border border-booktarr-border rounded-lg p-6 w-full max-w-sm" style={{ zIndex: 10000 }} onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-booktarr-text mb-4">Enter ISBN</h3>
             <input
               type="text"

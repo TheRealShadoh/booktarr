@@ -68,14 +68,14 @@ test.describe('BookTarr Comprehensive App Tests', () => {
     const contentArea = page.locator('main, .content, .library-content');
     await expect(contentArea).toBeVisible();
     
-    // Test tab switching if tabs exist
-    const booksTab = page.getByRole('button', { name: 'Books' });
-    if (await booksTab.count() > 0) {
-      await booksTab.click();
+    // Test tab switching if tabs exist - use more specific selectors
+    const individualTab = page.getByRole('button', { name: 'Display books individually' });
+    if (await individualTab.count() > 0) {
+      await individualTab.click();
       await page.waitForTimeout(500);
     }
     
-    const seriesTab = page.getByRole('button', { name: 'Series' });
+    const seriesTab = page.getByRole('button', { name: 'Display books by series' });
     if (await seriesTab.count() > 0) {
       await seriesTab.click();
       await page.waitForTimeout(500);
