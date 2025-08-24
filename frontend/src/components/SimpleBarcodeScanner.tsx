@@ -39,23 +39,56 @@ const SimpleBarcodeScanner: React.FC<SimpleBarcodeScannerProps> = ({ onComplete,
     const startCamera = async () => {
       try {
         console.log('Requesting camera permission...');
+        console.log('User Agent:', navigator.userAgent);
+        console.log('Protocol:', window.location.protocol);
         
         // Check if mediaDevices is supported
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          throw new Error('Camera not supported on this device/browser');
+          throw new Error('Camera not supported on this device/browser. Please use Chrome, Firefox, or Safari.');
         }
 
-        // Request camera permission with enhanced constraints for barcode scanning
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: 'environment' }, // Try to use back camera, fallback to any
-            width: { ideal: 1920, min: 1280 }, // Higher resolution for better barcode reading
-            height: { ideal: 1080, min: 720 },
-            frameRate: { ideal: 30, min: 15 }, // Smooth video for scanning
-            focusMode: { ideal: 'continuous' }, // Keep focusing for sharp barcodes
-            exposureMode: { ideal: 'continuous' }, // Adjust exposure automatically
-          } as any // Type assertion for newer camera features
-        });
+        // Check if we're on HTTPS (required for camera access on most mobile browsers)
+        if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+          throw new Error('Camera access requires HTTPS connection on mobile devices. Please use HTTPS or access via localhost.');
+        }
+
+        // Try progressive camera constraints for better Android compatibility
+        let stream: MediaStream;
+        
+        try {
+          // First attempt: Enhanced constraints for optimal barcode scanning
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: 'environment' }, // Try to use back camera
+              width: { ideal: 1920, min: 1280 },
+              height: { ideal: 1080, min: 720 },
+              frameRate: { ideal: 30, min: 15 },
+            }
+          });
+          console.log('✅ Got camera with enhanced constraints');
+        } catch (enhancedError) {
+          console.log('Enhanced constraints failed, trying basic constraints...', enhancedError);
+          
+          try {
+            // Second attempt: Basic constraints
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: 'environment', // Try back camera
+                width: { min: 640 },
+                height: { min: 480 }
+              }
+            });
+            console.log('✅ Got camera with basic environment constraints');
+          } catch (environmentError) {
+            console.log('Environment camera failed, trying any camera...', environmentError);
+            
+            // Final fallback: Any available camera
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: true
+            });
+            console.log('✅ Got camera with minimal constraints');
+          }
+        }
 
         console.log('Camera permission granted, stream obtained');
         setPermissionStatus('granted');
@@ -143,7 +176,33 @@ const SimpleBarcodeScanner: React.FC<SimpleBarcodeScannerProps> = ({ onComplete,
 
       } catch (err: any) {
         console.error('Camera permission denied or not available:', err);
-        setError(err.message || 'Camera access failed');
+        
+        // Provide specific error messages for different failure scenarios
+        let errorMessage = 'Camera access failed';
+        
+        if (err.name === 'NotAllowedError') {
+          errorMessage = '🔒 Camera access denied. Please allow camera permissions and refresh the page.';
+        } else if (err.name === 'NotFoundError') {
+          errorMessage = '📷 No camera found on this device.';
+        } else if (err.name === 'NotSupportedError') {
+          errorMessage = '⚠️ Camera not supported in this browser. Try Chrome, Firefox, or Safari.';
+        } else if (err.name === 'NotReadableError') {
+          errorMessage = '🔧 Camera is being used by another app. Close other camera apps and refresh.';
+        } else if (err.name === 'OverconstrainedError') {
+          errorMessage = '📐 Camera doesn\'t support required settings. The scanner will still work with manual entry.';
+        } else if (err.message.includes('HTTPS')) {
+          errorMessage = '🔐 Camera requires HTTPS. For mobile devices, ask the site admin to enable HTTPS.';
+        } else {
+          // Check if we're on Android for specific advice
+          const isAndroid = /Android/i.test(navigator.userAgent);
+          if (isAndroid) {
+            errorMessage = '📱 Android camera access failed. Try:\n• Use Chrome or Firefox browser\n• Allow camera permissions\n• Ensure good lighting\n• Use manual entry as fallback';
+          } else {
+            errorMessage = err.message || 'Camera access failed';
+          }
+        }
+        
+        setError(errorMessage);
         setPermissionStatus('denied');
       }
     };
@@ -507,16 +566,24 @@ const SimpleBarcodeScanner: React.FC<SimpleBarcodeScannerProps> = ({ onComplete,
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
               <h3 className="text-lg font-semibold mb-2">Camera Access Required</h3>
-              <p className="text-sm text-gray-300 mb-4">
+              <p className="text-sm text-gray-300 mb-4 whitespace-pre-line">
                 {error || 'Please allow camera access to scan barcodes'}
               </p>
-              <button
-                onClick={handleManualAdd}
-                className="bg-booktarr-accent text-white px-4 py-2 rounded hover:bg-booktarr-accentHover"
-                data-testid="fallback-manual-entry"
-              >
-                Enter ISBN Manually
-              </button>
+              <div className="flex flex-col space-y-3">
+                <button
+                  onClick={handleManualAdd}
+                  className="bg-booktarr-accent text-white px-4 py-3 rounded hover:bg-booktarr-accentHover min-h-[44px] touch-manipulation font-semibold"
+                  data-testid="fallback-manual-entry"
+                >
+                  📝 Enter ISBN Manually
+                </button>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="bg-booktarr-surface2 text-booktarr-text px-4 py-3 rounded hover:bg-booktarr-hover min-h-[44px] touch-manipulation"
+                >
+                  🔄 Retry Camera Access
+                </button>
+              </div>
             </div>
           </div>
         )}
