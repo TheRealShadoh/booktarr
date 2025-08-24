@@ -84,7 +84,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - Show on all pages */}
       <div className={`${device.isMobile ? 'fixed' : 'relative'} ${sidebarWidth} transition-all duration-300 ease-in-out z-50`}>
         {(device.isMobile ? mobileMenuOpen : true) && (
           <SidebarNavigation
