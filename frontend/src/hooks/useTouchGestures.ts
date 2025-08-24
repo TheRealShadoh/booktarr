@@ -93,7 +93,20 @@ export const useTouchGestures = (
 
   // Touch event handlers
   const handleTouchStart = useCallback((event: TouchEvent) => {
-    event.preventDefault();
+    // Only preventDefault for multi-touch gestures (pinch) or if we're specifically handling swipe gestures
+    // Don't prevent default for single touches on interactive elements
+    const target = event.target as HTMLElement;
+    const isInteractiveElement = target.tagName === 'BUTTON' || 
+                                  target.tagName === 'INPUT' || 
+                                  target.tagName === 'TEXTAREA' || 
+                                  target.tagName === 'SELECT' ||
+                                  target.tagName === 'A' ||
+                                  target.closest('button, input, textarea, select, a, [role="button"]');
+    
+    // Only preventDefault for multi-touch or non-interactive elements
+    if (event.touches.length > 1 || !isInteractiveElement) {
+      event.preventDefault();
+    }
     
     const touches = Array.from(event.touches).map(getTouchPoint);
     touchStartRef.current = touches;
@@ -101,8 +114,8 @@ export const useTouchGestures = (
     setIsGesturing(true);
     isLongPressRef.current = false;
 
-    // Start long press timer for single touch
-    if (touches.length === 1) {
+    // Start long press timer for single touch on non-interactive elements
+    if (touches.length === 1 && !isInteractiveElement) {
       longPressTimerRef.current = setTimeout(() => {
         isLongPressRef.current = true;
         callbacks.onLongPress?.({
@@ -115,10 +128,29 @@ export const useTouchGestures = (
   }, [callbacks, longPressTimeout]);
 
   const handleTouchMove = useCallback((event: TouchEvent) => {
-    event.preventDefault();
+    // Only preventDefault for multi-touch gestures or when we're actively tracking a swipe on non-interactive elements
+    const target = event.target as HTMLElement;
+    const isInteractiveElement = target.tagName === 'BUTTON' || 
+                                  target.tagName === 'INPUT' || 
+                                  target.tagName === 'TEXTAREA' || 
+                                  target.tagName === 'SELECT' ||
+                                  target.tagName === 'A' ||
+                                  target.closest('button, input, textarea, select, a, [role="button"]');
     
     const touches = Array.from(event.touches).map(getTouchPoint);
     touchMoveRef.current = touches;
+
+    // Only preventDefault for multi-touch or when tracking gestures on non-interactive elements
+    if (touches.length > 1 || (!isInteractiveElement && touches.length === 1)) {
+      // Check if we've moved enough to constitute a swipe gesture
+      const startTouch = touchStartRef.current[0];
+      const currentTouch = touches[0];
+      const distance = startTouch && currentTouch ? getDistance(startTouch, currentTouch) : 0;
+      
+      if (distance > 10) {
+        event.preventDefault();
+      }
+    }
 
     // Cancel long press if touch moves too much
     if (longPressTimerRef.current && touches.length === 1) {
@@ -134,6 +166,7 @@ export const useTouchGestures = (
 
     // Handle pinch gesture
     if (touches.length === 2 && touchStartRef.current.length === 2) {
+      event.preventDefault(); // Always prevent default for pinch gestures
       const startDistance = getDistance(touchStartRef.current[0], touchStartRef.current[1]);
       const currentDistance = getDistance(touches[0], touches[1]);
       const scale = currentDistance / startDistance;
@@ -148,7 +181,14 @@ export const useTouchGestures = (
   }, [callbacks, pinchThreshold]);
 
   const handleTouchEnd = useCallback((event: TouchEvent) => {
-    event.preventDefault();
+    // Only preventDefault for actual gesture handling, not for interactive element touches
+    const target = event.target as HTMLElement;
+    const isInteractiveElement = target.tagName === 'BUTTON' || 
+                                  target.tagName === 'INPUT' || 
+                                  target.tagName === 'TEXTAREA' || 
+                                  target.tagName === 'SELECT' ||
+                                  target.tagName === 'A' ||
+                                  target.closest('button, input, textarea, select, a, [role="button"]');
     
     const endTouches = Array.from(event.changedTouches).map(getTouchPoint);
     const remainingTouches = Array.from(event.touches).map(getTouchPoint);
@@ -159,13 +199,14 @@ export const useTouchGestures = (
       longPressTimerRef.current = null;
     }
 
-    // Handle swipe gesture (single touch)
-    if (touchStartRef.current.length === 1 && endTouches.length === 1 && !isLongPressRef.current) {
+    // Handle swipe gesture (single touch) - only on non-interactive elements
+    if (touchStartRef.current.length === 1 && endTouches.length === 1 && !isLongPressRef.current && !isInteractiveElement) {
       const startTouch = touchStartRef.current[0];
       const endTouch = endTouches[0];
       const distance = getDistance(startTouch, endTouch);
       
       if (distance > swipeThreshold) {
+        event.preventDefault(); // Only prevent default for actual swipes
         const direction = getSwipeDirection(startTouch, endTouch);
         const timeDelta = Date.now() - (touchStartRef.current as any).timestamp || 1;
         const velocity = distance / timeDelta;
@@ -175,8 +216,8 @@ export const useTouchGestures = (
           distance,
           velocity,
         });
-      } else {
-        // Handle tap/double tap
+      } else if (!isInteractiveElement) {
+        // Handle tap/double tap only for non-interactive elements
         const tapGesture: TapGesture = {
           x: endTouch.x,
           y: endTouch.y,
@@ -190,6 +231,7 @@ export const useTouchGestures = (
               { x: lastTapRef.current.x, y: lastTapRef.current.y, id: 0 }, 
               { x: tapGesture.x, y: tapGesture.y, id: 0 }
             ) < 30) {
+          event.preventDefault();
           callbacks.onDoubleTap?.(tapGesture);
           lastTapRef.current = null;
         } else {
@@ -215,19 +257,33 @@ export const useTouchGestures = (
     const element = elementRef.current;
     if (!element) return;
 
-    // Add touch event listeners
+    // Add touch event listeners with passive: false only when we need to call preventDefault
     element.addEventListener('touchstart', handleTouchStart, { passive: false });
     element.addEventListener('touchmove', handleTouchMove, { passive: false });
     element.addEventListener('touchend', handleTouchEnd, { passive: false });
 
-    // Prevent default context menu on long press
-    element.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Prevent default context menu on long press only for non-interactive elements
+    const handleContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const isInteractiveElement = target.tagName === 'BUTTON' || 
+                                    target.tagName === 'INPUT' || 
+                                    target.tagName === 'TEXTAREA' || 
+                                    target.tagName === 'SELECT' ||
+                                    target.tagName === 'A' ||
+                                    target.closest('button, input, textarea, select, a, [role="button"]');
+      
+      if (!isInteractiveElement) {
+        e.preventDefault();
+      }
+    };
+    
+    element.addEventListener('contextmenu', handleContextMenu);
 
     return () => {
       element.removeEventListener('touchstart', handleTouchStart);
       element.removeEventListener('touchmove', handleTouchMove);
       element.removeEventListener('touchend', handleTouchEnd);
-      element.removeEventListener('contextmenu', (e) => e.preventDefault());
+      element.removeEventListener('contextmenu', handleContextMenu);
       
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);

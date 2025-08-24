@@ -20,6 +20,8 @@ const SimpleBarcodeScanner: React.FC<SimpleBarcodeScannerProps> = ({ onComplete,
   const [cameraReady, setCameraReady] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState<'checking' | 'granted' | 'denied'>('checking');
   const [currentStream, setCurrentStream] = useState<MediaStream | null>(null);
+  const [showISBNModal, setShowISBNModal] = useState(false);
+  const [manualISBN, setManualISBN] = useState('');
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
 
   // Initialize code reader
@@ -366,14 +368,24 @@ const SimpleBarcodeScanner: React.FC<SimpleBarcodeScannerProps> = ({ onComplete,
   };
 
   const handleManualAdd = () => {
-    const isbn = prompt('Enter ISBN manually:');
-    if (isbn) {
-      const cleanISBN = extractISBN(isbn);
+    setShowISBNModal(true);
+  };
+
+  const handleISBNSubmit = () => {
+    if (manualISBN.trim()) {
+      const cleanISBN = extractISBN(manualISBN.trim());
       if (cleanISBN) {
         setScannedISBNs(prev => {
           if (!prev.includes(cleanISBN)) {
             showToast(`✅ Added: ${cleanISBN}`, 'success');
+            playBeep();
+            setManualISBN('');
+            setShowISBNModal(false);
             return [...prev, cleanISBN];
+          } else {
+            showToast('📚 Already scanned', 'warning');
+            setManualISBN('');
+            setShowISBNModal(false);
           }
           return prev;
         });
@@ -381,6 +393,11 @@ const SimpleBarcodeScanner: React.FC<SimpleBarcodeScannerProps> = ({ onComplete,
         showToast('Invalid ISBN format', 'error');
       }
     }
+  };
+
+  const handleISBNCancel = () => {
+    setManualISBN('');
+    setShowISBNModal(false);
   };
 
   // Manual focus trigger function
@@ -445,7 +462,7 @@ const SimpleBarcodeScanner: React.FC<SimpleBarcodeScannerProps> = ({ onComplete,
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col" data-testid="barcode-scanner">
+    <div className="fixed inset-0 bg-black z-50 flex flex-col h-screen max-h-screen overflow-hidden barcode-scanner-interface" data-testid="barcode-scanner">
       {/* Header */}
       <div className="bg-booktarr-surface p-4 border-b border-booktarr-border">
         <div className="flex justify-between items-center">
@@ -461,7 +478,7 @@ const SimpleBarcodeScanner: React.FC<SimpleBarcodeScannerProps> = ({ onComplete,
           </div>
           <button 
             onClick={onClose} 
-            className="p-2 hover:bg-booktarr-surface2 rounded text-booktarr-text"
+            className="p-2 hover:bg-booktarr-surface2 rounded text-booktarr-text min-h-[44px] min-w-[44px] touch-manipulation flex items-center justify-center"
             data-testid="close-scanner"
             title="Close Scanner"
           >
@@ -473,7 +490,7 @@ const SimpleBarcodeScanner: React.FC<SimpleBarcodeScannerProps> = ({ onComplete,
       </div>
 
       {/* Camera View */}
-      <div className="flex-1 relative bg-black">
+      <div className="flex-1 relative bg-black min-h-0 overflow-hidden">
         {permissionStatus === 'checking' && (
           <div className="absolute inset-0 flex items-center justify-center" data-testid="camera-permission-checking">
             <div className="text-white text-center">
@@ -585,8 +602,8 @@ const SimpleBarcodeScanner: React.FC<SimpleBarcodeScannerProps> = ({ onComplete,
       </div>
 
       {/* Controls */}
-      <div className="bg-booktarr-surface border-t border-booktarr-border p-4">
-        <div className="flex items-center justify-between">
+      <div className="bg-booktarr-surface border-t border-booktarr-border p-4 flex-shrink-0">
+        <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-4">
           <div className="flex items-center space-x-3">
             <div className={`w-3 h-3 rounded-full ${isScanning ? 'bg-green-500' : 'bg-red-500'}`}></div>
             <span className="text-booktarr-text text-sm">
@@ -599,7 +616,7 @@ const SimpleBarcodeScanner: React.FC<SimpleBarcodeScannerProps> = ({ onComplete,
             )}
           </div>
           
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 flex-wrap gap-2">
             <button
               onClick={async () => {
                 console.log('📸 Manual capture triggered');
@@ -723,7 +740,7 @@ const SimpleBarcodeScanner: React.FC<SimpleBarcodeScannerProps> = ({ onComplete,
                   }
                 }
               }}
-              className="bg-booktarr-accent text-white px-3 py-2 rounded hover:bg-booktarr-accentHover"
+              className="bg-booktarr-accent text-white px-3 py-2 rounded hover:bg-booktarr-accentHover min-h-[44px] min-w-[44px] touch-manipulation"
               title="Capture current camera frame"
               data-testid="capture-button"
             >
@@ -732,7 +749,7 @@ const SimpleBarcodeScanner: React.FC<SimpleBarcodeScannerProps> = ({ onComplete,
             
             <button
               onClick={triggerFocus}
-              className="bg-booktarr-surface2 text-booktarr-text px-3 py-2 rounded hover:bg-booktarr-hover"
+              className="bg-booktarr-surface2 text-booktarr-text px-3 py-2 rounded hover:bg-booktarr-hover min-h-[44px] min-w-[44px] touch-manipulation"
               title="Focus camera for better barcode scanning"
               data-testid="focus-button"
             >
@@ -741,7 +758,7 @@ const SimpleBarcodeScanner: React.FC<SimpleBarcodeScannerProps> = ({ onComplete,
 
             <button
               onClick={handleManualAdd}
-              className="bg-booktarr-surface2 text-booktarr-text px-3 py-2 rounded hover:bg-booktarr-hover"
+              className="bg-booktarr-surface2 text-booktarr-text px-3 py-2 rounded hover:bg-booktarr-hover min-h-[44px] min-w-[44px] touch-manipulation"
               data-testid="manual-entry"
             >
               Manual Entry
@@ -750,7 +767,7 @@ const SimpleBarcodeScanner: React.FC<SimpleBarcodeScannerProps> = ({ onComplete,
             {scannedISBNs.length > 0 && (
               <button
                 onClick={handleComplete}
-                className="bg-booktarr-accent text-white px-4 py-2 rounded hover:bg-booktarr-accentHover"
+                className="bg-booktarr-accent text-white px-4 py-2 rounded hover:bg-booktarr-accentHover min-h-[44px] min-w-[44px] touch-manipulation font-semibold"
               >
                 Continue ({scannedISBNs.length})
               </button>
@@ -774,6 +791,45 @@ const SimpleBarcodeScanner: React.FC<SimpleBarcodeScannerProps> = ({ onComplete,
           </div>
         )}
       </div>
+
+      {/* Mobile-Friendly ISBN Input Modal */}
+      {showISBNModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-60 flex items-center justify-center p-4">
+          <div className="bg-booktarr-surface border border-booktarr-border rounded-lg p-6 w-full max-w-sm">
+            <h3 className="text-lg font-semibold text-booktarr-text mb-4">Enter ISBN</h3>
+            <input
+              type="text"
+              value={manualISBN}
+              onChange={(e) => setManualISBN(e.target.value)}
+              placeholder="Enter ISBN (10 or 13 digits)"
+              className="w-full px-4 py-3 bg-booktarr-surface2 border border-booktarr-border rounded-lg text-booktarr-text placeholder-booktarr-textMuted focus:border-booktarr-accent focus:ring-1 focus:ring-booktarr-accent mb-4"
+              style={{ fontSize: '16px' }} // Prevent iOS zoom
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleISBNSubmit();
+                } else if (e.key === 'Escape') {
+                  handleISBNCancel();
+                }
+              }}
+            />
+            <div className="flex space-x-3">
+              <button
+                onClick={handleISBNCancel}
+                className="flex-1 px-4 py-3 bg-booktarr-surface2 text-booktarr-text rounded-lg hover:bg-booktarr-hover min-h-[44px] touch-manipulation"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleISBNSubmit}
+                className="flex-1 px-4 py-3 bg-booktarr-accent text-white rounded-lg hover:bg-booktarr-accentHover min-h-[44px] touch-manipulation font-semibold"
+              >
+                Add ISBN
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
