@@ -250,6 +250,25 @@ async def get_test_books() -> Dict[str, Any]:
     }
 
 
+@router.get("/search")
+async def search_books(
+    q: str = Query(..., description="Search query (ISBN, title, author, or series)"),
+    user_id: int = Query(1, description="User ID")
+) -> Dict[str, Any]:
+    """
+    Search for books by ISBN, title, author, or series name.
+    Returns structured JSON with book metadata and edition information.
+    """
+    search_service = BookSearchService()
+    try:
+        result = await search_service.search(q, user_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        await search_service.close()
+
+
 @router.put("/{book_id}/metadata")
 async def update_book_metadata(
     book_id: int,
@@ -591,59 +610,7 @@ def _calculate_completeness(book_data: Dict[str, Any]) -> float:
     return round((complete_fields / (len(fields) + 1)) * 100, 1)
 
 
-@router.get("/{book_id}")
-async def get_book_by_id(book_id: int, user_id: int = Query(1, description="User ID")) -> Dict[str, Any]:
-    """
-    Get a specific book by ID with all its details and user status.
-    """
-    ownership_service = OwnershipService()
-    try:
-        with get_db_session() as session:
-            from sqlmodel import select
-            
-            # Get the book
-            book = session.get(Book, book_id)
-            if not book:
-                raise HTTPException(status_code=404, detail=f"Book with id {book_id} not found")
-            
-            # Get all editions for this book
-            editions = []
-            for edition in book.editions:
-                # Get user status for this edition
-                user_status = session.exec(
-                    select(UserEditionStatus).where(
-                        UserEditionStatus.user_id == user_id,
-                        UserEditionStatus.edition_id == edition.id
-                    )
-                ).first()
-                
-                editions.append({
-                    "id": edition.id,
-                    "isbn_13": edition.isbn_13,
-                    "isbn_10": edition.isbn_10,
-                    "format": edition.book_format,
-                    "publisher": edition.publisher,
-                    "release_date": edition.release_date.isoformat() if edition.release_date else None,
-                    "cover_url": edition.cover_url,
-                    "price": edition.price,
-                    "status": user_status.status if user_status else "missing",
-                    "notes": user_status.notes if user_status else None
-                })
-            
-            return {
-                "id": book.id,
-                "title": book.title,
-                "authors": json.loads(book.authors) if book.authors else [],
-                "series": book.series_name,
-                "series_position": book.series_position,
-                "google_books_id": book.google_books_id,
-                "openlibrary_id": book.openlibrary_id,
-                "editions": editions
-            }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# Note: /{book_id} route moved to end of file to prevent conflicts with /search route
 
 
 @router.get("/isbn/{isbn}")
@@ -763,25 +730,6 @@ async def get_test_books() -> Dict[str, Any]:
         "total_series": 0,
         "last_sync": "2025-07-19T14:00:00Z"
     }
-
-
-@router.get("/search")
-async def search_books(
-    q: str = Query(..., description="Search query (ISBN, title, author, or series)"),
-    user_id: int = Query(1, description="User ID")
-) -> Dict[str, Any]:
-    """
-    Search for books by ISBN, title, author, or series name.
-    Returns structured JSON with book metadata and edition information.
-    """
-    search_service = BookSearchService()
-    try:
-        result = await search_service.search(q, user_id)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        await search_service.close()
 
 
 @router.post("/editions/{edition_id}/status")
@@ -1387,3 +1335,59 @@ async def get_library_book(
     except Exception as e:
         print(f"Error getting library book: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get book: {str(e)}")
+
+
+# This route is placed at the end to prevent conflicts with specific routes like /search
+@router.get("/{book_id}")
+async def get_book_by_id(book_id: int, user_id: int = Query(1, description="User ID")) -> Dict[str, Any]:
+    """
+    Get a specific book by ID with all its details and user status.
+    """
+    ownership_service = OwnershipService()
+    try:
+        with get_db_session() as session:
+            from sqlmodel import select
+            
+            # Get the book
+            book = session.get(Book, book_id)
+            if not book:
+                raise HTTPException(status_code=404, detail=f"Book with id {book_id} not found")
+            
+            # Get all editions for this book
+            editions = []
+            for edition in book.editions:
+                # Get user status for this edition
+                user_status = session.exec(
+                    select(UserEditionStatus).where(
+                        UserEditionStatus.user_id == user_id,
+                        UserEditionStatus.edition_id == edition.id
+                    )
+                ).first()
+                
+                editions.append({
+                    "id": edition.id,
+                    "isbn_13": edition.isbn_13,
+                    "isbn_10": edition.isbn_10,
+                    "format": edition.book_format,
+                    "publisher": edition.publisher,
+                    "release_date": edition.release_date.isoformat() if edition.release_date else None,
+                    "cover_url": edition.cover_url,
+                    "price": edition.price,
+                    "status": user_status.status if user_status else "missing",
+                    "notes": user_status.notes if user_status else None
+                })
+            
+            return {
+                "id": book.id,
+                "title": book.title,
+                "authors": json.loads(book.authors) if book.authors else [],
+                "series": book.series_name,
+                "series_position": book.series_position,
+                "google_books_id": book.google_books_id,
+                "openlibrary_id": book.openlibrary_id,
+                "editions": editions
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

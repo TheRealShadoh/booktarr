@@ -56,21 +56,20 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       console.log('Initializing ZXing scanner with ISBN optimization...');
       const hints = new Map();
       
-      // Prioritize ISBN formats (EAN-13 and UPC are most common for books)
+      // Optimized ISBN format priority (focus on most common book barcodes)
       hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-        BarcodeFormat.EAN_13,    // Most common for ISBN-13
-        BarcodeFormat.UPC_A,     // Common for ISBN
-        BarcodeFormat.EAN_8,     // Less common but possible
-        BarcodeFormat.UPC_E,     // Less common but possible
-        BarcodeFormat.CODE_128,  // Sometimes used for ISBN
-        BarcodeFormat.CODE_39,   // Backup format
-        BarcodeFormat.ITF,       // Industrial format, sometimes books
-        BarcodeFormat.CODE_93,   // Backup
-        BarcodeFormat.CODABAR,   // Backup
+        BarcodeFormat.EAN_13,    // Primary: ISBN-13 (978/979 prefix)
+        BarcodeFormat.UPC_A,     // Secondary: UPC-A format books
+        BarcodeFormat.EAN_8,     // Tertiary: Short ISBN format
+        BarcodeFormat.CODE_128,  // Backup: Internal library barcodes
+        BarcodeFormat.CODE_39,   // Backup: Legacy library systems
+        // Removed less common formats to improve detection speed
       ]);
       
-      // Enable all detection optimizations
+      // Enable comprehensive detection optimizations for ISBN scanning
       hints.set(DecodeHintType.TRY_HARDER, true);
+      hints.set(DecodeHintType.ASSUME_GS1, true); // Many book barcodes use GS1 standards
+      hints.set(DecodeHintType.RETURN_CODABAR_START_END, false); // Cleaner output
       
       // Create scanner with ISBN-optimized settings
       scannerRef.current = new BrowserMultiFormatReader(hints);
@@ -453,14 +452,36 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
         (videoRef.current as any)._listenersAdded = true;
       }
 
-      // Start aggressive continuous scanning
+      // Start optimized continuous scanning with better error handling
       const startDecoding = () => {
-        console.log('Starting aggressive barcode detection...');
+        console.log('🚀 Starting optimized barcode detection...');
         
-        // Skip ZXing's video control entirely to prevent conflicts
-        console.log('Using manual scanning only to avoid video control conflicts');
+        // Method 1: Use ZXing's continuous decode mode with proper error handling
+        try {
+          console.log('📹 Attempting ZXing continuous decode...');
+          scannerRef.current?.decodeFromVideoDevice(
+            selectedDeviceId || undefined,
+            videoRef.current,
+            (result, error) => {
+              if (result) {
+                console.log('✅ ZXing continuous result:', result.getText());
+                handleScanResultRef.current(result);
+              }
+              if (error) {
+                // Only log non-routine errors
+                if (error.name !== 'NotFoundException') {
+                  console.log('⚠️ ZXing decode error:', error.name, error.message);
+                }
+              }
+            }
+          );
+          console.log('✅ ZXing continuous decode started successfully');
+        } catch (error) {
+          console.error('❌ ZXing continuous decode failed:', error);
+          showToastRef.current('Continuous scanning failed, using manual mode', 'warning');
+        }
         
-        // Method 2: Add manual scanning intervals as backup  
+        // Method 2: Enhanced manual scanning interval as backup with better timing
         const manualScanInterval = setInterval(async () => {
           if (!scannerRef.current || !videoRef.current) {
             clearInterval(manualScanInterval);
@@ -468,22 +489,25 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           }
           
           try {
-            // Try to decode current video frame
+            // Try to decode current video frame with better error handling
             const result = await scannerRef.current.decodeFromVideoElement(videoRef.current);
             if (result) {
-              console.log('ZXing manual interval result:', result.getText());
-              // Call handleScanResult via ref to avoid stale closure
+              console.log('🎯 Manual interval result:', result.getText());
               handleScanResultRef.current(result);
             }
           } catch (error) {
             // Silent fail for manual scanning - this is expected when no barcode present
+            // Only log unexpected errors
+            if ((error as Error)?.name !== 'NotFoundException') {
+              console.log('🔄 Scanning...', (error as Error)?.name);
+            }
           }
-        }, 150); // Scan every 150ms for very responsive detection
+        }, 200); // Slightly slower interval to reduce CPU usage while maintaining responsiveness
         
         // Store interval ID for cleanup
         (videoRef.current as any)._scanInterval = manualScanInterval;
         
-        console.log('Both continuous and interval scanning started');
+        console.log('🔄 Manual backup scanning interval started');
       };
 
       // Ensure video plays and is ready for scanning
@@ -678,7 +702,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
               Scan ISBN Barcodes
             </h2>
             <p className="text-sm text-booktarr-textSecondary">
-              📚 {scannedISBNs.length} ISBNs found | 📷 {detectionCount} barcodes detected | ⚠️ {duplicateCount} duplicates
+              📚 {scannedISBNs.length} ISBNs found | Status: {permissionState} | 📷 {isScanning ? 'Scanning...' : 'Stopped'} | 🎯 {detectionCount} detections | ⚠️ {duplicateCount} duplicates
             </p>
           </div>
           <button
@@ -880,39 +904,83 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
             {/* Manual capture button - larger and more prominent */}
             <button
               onClick={async () => {
-                console.log('Manual capture button clicked');
-                if (!scannerRef.current || !videoRef.current) {
-                  showToast('Scanner not ready', 'error');
+                console.log('📸 Manual capture initiated');
+                
+                // Enhanced validation checks
+                if (!scannerRef.current) {
+                  showToast('❌ Scanner not initialized - try refreshing', 'error');
                   return;
                 }
                 
-                // Visual feedback
+                if (!videoRef.current) {
+                  showToast('❌ Camera not ready - check permissions', 'error');
+                  return;
+                }
+                
+                if (videoRef.current.readyState < 3) {
+                  showToast('❌ Camera loading - please wait', 'warning');
+                  return;
+                }
+                
+                // Enhanced visual feedback with longer duration
                 setShowDetectionFlash(true);
-                setTimeout(() => setShowDetectionFlash(false), 200);
+                setTimeout(() => setShowDetectionFlash(false), 500);
+                
+                // Play capture sound for immediate feedback
+                try {
+                  playBeep();
+                } catch (error) {
+                  console.log('Audio feedback failed:', error);
+                }
                 
                 try {
-                  showToast('📸 Capturing frame...', 'info');
-                  const result = await scannerRef.current.decodeFromVideoElement(videoRef.current);
+                  // Show immediate feedback
+                  showToast('📸 Analyzing frame for barcodes...', 'info');
+                  
+                  // Attempt capture with timeout
+                  const capturePromise = scannerRef.current.decodeFromVideoElement(videoRef.current);
+                  const timeoutPromise = new Promise<null>((_, reject) =>
+                    setTimeout(() => reject(new Error('Capture timeout')), 5000)
+                  );
+                  
+                  const result = await Promise.race([capturePromise, timeoutPromise]);
+                  
                   if (result) {
-                    console.log('Manual capture result:', result.getText());
+                    console.log('✅ Manual capture successful:', result.getText());
+                    showToast(`🎯 Found barcode: ${result.getText()}`, 'success');
                     handleScanResultRef.current(result);
                   } else {
-                    showToast('❌ No barcode found in frame - try again', 'warning');
+                    console.log('❌ Manual capture - no barcode detected');
+                    showToast('❌ No barcode found - ensure barcode is clearly visible and try again', 'warning');
                   }
-                } catch (error) {
-                  console.error('Manual capture failed:', error);
-                  showToast('❌ No barcode detected - position barcode in view', 'warning');
+                } catch (error: any) {
+                  console.error('❌ Manual capture error:', error);
+                  
+                  let errorMessage = '❌ Manual capture failed - ';
+                  if (error.message === 'Capture timeout') {
+                    errorMessage += 'operation timed out';
+                  } else if (error.name === 'NotFoundException') {
+                    errorMessage += 'no barcode detected in frame';
+                  } else if (error.name === 'ChecksumException') {
+                    errorMessage += 'barcode damaged or unclear';
+                  } else if (error.name === 'FormatException') {
+                    errorMessage += 'unsupported barcode format';
+                  } else {
+                    errorMessage += 'please try again';
+                  }
+                  
+                  showToast(errorMessage, 'error');
                 }
               }}
-              className="px-3 py-2 bg-booktarr-accent rounded-lg hover:bg-booktarr-accentHover transition-colors flex items-center space-x-2"
-              title="Capture frame now (for when auto-scan misses)"
-              disabled={!isScanning}
+              className="px-3 py-2 bg-booktarr-accent rounded-lg hover:bg-booktarr-accentHover transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Capture current frame and analyze for barcodes"
+              disabled={!isScanning || permissionState !== 'granted'}
             >
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              <span className="text-white text-sm font-medium hidden sm:inline">Capture</span>
+              <span className="text-white text-sm font-medium hidden sm:inline">📸 Capture</span>
             </button>
             
             <button
