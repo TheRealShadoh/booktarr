@@ -94,7 +94,7 @@ describe('BookCard', () => {
     // After error, the image should be replaced with an SVG placeholder
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
     // Check for the fallback SVG by looking for the SVG element
-    const svg = document.querySelector('svg');
+    const svg = screen.getByRole('graphics-document', { hidden: true });
     expect(svg).toBeInTheDocument();
   });
 });

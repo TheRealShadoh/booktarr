@@ -37,6 +37,25 @@ class Series(SQLModel, table=True):
         if v is not None and v > 10000:  # Reasonable upper limit
             raise ValueError('total_books seems unreasonably high (>10000)')
         return v
+    
+    def validate_against_owned_count(self, session) -> bool:
+        """
+        Validate that total_books is not less than owned volumes
+        This should be called before saving/updating a Series
+        """
+        if not self.id:
+            return True  # New series, no volumes yet
+        
+        from sqlmodel import select
+        volumes = session.exec(
+            select(SeriesVolume).where(SeriesVolume.series_id == self.id)
+        ).all()
+        owned_count = len([v for v in volumes if v.status == "owned"])
+        
+        if self.total_books and self.total_books < owned_count:
+            raise ValueError(f'total_books ({self.total_books}) cannot be less than owned volumes ({owned_count})')
+        
+        return True
 
 
 class SeriesVolume(SQLModel, table=True):

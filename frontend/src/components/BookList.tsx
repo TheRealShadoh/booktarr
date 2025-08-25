@@ -391,7 +391,7 @@ const BookList: React.FC<BookListProps> = React.memo(({ books, loading, error, o
         }>
           {allBooks.map((book, index) => (
             <BookCard 
-              key={book.isbn || `book-${book.title}-${book.authors[0] || 'unknown'}-${index}`} 
+              key={`book-${book.isbn || book.isbn13 || book.isbn10 || book.title}-${index}`} 
               book={book} 
               viewMode={viewMode}
               onClick={onBookClick}
@@ -418,7 +418,7 @@ const BookList: React.FC<BookListProps> = React.memo(({ books, loading, error, o
           {/* Add Standalone books as individual cards if they exist */}
           {seriesGroups.find(group => group.seriesName === 'Standalone')?.books.map((book, index) => (
             <BookCard 
-              key={book.isbn || `standalone-${book.title}-${book.authors[0] || 'unknown'}-${index}`} 
+              key={`standalone-${book.isbn || book.isbn13 || book.isbn10 || book.title}-${index}`} 
               book={book} 
               viewMode={viewMode}
               onClick={onBookClick}

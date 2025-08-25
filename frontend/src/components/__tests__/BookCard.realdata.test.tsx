@@ -148,7 +148,7 @@ describe('BookCard with Real Data Patterns', () => {
       expect(screen.getByText('Read')).toBeInTheDocument();
       
       // Check that star rating is displayed
-      const starElements = document.querySelectorAll('[data-testid^="star-"]');
+      const starElements = screen.getAllByTestId(/star-/);
       expect(starElements.length).toBeGreaterThan(0);
       
       // Check times read counter
@@ -220,7 +220,7 @@ describe('BookCard with Real Data Patterns', () => {
       
       await waitFor(() => {
         // Should show SVG fallback
-        const svg = document.querySelector('svg');
+        const svg = screen.getByRole('graphics-document', { hidden: true });
         expect(svg).toBeInTheDocument();
       });
     });
@@ -243,11 +243,11 @@ describe('BookCard with Real Data Patterns', () => {
       const book = realBookData[0];
       render(<BookCard book={book} />);
       
-      const card = document.querySelector('.booktarr-book-card');
-      expect(card).toBeInTheDocument();
+      const cardContainer = screen.getByRole('article', { hidden: true });
+      expect(cardContainer).toBeInTheDocument();
       
       // Check that hover classes are present
-      expect(card).toHaveClass('group', 'cursor-pointer');
+      expect(cardContainer).toHaveClass('group', 'cursor-pointer');
     });
   });
 
@@ -354,7 +354,7 @@ describe('BookCard with Real Data Patterns', () => {
       render(<BookCard book={completedBook} />);
       
       // Should show star rating
-      const starElements = document.querySelectorAll('[data-testid^="star-"]');
+      const starElements = screen.getAllByTestId(/star-/);
       expect(starElements.length).toBeGreaterThan(0);
     });
   });
@@ -385,11 +385,11 @@ describe('BookCard with Real Data Patterns', () => {
       const book = realBookData[0];
       render(<BookCard book={book} />);
       
-      const card = document.querySelector('.booktarr-book-card');
-      expect(card).toHaveClass('cursor-pointer');
+      const cardContainer = screen.getByRole('article', { hidden: true });
+      expect(cardContainer).toHaveClass('cursor-pointer');
       
       // Should be focusable for keyboard navigation
-      expect(card).toHaveAttribute('tabIndex', '0');
+      expect(cardContainer).toHaveAttribute('tabIndex', '0');
     });
   });
 });

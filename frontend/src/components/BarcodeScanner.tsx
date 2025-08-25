@@ -33,7 +33,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   } = useCameraPermissions();
 
   const [isScanning, setIsScanning] = useState(false);
-  const [lastScannedISBN, setLastScannedISBN] = useState<string | null>(null);
+  const [, setLastScannedISBN] = useState<string | null>(null);
   const [manualInput, setManualInput] = useState('');
   const [showManualInput, setShowManualInput] = useState(false);
   const [torchEnabled, setTorchEnabled] = useState(false);
@@ -42,7 +42,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const [scannedISBNs, setScannedISBNs] = useState<string[]>([]);
   const [duplicateCount, setDuplicateCount] = useState(0);
   const [detectionCount, setDetectionCount] = useState(0);
-  const [lastDetectionTime, setLastDetectionTime] = useState<number>(0);
+  const [, setLastDetectionTime] = useState<number>(0);
   const [lastDetectedCode, setLastDetectedCode] = useState<string | null>(null);
   const [showDetectionFlash, setShowDetectionFlash] = useState(false);
   

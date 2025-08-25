@@ -315,11 +315,58 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       setError(null);
       
       const data = await booktarrAPI.getBooks();
-      dispatch({ type: 'SET_BOOKS', payload: data.series });
       
-      showToast('Library loaded successfully!', 'success');
+      // Transform the backend data to match frontend Book interface
+      const transformedSeries: BooksBySeriesMap = {};
+      
+      if (data.series) {
+        Object.entries(data.series).forEach(([seriesName, books]) => {
+          transformedSeries[seriesName] = (books as any[]).map(book => ({
+            // Map required Book interface fields
+            isbn: book.isbn_13 || book.isbn_10 || `temp-${Date.now()}`,
+            title: book.title || 'Unknown Title',
+            authors: Array.isArray(book.authors) ? book.authors : [book.authors || 'Unknown Author'],
+            series: book.series_name || undefined,
+            series_position: book.series_position || undefined,
+            publisher: book.publisher || undefined,
+            published_date: book.release_date || undefined,
+            page_count: book.page_count || undefined,
+            language: 'en', // Default since not provided by backend
+            thumbnail_url: book.cover_url || undefined,
+            cover_url: book.cover_url || undefined,
+            description: book.description || undefined,
+            categories: [], // Not provided by backend, default empty
+            pricing: [], // Not provided by backend, default empty
+            metadata_source: 'skoolib' as any, // Default
+            added_date: new Date().toISOString(), // Default since not provided
+            last_updated: new Date().toISOString(), // Default since not provided
+            isbn10: book.isbn_10 || undefined,
+            isbn13: book.isbn_13 || undefined,
+            // Reading progress fields with defaults
+            reading_status: 'unread' as any, // Default
+            reading_progress_pages: undefined,
+            reading_progress_percentage: undefined,
+            date_started: undefined,
+            date_finished: undefined,
+            personal_rating: undefined,
+            personal_notes: undefined,
+            reading_goal_id: undefined,
+            times_read: 0,
+            // Optional enhancement fields
+            metadata_enhanced: false,
+            metadata_enhanced_date: undefined,
+            metadata_sources_used: undefined
+          }));
+        });
+      }
+      
+      dispatch({ type: 'SET_BOOKS', payload: transformedSeries });
+      
+      console.log('✅ Books loaded and transformed:', Object.keys(transformedSeries).length, 'series');
+      showToast(`Library loaded: ${Object.values(transformedSeries).flat().length} books!`, 'success');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load books';
+      console.error('❌ Failed to load books:', error);
       setError(errorMessage);
       showToast(`Failed to load library: ${errorMessage}`, 'error');
     } finally {

@@ -20,10 +20,9 @@ describe('SearchBar', () => {
     render(<SearchBar onSearch={mockOnSearch} />);
     
     const input = screen.getByPlaceholderText(/Search books by title, author, or series/);
-    const form = input.closest('form');
     
     fireEvent.change(input, { target: { value: 'Harry Potter' } });
-    fireEvent.submit(form!);
+    fireEvent.submit(input);
     
     expect(mockOnSearch).toHaveBeenCalledWith('Harry Potter');
   });

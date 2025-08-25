@@ -4,8 +4,10 @@
 import React, { useState, useMemo } from 'react';
 import BookCard from './BookCard';
 import LoadingSpinner from './LoadingSpinner';
+import BookListSkeleton from './BookListSkeleton';
 import ErrorMessage from './ErrorMessage';
 import { BooksBySeriesMap, Book } from '../types';
+import { useDebounce, usePerformanceMonitor } from '../hooks/usePerformance';
 
 interface IndividualBooksPageProps {
   books: BooksBySeriesMap;
@@ -18,6 +20,10 @@ const IndividualBooksPage: React.FC<IndividualBooksPageProps> = ({ books, loadin
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'title' | 'author' | 'series' | 'published_date' | 'added_date'>('title');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  
+  // Performance monitoring and optimization
+  const performanceMetrics = usePerformanceMonitor('IndividualBooksPage');
+  const debouncedSortBy = useDebounce(sortBy, 300);
 
   // Flatten all books and sort them
   const individualBooks = useMemo(() => {
@@ -28,7 +34,7 @@ const IndividualBooksPage: React.FC<IndividualBooksPageProps> = ({ books, loadin
     return allBooks.sort((a, b) => {
       let comparison = 0;
       
-      switch (sortBy) {
+      switch (debouncedSortBy) {
         case 'title':
           comparison = a.title.localeCompare(b.title);
           break;
@@ -52,7 +58,7 @@ const IndividualBooksPage: React.FC<IndividualBooksPageProps> = ({ books, loadin
       
       return sortOrder === 'asc' ? comparison : -comparison;
     });
-  }, [books, sortBy, sortOrder]);
+  }, [books, debouncedSortBy, sortOrder]);
 
   const totalBooks = individualBooks.length;
   const uniqueSeries = useMemo(() => {
@@ -77,11 +83,7 @@ const IndividualBooksPage: React.FC<IndividualBooksPageProps> = ({ books, loadin
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner size="large" message="Loading your book collection..." />
-      </div>
-    );
+    return <BookListSkeleton count={24} layout={viewMode} />;
   }
 
   if (error) {

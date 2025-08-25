@@ -235,7 +235,7 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
           {!isCollapsed && (
             <h2 id="main-nav-heading" className="sr-only">Main Navigation</h2>
           )}
-          {navigationItems.map(renderNavItem)}
+          {navigationItems.map((item) => renderNavItem(item))}
         </section>
 
         {/* Separator */}
@@ -246,7 +246,7 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
           {!isCollapsed && (
             <h2 id="system-nav-heading" className="sr-only">System Navigation</h2>
           )}
-          {systemItems.map(renderNavItem)}
+          {systemItems.map((item) => renderNavItem(item))}
         </section>
       </nav>
 

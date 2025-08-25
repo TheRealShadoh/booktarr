@@ -5,8 +5,9 @@ import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { BooksBySeriesMap, Book } from '../types';
 import BookCard from './BookCard';
-import LoadingSpinner from './LoadingSpinner';
+import CollectionsSkeleton from './CollectionsSkeleton';
 import ErrorMessage from './ErrorMessage';
+import { usePerformanceMonitor } from '../hooks/usePerformance';
 
 interface Collection {
   id: string;
@@ -39,6 +40,14 @@ const CollectionsPage: React.FC<CollectionsPageProps> = ({
 }) => {
   const { showToast } = useAppContext();
   const [activeView, setActiveView] = useState<'collections' | 'tags'>('collections');
+  
+  // Performance monitoring
+  const performanceMetrics = usePerformanceMonitor('CollectionsPage');
+  
+  // Log performance metrics in development
+  if (process.env.NODE_ENV === 'development' && performanceMetrics.renderCount > 0) {
+    console.debug('CollectionsPage performance:', performanceMetrics);
+  }
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newCollection, setNewCollection] = useState<Partial<Collection>>({
@@ -240,11 +249,7 @@ const CollectionsPage: React.FC<CollectionsPageProps> = ({
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner size="large" message="Loading collections..." />
-      </div>
-    );
+    return <CollectionsSkeleton count={12} />;
   }
 
   if (error) {

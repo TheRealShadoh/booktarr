@@ -3,7 +3,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { SettingsPageProps, SettingsUpdateRequest } from '../types';
-import LoadingSpinner from './LoadingSpinner';
+import SettingsSkeleton from './SettingsSkeleton';
 import ErrorMessage from './ErrorMessage';
 import Toast from './Toast';
 import ImportPage from './ImportPage';
@@ -12,6 +12,7 @@ import SharePage from './SharePage';
 import BackupRestore from './BackupRestore';
 import JobsSection from './JobsSection';
 import { useStateManager } from '../hooks/useStateManager';
+import { usePerformanceMonitor } from '../hooks/usePerformance';
 
 type SettingsTab = 'general' | 'import' | 'sync' | 'share' | 'backup' | 'jobs';
 
@@ -30,6 +31,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     syncWithServer,
     showToast
   } = useStateManager();
+  
+  // Performance monitoring
+  const performanceMetrics = usePerformanceMonitor('SettingsPage');
+  
+  // Log performance metrics in development
+  if (process.env.NODE_ENV === 'development' && performanceMetrics.renderCount > 0) {
+    console.debug('SettingsPage performance:', performanceMetrics);
+  }
   
   // Use state from context if available, fallback to props
   const settings = state.settings || propsSettings;
@@ -322,11 +331,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner size="large" message="Loading settings..." />
-      </div>
-    );
+    return <SettingsSkeleton />;
   }
 
   if (error) {

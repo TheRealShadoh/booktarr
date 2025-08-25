@@ -154,13 +154,18 @@ async def get_series_details(
                     "isbn": primary_isbn
                 }
     
-    # Calculate accurate total books count
+    # Calculate accurate total books count using integrity service logic
     owned_count = len([v for v in volume_data if v["status"] == "owned"])
-    total_count = max(len(volume_data), series.total_books or 0)
+    volume_count = len(volume_data)
     
-    # If we have more owned than total, adjust total
-    if owned_count > total_count:
-        total_count = owned_count
+    # Use integrity service logic: priority is max of owned_count, volume_count, or reasonable external total
+    correct_total = max(owned_count, volume_count)
+    
+    # If external API provided a reasonable total (not way too low), use it
+    if series.total_books and series.total_books >= correct_total:
+        correct_total = series.total_books
+    
+    total_count = correct_total
     
     return {
         "series": {
@@ -222,25 +227,27 @@ async def update_volume_status(
     
     # Validate the status change to prevent integrity issues
     if status == "owned":
-        try:
-            from backend.services.series_integrity_service import SeriesIntegrityService
-        except ImportError:
-            from services.series_integrity_service import SeriesIntegrityService
+        # Get current volume counts
+        current_volumes = session.exec(
+            select(SeriesVolume).where(SeriesVolume.series_id == series.id)
+        ).all()
+        current_owned_count = len([v for v in current_volumes if v.status == "owned"])
+        new_owned_count = current_owned_count + 1  # +1 for the volume being marked as owned
         
-        with SeriesIntegrityService() as integrity_service:
-            validation = integrity_service.prevent_volume_count_exceeding_total(series.id, status)
-            
-            if not validation["valid"] and validation.get("recommend_total_update"):
-                # Auto-fix: Update series total to accommodate the new owned volume
-                volumes = session.exec(
-                    select(SeriesVolume).where(SeriesVolume.series_id == series.id)
-                ).all()
-                owned_count = len([v for v in volumes if v.status == "owned"]) + 1  # +1 for the volume being marked as owned
-                
-                if owned_count > series.total_books:
-                    series.total_books = owned_count
-                    session.add(series)
-                    logger.info(f"Auto-updated series '{series_name}' total_books to {owned_count} to accommodate owned volume")
+        # Use integrity service logic to determine correct total
+        volume_count = len(current_volumes)
+        correct_total = max(new_owned_count, volume_count)
+        
+        # If external API provided a reasonable total, use it
+        if series.total_books and series.total_books >= correct_total:
+            correct_total = series.total_books
+        
+        # Auto-update series total if needed
+        if not series.total_books or series.total_books < new_owned_count:
+            old_total = series.total_books
+            series.total_books = correct_total
+            session.add(series)
+            logger.info(f"Auto-updated series '{series_name}' total_books from {old_total} to {correct_total} to maintain data integrity")
     
     # Update the status
     volume.status = status
@@ -855,8 +862,15 @@ async def list_all_series(
             print(f"DEBUG: Bleach series - ID={series.id}, total_books={series.total_books}, volumes={len(volumes)}, owned={owned_count}, status={series.status}")
             print(f"DEBUG: Query result - display_total will be: {series.total_books or max(len(volumes), owned_count)}")
         
-        # Always use series.total_books from metadata service
-        display_total = series.total_books or max(len(volumes), owned_count)
+        # Use integrity service logic for consistent display
+        volume_count = len(volumes)
+        correct_total = max(owned_count, volume_count)
+        
+        # If external API provided a reasonable total (not way too low), use it
+        if series.total_books and series.total_books >= correct_total:
+            correct_total = series.total_books
+        
+        display_total = correct_total
         
         series_list.append({
             "id": series.id,

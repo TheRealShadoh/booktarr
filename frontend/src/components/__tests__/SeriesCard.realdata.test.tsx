@@ -264,8 +264,8 @@ describe('SeriesCard with Real Data Patterns', () => {
         />
       );
       
-      const card = document.querySelector('.booktarr-series-card');
-      expect(card).toHaveClass('cursor-pointer');
+      const cardContainer = screen.getByRole('article', { hidden: true });
+      expect(cardContainer).toHaveClass('cursor-pointer');
     });
   });
 
@@ -324,7 +324,7 @@ describe('SeriesCard with Real Data Patterns', () => {
       
       await waitFor(() => {
         // Should show SVG fallback
-        const svg = document.querySelector('svg');
+        const svg = screen.getByRole('graphics-document', { hidden: true });
         expect(svg).toBeInTheDocument();
       });
     });
@@ -469,8 +469,8 @@ describe('SeriesCard with Real Data Patterns', () => {
         />
       );
       
-      const card = document.querySelector('.booktarr-series-card');
-      expect(card).toHaveAttribute('tabIndex', '0');
+      const cardContainer = screen.getByRole('article', { hidden: true });
+      expect(cardContainer).toHaveAttribute('tabIndex', '0');
     });
   });
 

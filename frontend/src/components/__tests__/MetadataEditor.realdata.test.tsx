@@ -207,12 +207,14 @@ describe('MetadataEditor with Real Data Patterns', () => {
   });
 
   describe('Search results display and interaction', () => {
-    beforeEach(async () => {
+    beforeEach(() => {
       (fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ results: mockSearchResults })
       });
+    });
 
+    it('should render and handle search correctly', async () => {
       render(<MetadataEditor {...mockProps} />);
       
       const searchButton = screen.getByText('Search Metadata');
