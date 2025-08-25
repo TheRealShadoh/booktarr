@@ -435,45 +435,92 @@
     @apply text-sm text-booktarr-textSecondary;
   }
   
-  /* Book grid layout - Reduced size by ~50% */
+  /* MOB-004: Mobile-First Responsive Grid System */
   .booktarr-book-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    /* Mobile First: Single column on very small screens */
+    grid-template-columns: 1fr;
     gap: 1rem;
+    padding: 0.5rem;
   }
   
-  @media (min-width: 640px) {
+  /* Small mobile (320px+) - 2 columns */
+  @media (min-width: 320px) {
     .booktarr-book-grid {
-      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
     }
   }
   
+  /* Large mobile (480px+) - 2 columns with larger items */
+  @media (min-width: 480px) {
+    .booktarr-book-grid {
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 1.25rem;
+      padding: 0.75rem;
+    }
+  }
+  
+  /* Small tablet (640px+) - 3 columns */
+  @media (min-width: 640px) {
+    .booktarr-book-grid {
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 1.5rem;
+      padding: 1rem;
+    }
+  }
+  
+  /* Tablet (768px+) - 4 columns */
+  @media (min-width: 768px) {
+    .booktarr-book-grid {
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 1.5rem;
+    }
+  }
+  
+  /* Desktop (1024px+) - More columns, tighter grid */
   @media (min-width: 1024px) {
     .booktarr-book-grid {
-      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
       gap: 1.25rem;
     }
   }
   
+  /* Large desktop (1280px+) - Maximum density */
   @media (min-width: 1280px) {
     .booktarr-book-grid {
       grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 1.5rem;
     }
   }
   
-  /* Size toggle options */
+  /* Large Size Toggle - Mobile-First Approach */
   .booktarr-book-grid-large {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    /* Mobile First: Single column for large cards */
+    grid-template-columns: 1fr;
     gap: 1.5rem;
+    padding: 0.75rem;
   }
   
+  /* Large mobile (480px+) - 2 columns for large cards */
+  @media (min-width: 480px) {
+    .booktarr-book-grid-large {
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1.5rem;
+    }
+  }
+  
+  /* Small tablet (640px+) - 3 columns for large cards */
   @media (min-width: 640px) {
     .booktarr-book-grid-large {
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1.75rem;
+      padding: 1rem;
     }
   }
   
+  /* Desktop (1024px+) - 4+ columns for large cards */
   @media (min-width: 1024px) {
     .booktarr-book-grid-large {
       grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -481,9 +528,11 @@
     }
   }
   
+  /* Large desktop (1280px+) - Maximum large card density */
   @media (min-width: 1280px) {
     .booktarr-book-grid-large {
       grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 2rem;
     }
   }
 }
@@ -656,28 +705,150 @@
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
-/* Responsive design helpers */
+/* Enhanced responsive design helpers - MOB-001 & MOB-003 Implementation */
 @media (max-width: 768px) {
-  .book-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 1rem;
+  /* Mobile-optimized book grid */
+  .book-grid, .booktarr-book-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); /* Slightly larger for better touch */
+    gap: 1.25rem; /* Increased gap for better thumb navigation */
+    padding: 1rem 0.75rem; /* Add padding for edge spacing */
   }
   
+  /* Card optimizations for mobile */
   .card-header {
-    @apply px-4 py-3;
+    @apply px-4 py-4; /* Increased vertical padding */
   }
   
   .card-body {
-    @apply px-4 py-3;
+    @apply px-4 py-4; /* Increased vertical padding */
+  }
+  
+  /* Book card mobile spacing optimization */
+  .booktarr-book-card {
+    margin-bottom: 1.5rem; /* Increased spacing between cards */
+    padding: 0.75rem; /* Add internal padding */
+  }
+  
+  /* MOB-002: Mobile Typography Enhancement - Comprehensive Implementation */
+  
+  /* Book card typography - Mobile optimized */
+  .booktarr-book-title {
+    font-size: 0.9rem; /* Increased from 0.875rem for better readability */
+    line-height: 1.35; /* Improved line height */
+    font-weight: 600; /* Slightly bolder for mobile */
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.01em; /* Slight letter spacing improvement */
+  }
+  
+  .booktarr-book-author {
+    font-size: 0.8rem; /* Increased from 0.75rem */
+    line-height: 1.25;
+    margin-bottom: 0.25rem;
+    font-weight: 500; /* Slightly bolder for mobile readability */
+  }
+  
+  .booktarr-book-series {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    font-weight: 600; /* Make series info more prominent */
+  }
+  
+  /* List view mobile typography (larger for easier reading) */
+  .booktarr-book-card[data-view-mode="list"] .booktarr-book-title {
+    font-size: 1rem; /* Larger for list view */
+    line-height: 1.4;
+  }
+  
+  .booktarr-book-card[data-view-mode="list"] .booktarr-book-author {
+    font-size: 0.875rem;
+    line-height: 1.3;
+  }
+  
+  /* Series info and metadata mobile typography */
+  .book-metadata-mobile {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    font-weight: 500;
+  }
+  
+  /* Category chips mobile typography */
+  .category-chip {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  
+  /* Navigation mobile typography */
+  .booktarr-sidebar-item {
+    font-size: 0.95rem; /* Slightly larger for mobile navigation */
+    font-weight: 500;
+  }
+  
+  /* Form inputs mobile typography */
+  input, textarea, select {
+    font-size: 16px !important; /* Prevent iOS zoom */
+    line-height: 1.5;
+  }
+  
+  /* Button text mobile typography */
+  button, .booktarr-btn {
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  
+  /* Search results mobile typography */
+  .search-result-item {
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+  
+  /* Status badges mobile typography */
+  .status-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  
+  /* Mobile search container */
+  .search-container {
+    margin-bottom: 1rem;
+    padding: 0 0.5rem;
+  }
+  
+  /* Mobile filter controls */
+  .filter-controls {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 0.5rem;
+  }
+  
+  /* Mobile navigation adjustments */
+  .mobile-nav-header {
+    padding: 1rem;
+    min-height: 64px; /* Adequate touch area for mobile header */
+  }
+  
+  /* Mobile sidebar improvements */
+  .mobile-sidebar {
+    padding: 1rem 0;
+  }
+  
+  .mobile-sidebar-item {
+    min-height: 52px; /* Larger touch targets */
+    padding: 1rem 1.5rem;
+    margin: 0.25rem 1rem;
+    border-radius: 0.75rem;
   }
 }
 
-/* Mobile touch optimizations */
+/* Enhanced Mobile touch optimizations - MOB-001 Implementation */
 @media (hover: none) and (pointer: coarse) {
   /* Mobile/touch device styles */
   button, .booktarr-btn {
-    min-height: 44px;
-    min-width: 44px;
+    min-height: 48px; /* Increased from 44px to 48px for better touch targets */
+    min-width: 48px;
+    padding: 12px 16px; /* Increased padding */
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
@@ -690,15 +861,75 @@
   select, 
   textarea {
     font-size: 16px; /* Prevents zoom on iOS */
-    min-height: 44px;
+    min-height: 48px; /* Increased from 44px to 48px */
+    padding: 14px 16px; /* Increased vertical padding */
+  }
+  
+  /* Enhanced touch targets for interactive elements */
+  .touch-target {
+    min-height: 48px;
+    min-width: 48px;
+    padding: 12px;
+    margin: 4px;
+  }
+  
+  /* Book card mobile touch optimizations */
+  .booktarr-book-card {
+    margin-bottom: 16px; /* Increased spacing for thumb navigation */
+    border-radius: 12px; /* Slightly larger border radius for easier touch */
+  }
+  
+  /* Book card touch area optimization */
+  .booktarr-book-card[role="button"] {
+    min-height: 60px; /* Ensure adequate touch area */
+    cursor: pointer;
+    -webkit-tap-highlight-color: rgba(249, 115, 22, 0.1);
+  }
+  
+  /* Navigation sidebar items mobile optimization */
+  .booktarr-sidebar-item {
+    min-height: 48px;
+    padding: 14px 16px; /* Increased padding for better touch */
+    margin: 4px 8px; /* Increased spacing between items */
+  }
+  
+  /* Filter and control buttons mobile optimization */
+  .filter-button, .control-button {
+    min-height: 48px;
+    min-width: 48px;
+    padding: 12px 16px;
+    margin: 4px;
+  }
+  
+  /* Search input mobile optimization */
+  .search-container input {
+    min-height: 48px;
+    padding: 14px 16px 14px 44px; /* Increased padding, account for search icon */
+    font-size: 16px;
   }
   
   /* Improve touch targets for scanner controls */
   .scanner-button {
-    padding: 12px 16px;
+    padding: 14px 18px; /* Increased from 12px 16px */
     font-size: 16px;
-    min-height: 48px;
-    min-width: 48px;
+    min-height: 52px; /* Increased from 48px */
+    min-width: 52px;
+  }
+  
+  /* Category/tag chips mobile optimization */
+  .category-chip, .tag-chip {
+    min-height: 32px;
+    padding: 8px 12px;
+    margin: 2px;
+    border-radius: 16px;
+  }
+  
+  /* Status badges mobile touch optimization */
+  .status-badge {
+    min-height: 28px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
   }
   
   /* Remove hover effects on touch devices */
@@ -707,8 +938,20 @@
     transform: none !important;
   }
   
-  /* Add active states for touch feedback */
+  /* Enhanced active states for touch feedback */
   button:active, .booktarr-btn:active {
+    transform: scale(0.96); /* Slightly more pronounced feedback */
+    transition: transform 0.1s ease;
+  }
+  
+  /* Book card active feedback */
+  .booktarr-book-card:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+  }
+  
+  /* Navigation item active feedback */
+  .booktarr-sidebar-item:active {
     transform: scale(0.98);
     transition: transform 0.1s ease;
   }

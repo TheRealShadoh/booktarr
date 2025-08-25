@@ -104,15 +104,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden"
            style={{ marginLeft: device.isMobile ? 0 : undefined }}>
-        {/* Header bar */}
+        {/* Header bar - Improved layout for better UX */}
         <header className="bg-booktarr-surface border-b border-booktarr-border px-4 sm:px-6 py-3 sm:py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 sm:space-x-4">
+          <div className="flex items-center justify-between gap-4">
+            {/* Left section - Menu and Title */}
+            <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
               {/* Mobile Menu Button */}
               {device.isMobile && (
                 <button
                   onClick={handleToggleSidebar}
-                  className="p-2 rounded-lg hover:bg-booktarr-hover transition-colors"
+                  className="p-2 rounded-lg hover:bg-booktarr-hover transition-colors flex-shrink-0"
                   aria-label="Toggle menu"
                 >
                   <svg className="w-5 h-5 text-booktarr-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -121,13 +122,30 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                 </button>
               )}
               
-              <h1 className="page-title capitalize">
-                {currentPage.replace('-', ' ')}
-              </h1>
-              
-              {/* Page-specific actions */}
+              {/* Page title - Hidden on library page to reduce redundancy */}
+              {currentPage !== 'library' && (
+                <h1 className="page-title capitalize truncate">
+                  {currentPage.replace('-', ' ')}
+                </h1>
+              )}
+            </div>
+
+            {/* Center section - Search (Desktop only) */}
+            {!device.isMobile && currentPage === 'library' && onBookSelect && onSearchAddBook && (
+              <div className="flex-1 max-w-md mx-4">
+                <BookSearch
+                  onBookSelect={onBookSelect}
+                  onAddNewBook={onSearchAddBook}
+                  className="w-full"
+                />
+              </div>
+            )}
+
+            {/* Right section - Actions */}
+            <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+              {/* Library-specific controls (Desktop) */}
               {currentPage === 'library' && !device.isMobile && (
-                <div className="flex items-center space-x-2">
+                <>
                   <button
                     onClick={handleToggleFilter}
                     className="booktarr-btn booktarr-btn-ghost"
@@ -150,18 +168,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                       </svg>
                     </button>
                   </div>
-                </div>
+                </>
               )}
-            </div>
 
-            {/* Global actions */}
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              {/* Search - Hidden on mobile, shown in a separate search page */}
-              {!device.isMobile && onBookSelect && onSearchAddBook && (
+              {/* Global Search (Non-library pages on Desktop) */}
+              {!device.isMobile && currentPage !== 'library' && onBookSelect && onSearchAddBook && (
                 <BookSearch
                   onBookSelect={onBookSelect}
                   onAddNewBook={onSearchAddBook}
-                  className="w-48 lg:w-64"
+                  className="w-48 lg:w-56"
                 />
               )}
 
@@ -178,12 +193,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                 </button>
               )}
 
-              {/* Add button */}
+              {/* Add Book Button - Improved positioning */}
               <button 
                 onClick={() => onPageChange('add')}
                 className={getResponsiveValue({
-                  mobile: "p-2 rounded-lg bg-booktarr-accent text-white hover:bg-booktarr-accentHover transition-colors",
-                  default: "booktarr-btn booktarr-btn-primary"
+                  mobile: "p-2.5 rounded-lg bg-booktarr-accent text-white hover:bg-booktarr-accentHover transition-colors shadow-md",
+                  default: "booktarr-btn booktarr-btn-primary px-4 py-2.5"
                 })}
                 aria-label={device.isMobile ? "Add book" : undefined}
               >

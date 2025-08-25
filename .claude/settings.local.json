@@ -30,7 +30,9 @@
       "Read(/C:\\c\\Users\\chris\\git\\booktarr\\frontend/**)",
       "Read(/C:\\c\\Users\\chris\\git\\booktarr/**)",
       "Read(/C:\\c\\Users\\chris\\git\\booktarr\\frontend/**)",
-      "mcp__playwright__browser_hover"
+      "mcp__playwright__browser_hover",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_navigate_back"
     ],
     "deny": []
   }
