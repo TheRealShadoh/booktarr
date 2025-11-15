@@ -1,4 +1,13 @@
 module.exports = {
+  devServer: {
+    allowedHosts: 'all',
+    client: {
+      overlay: {
+        errors: true,
+        warnings: false,
+      },
+    },
+  },
   webpack: {
     configure: (webpackConfig) => {
       // Fix for jsonp chunk loading error
@@ -6,7 +15,7 @@ module.exports = {
         ...webpackConfig.output,
         globalObject: 'this',
       };
-      
+
       // Disable splitting for now to avoid chunk loading issues
       webpackConfig.optimization.splitChunks = {
         chunks: 'all',
@@ -20,8 +29,8 @@ module.exports = {
           }
         }
       };
-      
-      
+
+
       return webpackConfig;
     },
   },

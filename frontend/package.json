@@ -44,10 +44,10 @@
     "webpack-bundle-analyzer": "^4.9.0"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "test:ci": "react-scripts test --ci --coverage --watchAll=false",
+    "start": "craco start",
+    "build": "craco build",
+    "test": "craco test",
+    "test:ci": "craco test --ci --coverage --watchAll=false",
     "test:playwright": "playwright test",
     "test:playwright:ui": "playwright test --ui",
     "test:playwright:debug": "playwright test --debug",
