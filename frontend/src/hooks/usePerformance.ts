@@ -176,7 +176,8 @@ export const usePerformanceMonitor = (componentName: string) => {
     return () => {
       endMeasure();
     };
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return performanceMetrics;
 };
