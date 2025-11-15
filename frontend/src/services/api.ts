@@ -234,6 +234,21 @@ class BooktarrAPI {
     const response = await this.api.post<ReadingProgressResponse>(`/reading/books/${isbn}/add-to-wishlist`);
     return response.data;
   }
+
+  async getWishlist(): Promise<Book[]> {
+    const response = await this.api.get<Book[]>('/reading/books/status/want_to_read');
+    return response.data;
+  }
+
+  async removeFromWishlist(isbn: string): Promise<{ message: string }> {
+    const response = await this.api.delete<{ message: string }>(`/reading/books/${isbn}/remove-from-wishlist`);
+    return response.data;
+  }
+
+  async updateWishlistNotes(isbn: string, notes: string): Promise<ReadingProgressResponse> {
+    const response = await this.api.put<ReadingProgressResponse>(`/reading/books/${isbn}/wishlist-notes`, { notes });
+    return response.data;
+  }
 }
 
 // Create singleton instance
