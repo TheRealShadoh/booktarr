@@ -16,6 +16,7 @@ export interface Book {
   cover_url?: string;
   description?: string;
   categories: string[];
+  tags?: string[];  // Smart collection tags (e.g., "Isekai", "Found Family")
   pricing: PriceInfo[];
   metadata_source: MetadataSource;
   added_date: string;
@@ -528,4 +529,126 @@ export interface ErrorRecoveryAction {
   label: string;
   action: () => void;
   variant: 'primary' | 'secondary' | 'danger';
+}
+
+// Smart Collection Types (Tags, Categories, Languages)
+export interface CollectionStats {
+  total_books: number;
+  total_editions: number;
+  languages: { [key: string]: number };
+  formats: { [key: string]: number };
+  categories: { [key: string]: number };
+  tags: { [key: string]: number };
+  unique_languages: number;
+  unique_formats: number;
+  unique_categories: number;
+  unique_tags: number;
+}
+
+export interface CollectionStatsResponse {
+  success: boolean;
+  statistics: CollectionStats;
+}
+
+export interface TagResponse {
+  success: boolean;
+  book_id: number;
+  tags: string[];
+  message: string;
+}
+
+export interface AllTagsResponse {
+  tags: string[];
+  count: number;
+  message: string;
+}
+
+export interface BooksByTagResponse {
+  tag: string;
+  books: Array<{
+    id: number;
+    title: string;
+    authors: string[];
+    tags: string[];
+  }>;
+  count: number;
+}
+
+export interface CategoriesResponse {
+  categories: string[];
+  count: number;
+  message: string;
+}
+
+export interface BooksByCategoryResponse {
+  category: string;
+  books: Array<{
+    id: number;
+    title: string;
+    authors: string[];
+    categories: string[];
+  }>;
+  count: number;
+}
+
+export interface LanguagesResponse {
+  languages: { [key: string]: number };
+  unique_languages: number;
+  total_books: number;
+}
+
+export interface BooksByLanguageResponse {
+  language: string;
+  books: Array<{
+    id: number;
+    title: string;
+    authors: string[];
+    language: string;
+  }>;
+  count: number;
+}
+
+export interface EditionVariant {
+  id: number;
+  isbn_13?: string;
+  isbn_10?: string;
+  format: string;
+  language?: string;
+  publisher?: string;
+  release_date?: string;
+  price?: number;
+  cover_url?: string;
+}
+
+export interface EditionVariantsResponse {
+  book_id: number;
+  title: string;
+  variants: { [key: string]: EditionVariant[] };
+  total_editions: number;
+}
+
+export interface DuplicateBook {
+  id: number;
+  title: string;
+  authors: string[];
+  series?: string;
+}
+
+export interface DuplicatePair {
+  book1: DuplicateBook;
+  book2: DuplicateBook;
+  confidence: number;
+}
+
+export interface DuplicatesResponse {
+  duplicates_found: number;
+  confidence_threshold: number;
+  duplicates: DuplicatePair[];
+}
+
+export interface MergeDuplicatesResponse {
+  success: boolean;
+  primary_book_id: number;
+  merged_count: number;
+  message: string;
 }

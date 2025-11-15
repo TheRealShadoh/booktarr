@@ -12,6 +12,13 @@ class Book(SQLModel, table=True):
     openlibrary_id: Optional[str] = None
     google_books_id: Optional[str] = None
 
+    # Smart Collection Features
+    language: Optional[str] = None  # e.g., "en", "ja", "fr"
+    page_count: Optional[int] = None
+    description: Optional[str] = None
+    categories: Optional[str] = None  # JSON serialized list (e.g., ["Fiction", "Fantasy"])
+    tags: Optional[str] = None  # JSON serialized list (e.g., ["Isekai", "Found Family", "Time Travel"])
+
     editions: List["Edition"] = Relationship(back_populates="book")
 
 
@@ -20,7 +27,8 @@ class Edition(SQLModel, table=True):
     isbn_10: Optional[str] = None
     isbn_13: Optional[str] = None
     book_id: int = Field(foreign_key="book.id")
-    book_format: Optional[str] = None  # hardcover, paperback, ebook, audiobook
+    book_format: Optional[str] = None  # hardcover, paperback, ebook, audiobook, special edition
+    language: Optional[str] = None  # e.g., "en", "ja", "fr" (edition-specific language)
     publisher: Optional[str] = None
     release_date: Optional[date] = None
     cover_url: Optional[str] = None

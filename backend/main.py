@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import os
 
-# Always use relative imports when in backend directory  
+# Always use relative imports when in backend directory
 from database import init_db
 from routes import books_router, settings_router
 from routes.reading import router as reading_router
@@ -19,6 +19,7 @@ from routes.advanced_search import router as advanced_search_router
 from routes.calendar import router as calendar_router
 from routes.bulk import router as bulk_router
 from routes.auth import router as auth_router
+from routes.collections import router as collections_router
 
 # Import library router directly from books module
 try:
@@ -105,6 +106,7 @@ app.include_router(advanced_search_router, prefix="/api/advanced-search")
 app.include_router(calendar_router, prefix="/api/calendar")
 app.include_router(bulk_router, prefix="/api/bulk")
 app.include_router(auth_router, prefix="/api/auth")
+app.include_router(collections_router)  # Collections router includes /api prefix in its routes
 
 # Mount static files for cover images
 static_dir = os.path.join(os.path.dirname(__file__), "static")
