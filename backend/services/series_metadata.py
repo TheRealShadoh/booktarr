@@ -135,6 +135,11 @@ class SeriesMetadataService:
                     "first_published": series.first_published.isoformat() if series.first_published else None,
                     "last_published": series.last_published.isoformat() if series.last_published else None,
                     "last_updated": series.last_updated.isoformat() if series.last_updated else None,
+                    # Manga-specific metadata
+                    "series_type": series.series_type,
+                    "original_language": series.original_language,
+                    "year_started": series.year_started,
+                    "anilist_id": series.anilist_id,
                     "volumes": volume_list
                 }
                 
@@ -764,7 +769,12 @@ class SeriesMetadataService:
                     tags=json.dumps(series_data.get("tags", [])),
                     first_published=first_pub,
                     last_published=last_pub,
-                    last_updated=date.today()
+                    last_updated=date.today(),
+                    # Manga-specific metadata
+                    series_type=series_data.get("series_type"),
+                    original_language=series_data.get("original_language"),
+                    year_started=series_data.get("year_started"),
+                    anilist_id=series_data.get("anilist_id")
                 )
                 session.add(series)
                 if commit_changes:
@@ -792,7 +802,7 @@ class SeriesMetadataService:
                         series.first_published = series.first_published
                 else:
                     series.first_published = first_pub or series.first_published
-                
+
                 last_pub = series_data.get("last_published")
                 if last_pub and isinstance(last_pub, str):
                     try:
@@ -801,6 +811,15 @@ class SeriesMetadataService:
                         series.last_published = series.last_published
                 else:
                     series.last_published = last_pub or series.last_published
+
+                # Update manga-specific metadata
+                series.series_type = series_data.get("series_type") or series.series_type
+                series.original_language = series_data.get("original_language") or series.original_language
+                if series_data.get("year_started"):
+                    series.year_started = series_data.get("year_started")
+                if series_data.get("anilist_id"):
+                    series.anilist_id = series_data.get("anilist_id")
+
                 series.last_updated = date.today()
                 session.add(series)
                 if commit_changes:
