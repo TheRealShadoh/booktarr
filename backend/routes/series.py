@@ -26,17 +26,43 @@ async def test_series_endpoint() -> Dict[str, Any]:
     return {"status": "Series routes working", "test": True}
 
 
-@router.get("/{series_name}")
+@router.get("/details")
+async def get_series_by_query(
+    name: str = Query(..., description="Series name"),
+    user_id: int = Query(1, description="User ID"),
+    session: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    """
+    Get detailed information about a series using query parameter.
+    This endpoint handles series names with special characters like slashes.
+    Use this for series names that contain '/' characters.
+    """
+    return await _get_series_details_impl(name, user_id, session)
+
+
+@router.get("/{series_name:path}")
 async def get_series_details(
     series_name: str,
     user_id: int = Query(1, description="User ID"),
     session: Session = Depends(get_session)
 ) -> Dict[str, Any]:
-    """Get detailed information about a series including all volumes and ownership status."""
-    
+    """
+    Get detailed information about a series including all volumes and ownership status.
+    Path parameter version - supports slashes in series names via :path converter.
+    """
+    return await _get_series_details_impl(series_name, user_id, session)
+
+
+async def _get_series_details_impl(
+    series_name: str,
+    user_id: int,
+    session: Session
+) -> Dict[str, Any]:
+    """Internal implementation for getting series details"""
+
     # Force refresh the session to get latest data
     session.expire_all()
-    
+
     # First check if we have series info in the database
     statement = select(Series).where(Series.name == series_name)
     series = session.exec(statement).first()
