@@ -23,6 +23,7 @@ from routes.auth import router as auth_router
 from routes.integrations import router as integrations_router
 from routes.manga import router as manga_router
 from routes.collections import router as collections_router
+from routes.smart_insights import router as smart_insights_router
 
 # Import library router directly from books module
 try:
@@ -113,6 +114,7 @@ app.include_router(auth_router, prefix="/api/auth")
 app.include_router(integrations_router)
 app.include_router(manga_router, prefix="/api")
 app.include_router(collections_router)  # Collections router includes /api prefix in its routes
+app.include_router(smart_insights_router)
 
 # Mount static files for cover images
 static_dir = os.path.join(os.path.dirname(__file__), "static")

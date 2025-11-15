@@ -28,6 +28,7 @@ import AuthorProfilePage from './components/AuthorProfilePage';
 import PublisherDiscoveryPage from './components/PublisherDiscoveryPage';
 import SeasonalDiscoveryPage from './components/SeasonalDiscoveryPage';
 import MagazineTrackingPage from './components/MagazineTrackingPage';
+import SmartInsightsPage from './components/SmartInsightsPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import PageErrorBoundary from './components/PageErrorBoundary';
 import ComponentErrorBoundary from './components/ComponentErrorBoundary';
@@ -548,6 +549,15 @@ const AppInner: React.FC = () => {
                   error={state.error}
                   onBookClick={handleBookClick}
                 />
+              </PageErrorBoundary>
+            } />
+
+            <Route path="/insights" element={
+              <PageErrorBoundary
+                pageName="Smart Insights"
+                onNavigateBack={() => navigate('/')}
+              >
+                <SmartInsightsPage />
               </PageErrorBoundary>
             } />
 
