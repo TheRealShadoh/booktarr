@@ -22,12 +22,19 @@ class Series(SQLModel, table=True):
     goodreads_id: Optional[str] = None
     openlibrary_id: Optional[str] = None
     google_books_id: Optional[str] = None
+    anilist_id: Optional[int] = None  # AniList ID for manga series
     cover_url: Optional[str] = None
     created_date: date = Field(default_factory=date.today)
     last_updated: date = Field(default_factory=date.today)
 
+    # Manga-specific metadata
+    series_type: Optional[str] = None  # manga_series, light_novel_series, book_series, comic_series, web_series, etc.
+    original_language: Optional[str] = None  # Language code: ja, ko, zh, en, etc.
+    year_started: Optional[int] = None  # Year series began publication
+
     # Relationships
     volumes: List["SeriesVolume"] = Relationship(back_populates="series")
+    serializations: List["Serialization"] = Relationship(back_populates="series")
     
     @validator('total_books')
     def validate_total_books(cls, v):
@@ -77,13 +84,34 @@ class SeriesVolume(SQLModel, table=True):
     goodreads_id: Optional[str] = None
     openlibrary_id: Optional[str] = None
     google_books_id: Optional[str] = None
-    
+
+    # Manga-specific metadata
+    chapter_count: Optional[int] = None  # Number of chapters in this volume
+    is_color: Optional[bool] = None  # Whether volume is in color or B&W (for manga)
+
     # Ownership tracking
     user_id: int = Field(default=1)  # Default user for now
     status: str = Field(default="missing")  # owned, wanted, missing
     owned_edition_id: Optional[int] = Field(default=None)  # Remove foreign key for now
     notes: Optional[str] = None
     date_acquired: Optional[date] = None
-    
+
     # Relationships
     series: Series = Relationship(back_populates="volumes")
+
+
+class Serialization(SQLModel, table=True):
+    """
+    Model for tracking serialization information - where and when a series was serialized.
+    Used for manga and light novels that were serialized in magazines.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    series_id: int = Field(foreign_key="series.id")
+    magazine_name: str  # e.g., "Weekly Shonen Jump", "Monthly Magazine Z"
+    start_date: Optional[date] = None  # When serialization started
+    end_date: Optional[date] = None  # When serialization ended
+    region: Optional[str] = None  # Country/region (Japan, USA, Korea, etc.) - language code or country name
+    notes: Optional[str] = None  # Additional info (e.g., "original serialization", "ongoing")
+
+    # Relationships
+    series: Series = Relationship(back_populates="serializations")
