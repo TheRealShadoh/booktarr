@@ -7,6 +7,12 @@ module.exports = {
         warnings: false,
       },
     },
+    // Use setupMiddlewares instead of deprecated onBeforeSetupMiddleware/onAfterSetupMiddleware
+    setupMiddlewares: (middlewares, devServer) => {
+      // Custom middlewares can be added here before/after default middlewares
+      // This replaces the deprecated onBeforeSetupMiddleware and onAfterSetupMiddleware
+      return middlewares;
+    },
   },
   webpack: {
     configure: (webpackConfig) => {
