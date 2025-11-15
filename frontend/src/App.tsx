@@ -24,6 +24,7 @@ import SeriesManagement from './components/SeriesManagement';
 import SeriesDetailsPage from './components/SeriesDetailsPage';
 import LogsPage from './components/LogsPage';
 import ReleaseCalendarPage from './components/ReleaseCalendarPage';
+import SmartInsightsPage from './components/SmartInsightsPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import PageErrorBoundary from './components/PageErrorBoundary';
 import ComponentErrorBoundary from './components/ComponentErrorBoundary';
@@ -470,8 +471,8 @@ const AppInner: React.FC = () => {
             } />
             
             <Route path="/release-calendar" element={
-              <PageErrorBoundary 
-                pageName="Release Calendar" 
+              <PageErrorBoundary
+                pageName="Release Calendar"
                 onNavigateBack={() => navigate('/')}
               >
                 <ReleaseCalendarPage
@@ -481,7 +482,16 @@ const AppInner: React.FC = () => {
                 />
               </PageErrorBoundary>
             } />
-            
+
+            <Route path="/insights" element={
+              <PageErrorBoundary
+                pageName="Smart Insights"
+                onNavigateBack={() => navigate('/')}
+              >
+                <SmartInsightsPage />
+              </PageErrorBoundary>
+            } />
+
             {process.env.NODE_ENV === 'development' && (
               <Route path="/error-boundary-test" element={
                 <PageErrorBoundary 
