@@ -18,6 +18,17 @@ import {
   ReadingProgressResponse,
   ReadingStatsResponse,
   ReadingStatus,
+  WishlistItem,
+  WishlistRequest,
+  WishlistUpdateRequest,
+  WishlistStats,
+  WishlistResponse,
+  PriceTracking,
+  PriceTrackingResponse,
+  PreOrder,
+  PreOrderRequest,
+  PreOrderResponse,
+  AcquisitionPreference,
 } from '../types';
 
 // Dynamically determine API URL based on current hostname and environment
@@ -232,6 +243,169 @@ class BooktarrAPI {
 
   async addToWishlist(isbn: string): Promise<ReadingProgressResponse> {
     const response = await this.api.post<ReadingProgressResponse>(`/reading/books/${isbn}/add-to-wishlist`);
+    return response.data;
+  }
+
+  // ============= WISHLIST API METHODS =============
+
+  async getWishlists(): Promise<WishlistResponse> {
+    const response = await this.api.get<WishlistResponse>('/wishlist/');
+    return response.data;
+  }
+
+  async addToWishlistItem(request: WishlistRequest): Promise<WishlistResponse> {
+    const response = await this.api.post<WishlistResponse>('/wishlist/items', request);
+    return response.data;
+  }
+
+  async getWishlistItems(wishlistId?: number): Promise<WishlistResponse> {
+    const url = wishlistId ? `/wishlist/items?wishlist_id=${wishlistId}` : '/wishlist/items';
+    const response = await this.api.get<WishlistResponse>(url);
+    return response.data;
+  }
+
+  async getWishlistItem(itemId: number): Promise<WishlistResponse> {
+    const response = await this.api.get<WishlistResponse>(`/wishlist/items/${itemId}`);
+    return response.data;
+  }
+
+  async updateWishlistItem(itemId: number, update: WishlistUpdateRequest): Promise<WishlistResponse> {
+    const response = await this.api.put<WishlistResponse>(`/wishlist/items/${itemId}`, update);
+    return response.data;
+  }
+
+  async removeFromWishlist(itemId: number): Promise<WishlistResponse> {
+    const response = await this.api.delete<WishlistResponse>(`/wishlist/items/${itemId}`);
+    return response.data;
+  }
+
+  async getWishlistItemsByPriority(wishlistId?: number): Promise<WishlistResponse> {
+    const url = wishlistId ? `/wishlist/items/by-priority/all?wishlist_id=${wishlistId}` : '/wishlist/items/by-priority/all';
+    const response = await this.api.get<WishlistResponse>(url);
+    return response.data;
+  }
+
+  async getWishlistItemsByStatus(status: string, wishlistId?: number): Promise<WishlistResponse> {
+    const url = wishlistId
+      ? `/wishlist/items/status/${status}?wishlist_id=${wishlistId}`
+      : `/wishlist/items/status/${status}`;
+    const response = await this.api.get<WishlistResponse>(url);
+    return response.data;
+  }
+
+  async getWatchingItems(wishlistId?: number): Promise<WishlistResponse> {
+    const url = wishlistId ? `/wishlist/items/watching/all?wishlist_id=${wishlistId}` : '/wishlist/items/watching/all';
+    const response = await this.api.get<WishlistResponse>(url);
+    return response.data;
+  }
+
+  async getReadyToBuyItems(wishlistId?: number): Promise<WishlistResponse> {
+    const url = wishlistId ? `/wishlist/items/ready-to-buy/all?wishlist_id=${wishlistId}` : '/wishlist/items/ready-to-buy/all';
+    const response = await this.api.get<WishlistResponse>(url);
+    return response.data;
+  }
+
+  async getPreOrderedItems(wishlistId?: number): Promise<WishlistResponse> {
+    const url = wishlistId ? `/wishlist/items/pre-ordered/all?wishlist_id=${wishlistId}` : '/wishlist/items/pre-ordered/all';
+    const response = await this.api.get<WishlistResponse>(url);
+    return response.data;
+  }
+
+  async getOverdueItems(wishlistId?: number): Promise<WishlistResponse> {
+    const url = wishlistId ? `/wishlist/items/overdue/all?wishlist_id=${wishlistId}` : '/wishlist/items/overdue/all';
+    const response = await this.api.get<WishlistResponse>(url);
+    return response.data;
+  }
+
+  async getWishlistStats(wishlistId?: number): Promise<WishlistResponse> {
+    const url = wishlistId ? `/wishlist/stats?wishlist_id=${wishlistId}` : '/wishlist/stats';
+    const response = await this.api.get<WishlistResponse>(url);
+    return response.data;
+  }
+
+  // ============= ACQUISITION PREFERENCE API METHODS =============
+
+  async getAcquisitionPreferences(): Promise<WishlistResponse> {
+    const response = await this.api.get<WishlistResponse>('/wishlist/preferences');
+    return response.data;
+  }
+
+  async updateAcquisitionPreferences(preferences: Partial<AcquisitionPreference>): Promise<WishlistResponse> {
+    const response = await this.api.put<WishlistResponse>('/wishlist/preferences', preferences);
+    return response.data;
+  }
+
+  // ============= PRICE TRACKING API METHODS =============
+
+  async trackPrice(
+    price: number,
+    source: string,
+    isbn?: string,
+    title?: string,
+    editionId?: number,
+    wishlistItemId?: number,
+    sourceUrl?: string
+  ): Promise<PriceTrackingResponse> {
+    const url = `/wishlist/prices/track?price=${price}&source=${source}${isbn ? `&isbn=${isbn}` : ''}${title ? `&title=${title}` : ''}${editionId ? `&edition_id=${editionId}` : ''}${wishlistItemId ? `&wishlist_item_id=${wishlistItemId}` : ''}${sourceUrl ? `&source_url=${sourceUrl}` : ''}`;
+    const response = await this.api.post<PriceTrackingResponse>(url);
+    return response.data;
+  }
+
+  async getPriceHistory(editionId?: number, wishlistItemId?: number, limit: number = 50): Promise<PriceTrackingResponse> {
+    let url = `/wishlist/prices/history?limit=${limit}`;
+    if (editionId) url += `&edition_id=${editionId}`;
+    if (wishlistItemId) url += `&wishlist_item_id=${wishlistItemId}`;
+    const response = await this.api.get<PriceTrackingResponse>(url);
+    return response.data;
+  }
+
+  async getCurrentPrice(editionId?: number, wishlistItemId?: number): Promise<PriceTrackingResponse> {
+    let url = '/wishlist/prices/current';
+    if (editionId) url += `?edition_id=${editionId}`;
+    if (wishlistItemId) url += `${editionId ? '&' : '?'}wishlist_item_id=${wishlistItemId}`;
+    const response = await this.api.get<PriceTrackingResponse>(url);
+    return response.data;
+  }
+
+  async detectPriceDrops(thresholdPercent: number = 10): Promise<PriceTrackingResponse> {
+    const response = await this.api.get<PriceTrackingResponse>(`/wishlist/prices/drops?threshold_percent=${thresholdPercent}`);
+    return response.data;
+  }
+
+  async getPriceTrend(editionId?: number, wishlistItemId?: number): Promise<PriceTrackingResponse> {
+    let url = '/wishlist/prices/trend';
+    if (editionId) url += `?edition_id=${editionId}`;
+    if (wishlistItemId) url += `${editionId ? '&' : '?'}wishlist_item_id=${wishlistItemId}`;
+    const response = await this.api.get<PriceTrackingResponse>(url);
+    return response.data;
+  }
+
+  // ============= PRE-ORDER API METHODS =============
+
+  async createPreOrder(request: PreOrderRequest): Promise<PreOrderResponse> {
+    const response = await this.api.post<PreOrderResponse>('/wishlist/preorders', request);
+    return response.data;
+  }
+
+  async getActivePreOrders(): Promise<PreOrderResponse> {
+    const response = await this.api.get<PreOrderResponse>('/wishlist/preorders/active');
+    return response.data;
+  }
+
+  async getUpcomingReleases(daysAhead: number = 30): Promise<PreOrderResponse> {
+    const response = await this.api.get<PreOrderResponse>(`/wishlist/preorders/upcoming?days_ahead=${daysAhead}`);
+    return response.data;
+  }
+
+  async updatePreOrderStatus(preOrderId: number, status: string, estimatedDeliveryDate?: string): Promise<PreOrderResponse> {
+    let url = `/wishlist/preorders/${preOrderId}/status?status=${status}`;
+    if (estimatedDeliveryDate) url += `&estimated_delivery_date=${estimatedDeliveryDate}`;
+    const response = await this.api.put<PreOrderResponse>(url);
+    return response.data;
+  }
+
+  async cancelPreOrder(preOrderId: number): Promise<PreOrderResponse> {
+    const response = await this.api.delete<PreOrderResponse>(`/wishlist/preorders/${preOrderId}`);
     return response.data;
   }
 }

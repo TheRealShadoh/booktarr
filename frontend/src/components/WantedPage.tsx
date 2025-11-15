@@ -1,10 +1,12 @@
 /**
  * Wanted page component with Missing From Series and Wantlist functionality
+ * Integrated with backend Wishlist API for persistence
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
-import { BooksBySeriesMap, Book } from '../types';
+import { BooksBySeriesMap, Book, WishlistItem as ApiWishlistItem, WishlistRequest } from '../types';
+import booktarrAPI from '../services/api';
 
 interface WantedPageProps {
   books: BooksBySeriesMap;
@@ -22,47 +24,59 @@ interface MissingBook {
   id: string;
 }
 
-interface WantlistItem {
-  id: string;
-  title: string;
-  author?: string;
-  isbn?: string;
-  seriesName?: string;
-  seriesPosition?: number;
-  dateAdded: Date;
-  notes?: string;
-  priority: 'low' | 'medium' | 'high';
-}
-
-const WantedPage: React.FC<WantedPageProps> = ({ 
-  books, 
-  loading, 
-  error, 
-  onRefresh, 
-  onBookClick 
+const WantedPage: React.FC<WantedPageProps> = ({
+  books,
+  loading,
+  error,
+  onRefresh,
+  onBookClick
 }) => {
   const [activeTab, setActiveTab] = useState<'missing' | 'wantlist'>('missing');
-  const [wantlist, setWantlist] = useState<WantlistItem[]>([]);
+  const [wantlist, setWantlist] = useState<ApiWishlistItem[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newWantlistItem, setNewWantlistItem] = useState<Partial<WantlistItem>>({
+  const [newWantlistItem, setNewWantlistItem] = useState<Partial<WishlistRequest>>({
     priority: 'medium'
   });
+  const [isLoadingWishlist, setIsLoadingWishlist] = useState(false);
+  const [wishlistError, setWishlistError] = useState<string | null>(null);
+
+  // Load wishlist items from API on component mount
+  const loadWishlist = useCallback(async () => {
+    try {
+      setIsLoadingWishlist(true);
+      setWishlistError(null);
+      const response = await booktarrAPI.getWishlistItems();
+      if (response.success && response.items) {
+        setWantlist(response.items);
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to load wishlist';
+      setWishlistError(errorMsg);
+      console.error('Error loading wishlist:', err);
+    } finally {
+      setIsLoadingWishlist(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadWishlist();
+  }, [loadWishlist]);
 
   // Calculate missing books from series
   const missingBooks = useMemo(() => {
     if (!books) return [];
-    
+
     const missing: MissingBook[] = [];
-    
+
     Object.entries(books).forEach(([seriesName, bookList]) => {
       if (seriesName === 'Standalone') return;
-      
+
       const booksWithPositions = bookList.filter(book => book.series_position);
       if (booksWithPositions.length === 0) return;
-      
+
       const positions = booksWithPositions.map(book => book.series_position!).sort((a, b) => a - b);
       const maxPosition = Math.max(...positions);
-      
+
       // Find gaps in the series
       for (let i = 1; i <= maxPosition; i++) {
         if (!positions.includes(i)) {
@@ -75,46 +89,70 @@ const WantedPage: React.FC<WantedPageProps> = ({
         }
       }
     });
-    
+
     return missing.sort((a, b) => a.seriesName.localeCompare(b.seriesName));
   }, [books]);
 
-  const handleAddToWantlist = (missingBook: MissingBook) => {
-    const newItem: WantlistItem = {
-      id: `wl-${Date.now()}`,
-      title: missingBook.title || `${missingBook.seriesName} #${missingBook.position}`,
-      author: missingBook.author,
-      seriesName: missingBook.seriesName,
-      seriesPosition: missingBook.position,
-      dateAdded: new Date(),
-      priority: 'medium'
-    };
-    
-    setWantlist(prev => [...prev, newItem]);
+  const handleAddToWantlist = async (missingBook: MissingBook) => {
+    try {
+      setWishlistError(null);
+      const request: WishlistRequest = {
+        title: missingBook.title || `${missingBook.seriesName} #${missingBook.position}`,
+        author: missingBook.author,
+        priority: 'medium'
+      };
+
+      const response = await booktarrAPI.addToWishlistItem(request);
+      if (response.success) {
+        await loadWishlist();
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to add to wishlist';
+      setWishlistError(errorMsg);
+      console.error('Error adding to wishlist:', err);
+    }
   };
 
-  const handleAddManualWantlistItem = () => {
+  const handleAddManualWantlistItem = async () => {
     if (!newWantlistItem.title) return;
-    
-    const item: WantlistItem = {
-      id: `wl-${Date.now()}`,
-      title: newWantlistItem.title,
-      author: newWantlistItem.author,
-      isbn: newWantlistItem.isbn,
-      seriesName: newWantlistItem.seriesName,
-      seriesPosition: newWantlistItem.seriesPosition,
-      dateAdded: new Date(),
-      notes: newWantlistItem.notes,
-      priority: newWantlistItem.priority || 'medium'
-    };
-    
-    setWantlist(prev => [...prev, item]);
-    setNewWantlistItem({ priority: 'medium' });
-    setShowAddForm(false);
+
+    try {
+      setWishlistError(null);
+      const request: WishlistRequest = {
+        title: newWantlistItem.title,
+        isbn_13: newWantlistItem.isbn_13,
+        isbn_10: newWantlistItem.isbn_10,
+        author: newWantlistItem.author,
+        priority: newWantlistItem.priority as 'low' | 'medium' | 'high',
+        notes: newWantlistItem.notes,
+        target_price: newWantlistItem.target_price
+      };
+
+      const response = await booktarrAPI.addToWishlistItem(request);
+      if (response.success) {
+        await loadWishlist();
+        setNewWantlistItem({ priority: 'medium' });
+        setShowAddForm(false);
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to add item to wishlist';
+      setWishlistError(errorMsg);
+      console.error('Error adding manual item:', err);
+    }
   };
 
-  const handleRemoveFromWantlist = (id: string) => {
-    setWantlist(prev => prev.filter(item => item.id !== id));
+  const handleRemoveFromWishlist = async (id: number) => {
+    try {
+      setWishlistError(null);
+      const response = await booktarrAPI.removeFromWishlist(id);
+      if (response.success) {
+        await loadWishlist();
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to remove from wishlist';
+      setWishlistError(errorMsg);
+      console.error('Error removing from wishlist:', err);
+    }
   };
 
   const totalMissing = missingBooks.length;
@@ -136,8 +174,18 @@ const WantedPage: React.FC<WantedPageProps> = ({
     );
   }
 
+  // Show any wishlist-specific errors as a banner
+  const displayError = wishlistError || error;
+
   return (
     <div className="space-y-8">
+      {/* Error Banner */}
+      {displayError && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+          <ErrorMessage error={displayError} onRetry={activeTab === 'wantlist' ? loadWishlist : onRefresh} />
+        </div>
+      )}
+
       {/* Header */}
       <div className="booktarr-card">
         <div className="booktarr-card-header">
@@ -296,8 +344,8 @@ const WantedPage: React.FC<WantedPageProps> = ({
                     <label className="booktarr-form-label">ISBN</label>
                     <input
                       type="text"
-                      value={newWantlistItem.isbn || ''}
-                      onChange={(e) => setNewWantlistItem(prev => ({ ...prev, isbn: e.target.value }))}
+                      value={newWantlistItem.isbn_13 || ''}
+                      onChange={(e) => setNewWantlistItem(prev => ({ ...prev, isbn_13: e.target.value }))}
                       className="booktarr-form-input"
                       placeholder="Enter ISBN"
                     />
@@ -371,14 +419,15 @@ const WantedPage: React.FC<WantedPageProps> = ({
                       {item.author && (
                         <p className="text-booktarr-textSecondary text-sm">by {item.author}</p>
                       )}
-                      {item.seriesName && (
-                        <p className="text-booktarr-textMuted text-sm">
-                          {item.seriesName} {item.seriesPosition && `#${item.seriesPosition}`}
-                        </p>
+                      {item.target_price && (
+                        <p className="text-booktarr-textMuted text-sm">Target Price: ${item.target_price.toFixed(2)}</p>
                       )}
                       {item.notes && (
                         <p className="text-booktarr-textMuted text-sm mt-1">{item.notes}</p>
                       )}
+                      <p className="text-booktarr-textMuted text-xs mt-1">
+                        {item.acquisition_status.replace('_', ' ')} • Added: {new Date(item.date_added).toLocaleDateString()}
+                      </p>
                     </div>
                     <div className="flex items-center space-x-2">
                       <button className="booktarr-btn booktarr-btn-primary text-xs">
