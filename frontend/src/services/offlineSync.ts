@@ -385,16 +385,35 @@ class OfflineSyncService {
       try {
         switch (operation) {
           case 'add':
-            // TODO: Implement addBook API method
-            console.log('Would add book:', data);
+            // Add book via API
+            const addResponse = await fetch('/api/books', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(data),
+            });
+            if (!addResponse.ok) {
+              throw new Error(`Failed to add book: ${addResponse.statusText}`);
+            }
             break;
           case 'remove':
-            // TODO: Implement removeBook API method
-            console.log('Would remove book:', data.isbn);
+            // Remove book via API
+            const removeResponse = await fetch(`/api/books/${data.isbn}`, {
+              method: 'DELETE',
+            });
+            if (!removeResponse.ok) {
+              throw new Error(`Failed to remove book: ${removeResponse.statusText}`);
+            }
             break;
           case 'update':
-            // TODO: Implement updateBook API method
-            console.log('Would update book:', data);
+            // Update book via API
+            const updateResponse = await fetch(`/api/books/${data.isbn}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(data.updates || data),
+            });
+            if (!updateResponse.ok) {
+              throw new Error(`Failed to update book: ${updateResponse.statusText}`);
+            }
             break;
         }
       } catch (error) {
