@@ -21,9 +21,8 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
   onBooksUpdated, 
   onClose 
 }) => {
-  const { 
-    showToast, 
-    batchAddBooks,
+  const {
+    showToast,
     removeBookWithOptimizations
   } = useStateManager();
 
