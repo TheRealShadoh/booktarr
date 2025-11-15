@@ -19,6 +19,13 @@ class Book(SQLModel, table=True):
     original_language: Optional[str] = None  # Language code: ja, ko, zh, en, etc.
     anilist_id: Optional[int] = None  # AniList ID for manga
 
+    # Smart Collection Features
+    language: Optional[str] = None  # e.g., "en", "ja", "fr"
+    page_count: Optional[int] = None
+    description: Optional[str] = None
+    categories: Optional[str] = None  # JSON serialized list (e.g., ["Fiction", "Fantasy"])
+    tags: Optional[str] = None  # JSON serialized list (e.g., ["Isekai", "Found Family", "Time Travel"])
+
     editions: List["Edition"] = Relationship(back_populates="book")
     creators: List["Creator"] = Relationship(back_populates="book")
 
@@ -28,7 +35,7 @@ class Edition(SQLModel, table=True):
     isbn_10: Optional[str] = None
     isbn_13: Optional[str] = None
     book_id: int = Field(foreign_key="book.id")
-    book_format: Optional[str] = None  # hardcover, paperback, ebook, audiobook, digital, paperback manga, hardcover manga
+    book_format: Optional[str] = None  # hardcover, paperback, ebook, audiobook, digital, paperback manga, hardcover manga, special edition
     publisher: Optional[str] = None
     release_date: Optional[date] = None
     cover_url: Optional[str] = None
