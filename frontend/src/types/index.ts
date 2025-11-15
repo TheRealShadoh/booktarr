@@ -3,6 +3,7 @@
  */
 
 export interface Book {
+  id: number; // Database ID for selection/tracking
   isbn: string;
   title: string;
   authors: string[];
@@ -20,6 +21,7 @@ export interface Book {
   pricing: PriceInfo[];
   metadata_source: MetadataSource;
   added_date: string;
+  created_at?: string; // Alias for added_date for visual component consistency
   last_updated: string;
   isbn10?: string;
   isbn13?: string;
@@ -34,6 +36,7 @@ export interface Book {
   date_started?: string;
   date_finished?: string;
   personal_rating?: number; // 1-5 star rating
+  rating?: number; // Alias for visual components
   personal_notes?: string;
   reading_goal_id?: string;
   times_read: number;
@@ -505,6 +508,8 @@ export interface Series {
   status?: string;
   genres: string[];
   tags: string[];
+  universe?: string; // e.g., "Cosmere", "Middle Earth", for grouping related series
+  universe_order?: number; // Order within the universe for visual organization
   cover_url?: string;
   created_date: string;
   last_updated: string;

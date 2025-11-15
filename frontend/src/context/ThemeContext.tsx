@@ -1,14 +1,25 @@
 /**
- * Theme Context for managing application theming
+ * Theme Context for managing application theming with scheduled dark mode support
  */
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { getTheme, applyTheme, getThemeList, defaultTheme } from '../styles/themes';
 
+interface ScheduledDarkModeConfig {
+  enabled: boolean;
+  startTime: string; // HH:MM format (e.g., "21:00")
+  endTime: string;   // HH:MM format (e.g., "08:00")
+  darkTheme: string; // Theme to use during scheduled dark hours
+  lightTheme: string; // Theme to use during light hours
+}
+
 interface ThemeContextType {
   currentTheme: string;
-  setTheme: (themeName: string) => void;
+  setTheme: (themeName: string, skipSchedule?: boolean) => void;
   availableThemes: { key: string; name: string; displayName: string }[];
   themeConfig: typeof defaultTheme;
+  scheduledDarkMode: ScheduledDarkModeConfig;
+  setScheduledDarkMode: (config: ScheduledDarkModeConfig) => void;
+  isScheduledDarkModeActive: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -20,37 +31,125 @@ interface ThemeProviderProps {
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [currentTheme, setCurrentTheme] = useState<string>('dark');
   const [themeConfig, setThemeConfig] = useState(defaultTheme);
+  const [scheduledDarkMode, setScheduledDarkModeState] = useState<ScheduledDarkModeConfig>({
+    enabled: false,
+    startTime: '21:00',
+    endTime: '08:00',
+    darkTheme: 'dark',
+    lightTheme: 'light'
+  });
+  const [isScheduledDarkModeActive, setIsScheduledDarkModeActive] = useState(false);
+
+  // Check if current time is within scheduled dark mode hours
+  const isTimeInDarkModeHours = (startTime: string, endTime: string): boolean => {
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const [startHour, startMin] = startTime.split(':').map(Number);
+    const [endHour, endMin] = endTime.split(':').map(Number);
+
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+
+    // Handle case where end time is next day (e.g., 21:00 to 08:00)
+    if (endMinutes < startMinutes) {
+      return currentMinutes >= startMinutes || currentMinutes < endMinutes;
+    }
+
+    return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+  };
 
   // Load theme from localStorage on mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('booktarr-theme');
+    const savedScheduledDarkMode = localStorage.getItem('booktarr-scheduled-dark-mode');
+
+    if (savedScheduledDarkMode) {
+      try {
+        const config = JSON.parse(savedScheduledDarkMode);
+        setScheduledDarkModeState(config);
+
+        // Apply scheduled theme if enabled
+        if (config.enabled && isTimeInDarkModeHours(config.startTime, config.endTime)) {
+          setIsScheduledDarkModeActive(true);
+          applyThemeInternal(config.darkTheme);
+          return;
+        }
+      } catch (error) {
+        console.error('Failed to load scheduled dark mode config:', error);
+      }
+    }
+
     if (savedTheme && getTheme(savedTheme)) {
-      setTheme(savedTheme);
+      applyThemeInternal(savedTheme);
     } else {
       // Apply default theme
-      const theme = applyTheme('dark');
-      setThemeConfig(theme);
+      applyThemeInternal('dark');
     }
   }, []);
 
-  const setTheme = (themeName: string) => {
+  // Set up interval to check scheduled dark mode
+  useEffect(() => {
+    if (!scheduledDarkMode.enabled) return;
+
+    const checkInterval = setInterval(() => {
+      const isInDarkHours = isTimeInDarkModeHours(scheduledDarkMode.startTime, scheduledDarkMode.endTime);
+
+      if (isInDarkHours && !isScheduledDarkModeActive) {
+        // Switch to dark theme
+        setIsScheduledDarkModeActive(true);
+        applyThemeInternal(scheduledDarkMode.darkTheme);
+      } else if (!isInDarkHours && isScheduledDarkModeActive) {
+        // Switch to light theme
+        setIsScheduledDarkModeActive(false);
+        applyThemeInternal(scheduledDarkMode.lightTheme);
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(checkInterval);
+  }, [scheduledDarkMode, isScheduledDarkModeActive]);
+
+  const applyThemeInternal = (themeName: string) => {
     try {
-      // Apply the theme and get the config
       const theme = applyTheme(themeName);
-      
-      // Update state
       setCurrentTheme(themeName);
       setThemeConfig(theme);
-      
-      // Save to localStorage
-      localStorage.setItem('booktarr-theme', themeName);
-      
-      // Dispatch custom event for components that need to react to theme changes
-      window.dispatchEvent(new CustomEvent('booktarr-theme-change', { 
-        detail: { theme: themeName, config: theme } 
+
+      window.dispatchEvent(new CustomEvent('booktarr-theme-change', {
+        detail: { theme: themeName, config: theme }
       }));
     } catch (error) {
       console.error('Failed to apply theme:', error);
+    }
+  };
+
+  const setTheme = (themeName: string, skipSchedule = false) => {
+    try {
+      // If scheduled dark mode is active and user tries to change theme, disable scheduling for this session
+      if (skipSchedule || isScheduledDarkModeActive) {
+        setIsScheduledDarkModeActive(false);
+      }
+
+      applyThemeInternal(themeName);
+
+      // Save to localStorage
+      localStorage.setItem('booktarr-theme', themeName);
+    } catch (error) {
+      console.error('Failed to set theme:', error);
+    }
+  };
+
+  const setScheduledDarkMode = (config: ScheduledDarkModeConfig) => {
+    setScheduledDarkModeState(config);
+    localStorage.setItem('booktarr-scheduled-dark-mode', JSON.stringify(config));
+
+    // Apply appropriate theme immediately
+    if (config.enabled && isTimeInDarkModeHours(config.startTime, config.endTime)) {
+      setIsScheduledDarkModeActive(true);
+      applyThemeInternal(config.darkTheme);
+    } else {
+      setIsScheduledDarkModeActive(false);
+      applyThemeInternal(config.lightTheme);
     }
   };
 
@@ -60,7 +159,10 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     currentTheme,
     setTheme,
     availableThemes,
-    themeConfig
+    themeConfig,
+    scheduledDarkMode,
+    setScheduledDarkMode,
+    isScheduledDarkModeActive
   };
 
   return (
