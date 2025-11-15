@@ -1,13 +1,15 @@
 from typing import Optional, List
 from datetime import date
 from sqlmodel import SQLModel, Field, Relationship
-from pydantic import validator
+from pydantic import field_validator
 
 
 class Series(SQLModel, table=True):
     """
     Series model to store comprehensive information about book series
     """
+    __table_args__ = {'extend_existing': True}
+
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True)
     description: Optional[str] = None
@@ -38,7 +40,8 @@ class Series(SQLModel, table=True):
     volumes: List["SeriesVolume"] = Relationship(back_populates="series")
     serializations: List["Serialization"] = Relationship(back_populates="series")
     
-    @validator('total_books')
+    @field_validator('total_books')
+    @classmethod
     def validate_total_books(cls, v):
         """Ensure total_books is reasonable"""
         if v is not None and v < 0:

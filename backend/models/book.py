@@ -4,6 +4,8 @@ from sqlmodel import SQLModel, Field, Relationship
 
 
 class Book(SQLModel, table=True):
+    __table_args__ = {'extend_existing': True}
+
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str
     authors: str  # JSON serialized list
@@ -31,6 +33,8 @@ class Book(SQLModel, table=True):
 
 
 class Edition(SQLModel, table=True):
+    __table_args__ = {'extend_existing': True}
+
     id: Optional[int] = Field(default=None, primary_key=True)
     isbn_10: Optional[str] = None
     isbn_13: Optional[str] = None
