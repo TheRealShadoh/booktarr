@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Database Migration: Add missing Edition model columns
-Fixes: sqlite3.OperationalError: no such column: edition.page_count
+Database Migration: Add missing SeriesVolume model columns
+Fixes: sqlite3.OperationalError: no such column: seriesvolume.chapter_count
 """
 
 import sqlite3
@@ -13,7 +13,7 @@ import io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 def migrate_database():
-    """Add missing columns to Edition table"""
+    """Add missing columns to SeriesVolume table"""
 
     db_path = Path(__file__).parent / "booktarr.db"
 
@@ -31,21 +31,15 @@ def migrate_database():
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # Check current edition table schema
-    cursor.execute("PRAGMA table_info(edition);")
+    # Check current seriesvolume table schema
+    cursor.execute("PRAGMA table_info(seriesvolume);")
     existing_columns = {row[1] for row in cursor.fetchall()}
     print(f"[INFO] Existing columns: {len(existing_columns)}")
 
-    # Define new columns to add for Edition table
+    # Define new columns to add for SeriesVolume table
     new_columns = {
-        'page_count': 'INTEGER',  # Page count for this edition
-        'language': 'VARCHAR',  # Language of this edition (e.g., "en", "ja")
-        'translation_status': 'VARCHAR',  # official, fan_translation, scanlation
-        'translator': 'VARCHAR',  # Name of translator (JSON serialized list if multiple)
-        'is_color': 'BOOLEAN',  # For manga: whether it's in color or B&W
-        'chapter_count': 'INTEGER',  # For manga: number of chapters
-        'format_variant': 'VARCHAR',  # e.g., "deluxe hardcover", "box set", "omnibus", "limited edition"
-        'is_current_edition': 'BOOLEAN'  # Whether this is the latest/preferred edition
+        'chapter_count': 'INTEGER',  # Number of chapters in this volume
+        'is_color': 'BOOLEAN'  # Whether volume is in color or B&W (for manga)
     }
 
     # Add missing columns
@@ -53,7 +47,7 @@ def migrate_database():
     for column_name, column_type in new_columns.items():
         if column_name not in existing_columns:
             try:
-                sql = f"ALTER TABLE edition ADD COLUMN {column_name} {column_type};"
+                sql = f"ALTER TABLE seriesvolume ADD COLUMN {column_name} {column_type};"
                 print(f"  [+] Adding column: {column_name} ({column_type})")
                 cursor.execute(sql)
                 added_count += 1
@@ -66,7 +60,7 @@ def migrate_database():
     conn.commit()
 
     # Verify new schema
-    cursor.execute("PRAGMA table_info(edition);")
+    cursor.execute("PRAGMA table_info(seriesvolume);")
     final_columns = {row[1] for row in cursor.fetchall()}
 
     conn.close()
