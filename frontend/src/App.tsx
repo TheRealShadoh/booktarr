@@ -227,6 +227,31 @@ const AppInner: React.FC = () => {
 
   return (
     <div className="h-screen overflow-hidden">
+      {/* Skip Navigation Link for Accessibility */}
+      <a
+        href="#main-content"
+        className="skip-link"
+        style={{
+          position: 'absolute',
+          left: '-9999px',
+          zIndex: 999,
+          padding: '1rem',
+          backgroundColor: '#a855f7',
+          color: 'white',
+          textDecoration: 'none',
+          borderRadius: '0.25rem',
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.left = '0.5rem';
+          e.currentTarget.style.top = '0.5rem';
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.left = '-9999px';
+        }}
+      >
+        Skip to main content
+      </a>
+
       {/* PWA Components with Error Boundaries */}
       <ComponentErrorBoundary componentName="Offline Indicator" showMinimal={true}>
         <OfflineIndicator />
@@ -296,7 +321,8 @@ const AppInner: React.FC = () => {
             navigate('/add');
           }, [navigate])}
         >
-          <Routes>
+          <div id="main-content">
+            <Routes>
             <Route path="/" element={
               <PageErrorBoundary 
                 pageName="Book Library" 
@@ -575,6 +601,7 @@ const AppInner: React.FC = () => {
             {/* Redirect unknown routes to home */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </div>
         </MainLayout>
       </ErrorBoundary>
     </div>

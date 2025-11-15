@@ -46,19 +46,34 @@ const ManualBookMatching: React.FC<ManualBookMatchingProps> = ({
 
   const searchForSimilarBooks = async (book: UnmatchedBook) => {
     setSearching(prev => ({ ...prev, [book.row_number]: true }));
-    
+
     try {
-      // Search for similar books using title and author
-      // TODO: Implement actual search API call
-      // For now, mock some results
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      // Build search query from available information
+      let query = book.title;
+      if (book.authors && book.authors.length > 0) {
+        query += ` ${book.authors[0]}`; // Add first author to search
+      }
+
+      // Search for similar books using the books search API
+      const response = await fetch(`/api/books/search?q=${encodeURIComponent(query)}&max_results=5`);
+
+      if (!response.ok) {
+        throw new Error('Search failed');
+      }
+
+      const data = await response.json();
+      const results = data.results || [];
+
       setSearchResults(prev => ({
         ...prev,
-        [book.row_number]: [] // Mock empty results for now
+        [book.row_number]: results
       }));
     } catch (error) {
       console.error('Search error:', error);
+      setSearchResults(prev => ({
+        ...prev,
+        [book.row_number]: []
+      }));
     } finally {
       setSearching(prev => ({ ...prev, [book.row_number]: false }));
     }

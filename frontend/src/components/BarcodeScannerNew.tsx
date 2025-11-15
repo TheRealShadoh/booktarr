@@ -19,7 +19,7 @@ const BarcodeScannerNew: React.FC<BarcodeScannerNewProps> = ({ onComplete, onClo
   const scanIntervalRef = useRef<NodeJS.Timer | null>(null);
   
   const [scannedISBNs, setScannedISBNs] = useState<string[]>([]);
-  const [isScanning, setIsScanning] = useState(false);
+  const [_isScanning, setIsScanning] = useState(false);  // eslint-disable-line @typescript-eslint/no-unused-vars
   const [error, setError] = useState<string | null>(null);
   const [manualInput, setManualInput] = useState('');
   const [showManualInput, setShowManualInput] = useState(false);
@@ -175,11 +175,11 @@ const BarcodeScannerNew: React.FC<BarcodeScannerNewProps> = ({ onComplete, onClo
   // Start on mount
   useEffect(() => {
     startCamera();
-    
+
     return () => {
       stopCamera();
     };
-  }, []);
+  }, [startCamera, stopCamera]);
 
   // Handle manual ISBN input
   const handleManualSubmit = (e: React.FormEvent) => {

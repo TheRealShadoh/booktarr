@@ -118,6 +118,39 @@
     outline: 2px solid #a855f7;
     outline-offset: 2px;
   }
+
+  /* Enhanced focus indicators for accessibility */
+  *:focus-visible {
+    outline: 3px solid #a855f7;
+    outline-offset: 3px;
+    transition: outline-offset 0.2s ease;
+  }
+
+  button:focus-visible {
+    outline: 3px solid #a855f7;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2);
+  }
+
+  a:focus-visible {
+    outline: 3px solid #a855f7;
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  /* Focus indicator for card and interactive elements */
+  [role="button"]:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 3px solid #a855f7;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2);
+  }
+
+  /* Skip link styling */
+  .skip-link:focus {
+    outline: 3px solid #fff;
+    outline-offset: 2px;
+  }
 }
 
 /* Component layer */

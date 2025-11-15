@@ -21,9 +21,8 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
   onBooksUpdated, 
   onClose 
 }) => {
-  const { 
-    showToast, 
-    batchAddBooks,
+  const {
+    showToast,
     removeBookWithOptimizations
   } = useStateManager();
 
@@ -92,19 +91,27 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
   const handleUpdateMetadata = async () => {
     try {
       setLoading(true);
-      
-      // Simulate metadata update - in a real app, this would call an API
-      showToast('Metadata update queued for background processing', 'info');
-      
-      // TODO: Implement actual metadata refresh
-      // This would typically involve:
-      // 1. Queuing background jobs
-      // 2. Fetching fresh metadata from APIs
-      // 3. Updating books in database
-      
+
+      // Refresh metadata for each book
+      let successCount = 0;
+      for (const book of selectedBooks) {
+        try {
+          const response = await fetch(`/api/books/${book.isbn}/enrich`, {
+            method: 'POST',
+          });
+          if (response.ok) {
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Failed to refresh metadata for ${book.title}:`, error);
+        }
+      }
+
+      showToast(`Metadata refreshed for ${successCount} of ${selectedBooks.length} books`, 'success');
+      onBooksUpdated();
       onClose();
     } catch (error) {
-      showToast('Failed to queue metadata update', 'error');
+      showToast('Failed to refresh metadata', 'error');
     } finally {
       setLoading(false);
     }
@@ -118,18 +125,26 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
 
     try {
       setLoading(true);
-      
-      // Create updated books with new series
-      const updatedBooks = selectedBooks.map(book => ({
-        ...book,
-        series: newSeries,
-        last_updated: new Date().toISOString()
-      }));
 
-      // TODO: Implement bulk update API call
-      // For now, we'll show a message about what would happen
-      showToast(`Would update ${selectedBooks.length} books to series "${newSeries}"`, 'info');
-      
+      // Update each book with the new series
+      let successCount = 0;
+      for (const book of selectedBooks) {
+        try {
+          const response = await fetch(`/api/books/${book.isbn}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ series: newSeries }),
+          });
+          if (response.ok) {
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Failed to update series for ${book.title}:`, error);
+        }
+      }
+
+      showToast(`Updated series for ${successCount} of ${selectedBooks.length} books`, 'success');
+      onBooksUpdated();
       onClose();
     } catch (error) {
       showToast('Failed to update series', 'error');
@@ -146,10 +161,31 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
 
     try {
       setLoading(true);
-      
-      // TODO: Implement bulk category addition
-      showToast(`Would add category "${newCategory}" to ${selectedBooks.length} books`, 'info');
-      
+
+      // Add category to each book
+      let successCount = 0;
+      for (const book of selectedBooks) {
+        try {
+          // Add new category to existing categories (avoid duplicates)
+          const updatedCategories = book.categories.includes(newCategory)
+            ? book.categories
+            : [...book.categories, newCategory];
+
+          const response = await fetch(`/api/books/${book.isbn}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ categories: updatedCategories }),
+          });
+          if (response.ok) {
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Failed to add category to ${book.title}:`, error);
+        }
+      }
+
+      showToast(`Added category to ${successCount} of ${selectedBooks.length} books`, 'success');
+      onBooksUpdated();
       onClose();
     } catch (error) {
       showToast('Failed to add category', 'error');
@@ -166,10 +202,29 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
 
     try {
       setLoading(true);
-      
-      // TODO: Implement bulk category removal
-      showToast(`Would remove category "${categoryToRemove}" from selected books`, 'info');
-      
+
+      // Remove category from each book
+      let successCount = 0;
+      for (const book of selectedBooks) {
+        try {
+          // Filter out the category to remove
+          const updatedCategories = book.categories.filter(cat => cat !== categoryToRemove);
+
+          const response = await fetch(`/api/books/${book.isbn}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ categories: updatedCategories }),
+          });
+          if (response.ok) {
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Failed to remove category from ${book.title}:`, error);
+        }
+      }
+
+      showToast(`Removed category from ${successCount} of ${selectedBooks.length} books`, 'success');
+      onBooksUpdated();
       onClose();
     } catch (error) {
       showToast('Failed to remove category', 'error');

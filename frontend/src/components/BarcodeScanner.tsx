@@ -286,6 +286,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   }, [validateISBN13, validateISBN10, convertISBN10to13]);
 
   // Stop scanning
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const stopScanning = useCallback(() => {
     console.log('Stopping scanner...');
     
@@ -547,6 +548,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       activeStreamRef.current = null;
       initializationRef.current = false;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // No dependencies - use refs instead
 
   // Toggle torch
