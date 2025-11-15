@@ -11,6 +11,7 @@ class Book(SQLModel, table=True):
     series_position: Optional[int] = None
     openlibrary_id: Optional[str] = None
     google_books_id: Optional[str] = None
+    genres: Optional[str] = None  # JSON serialized list of genres
 
     editions: List["Edition"] = Relationship(back_populates="book")
 

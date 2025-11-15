@@ -4,10 +4,11 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import os
 
-# Always use relative imports when in backend directory  
+# Always use relative imports when in backend directory
 from database import init_db
 from routes import books_router, settings_router
 from routes.reading import router as reading_router
+from routes.goals import router as goals_router
 from routes.series import router as series_router
 from routes.search import router as search_router
 from routes.images import router as images_router
@@ -94,6 +95,7 @@ app.include_router(books_router, prefix="/api")
 app.include_router(library_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(reading_router, prefix="/api/reading")
+app.include_router(goals_router, prefix="/api/goals")
 app.include_router(series_router, prefix="/api/series")
 app.include_router(search_router, prefix="/api")
 app.include_router(images_router, prefix="/api/images")

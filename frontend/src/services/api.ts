@@ -18,6 +18,12 @@ import {
   ReadingProgressResponse,
   ReadingStatsResponse,
   ReadingStatus,
+  ReadingGoal,
+  CreateGoalRequest,
+  UpdateGoalRequest,
+  GoalProgress,
+  ReadingVelocityStats,
+  MonthlyGoal,
 } from '../types';
 
 // Dynamically determine API URL based on current hostname and environment
@@ -233,6 +239,73 @@ class BooktarrAPI {
   async addToWishlist(isbn: string): Promise<ReadingProgressResponse> {
     const response = await this.api.post<ReadingProgressResponse>(`/reading/books/${isbn}/add-to-wishlist`);
     return response.data;
+  }
+
+  // Reading Goals API methods
+  async createGoal(request: CreateGoalRequest): Promise<ReadingGoal> {
+    const response = await this.api.post<{ goal: ReadingGoal }>('/goals', request);
+    return response.data.goal;
+  }
+
+  async getGoals(): Promise<ReadingGoal[]> {
+    const response = await this.api.get<{ goals: ReadingGoal[] }>('/goals');
+    return response.data.goals;
+  }
+
+  async getActiveGoals(): Promise<ReadingGoal[]> {
+    const response = await this.api.get<{ goals: ReadingGoal[] }>('/goals/active');
+    return response.data.goals;
+  }
+
+  async getGoal(goalId: number): Promise<ReadingGoal> {
+    const response = await this.api.get<{ goal: ReadingGoal }>(`/goals/${goalId}`);
+    return response.data.goal;
+  }
+
+  async updateGoal(goalId: number, request: UpdateGoalRequest): Promise<ReadingGoal> {
+    const response = await this.api.put<{ goal: ReadingGoal }>(`/goals/${goalId}`, request);
+    return response.data.goal;
+  }
+
+  async deleteGoal(goalId: number): Promise<void> {
+    await this.api.delete(`/goals/${goalId}`);
+  }
+
+  async addGoalProgress(goalId: number, valueAdded: number, notes?: string): Promise<ReadingGoal> {
+    const response = await this.api.post<{ goal_progress: ReadingGoal }>(`/goals/${goalId}/progress`, {
+      value_added: valueAdded,
+      notes,
+    });
+    return response.data.goal_progress;
+  }
+
+  async getGoalProgress(goalId: number): Promise<GoalProgress[]> {
+    const response = await this.api.get<{ progress_history: GoalProgress[] }>(`/goals/${goalId}/progress`);
+    return response.data.progress_history;
+  }
+
+  async completeGoal(goalId: number): Promise<ReadingGoal> {
+    const response = await this.api.post<{ goal: ReadingGoal }>(`/goals/${goalId}/complete`);
+    return response.data.goal;
+  }
+
+  async abandonGoal(goalId: number): Promise<ReadingGoal> {
+    const response = await this.api.post<{ goal: ReadingGoal }>(`/goals/${goalId}/abandon`);
+    return response.data.goal;
+  }
+
+  async getReadingVelocity(months: number = 12): Promise<ReadingVelocityStats> {
+    const response = await this.api.get<{ reading_velocity: ReadingVelocityStats }>(`/goals/stats/velocity?months=${months}`);
+    return response.data.reading_velocity;
+  }
+
+  async initializeDefaultChallenges(): Promise<void> {
+    await this.api.post('/goals/init-defaults', {});
+  }
+
+  async getCurrentMonthlyGoal(): Promise<MonthlyGoal> {
+    const response = await this.api.get<{ monthly_goal: MonthlyGoal }>('/goals/monthly/current');
+    return response.data.monthly_goal;
   }
 }
 

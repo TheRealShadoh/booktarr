@@ -80,8 +80,10 @@ async def get_reading_stats() -> Dict[str, Any]:
                 "want_to_read": stats.books_want_to_read,
                 "books_read_this_year": stats.books_read_this_year,
                 "books_read_this_month": stats.books_read_this_month,
-                "average_rating": stats.average_rating,
-                "total_pages_read": stats.total_pages_read
+                "average_rating": round(stats.average_rating, 2) if stats.average_rating else 0.0,
+                "total_pages_read": stats.total_pages_read,
+                "genre_breakdown": stats.genre_breakdown or {},
+                "genre_percentages": stats.genre_percentages or {}
             }
         }
     except Exception as e:
