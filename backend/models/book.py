@@ -11,6 +11,7 @@ class Book(SQLModel, table=True):
     series_position: Optional[int] = None
     openlibrary_id: Optional[str] = None
     google_books_id: Optional[str] = None
+    genres: Optional[str] = None  # JSON serialized list of genres
 
     # Manga-specific metadata
     book_type: Optional[str] = None  # manga, light_novel, manhwa, manhua, web_novel, traditional_novel, graphic_novel, etc.

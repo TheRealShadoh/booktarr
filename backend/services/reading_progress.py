@@ -1,13 +1,14 @@
 from datetime import datetime, date
-from typing import List, Optional
+from typing import List, Optional, Dict
 from sqlmodel import Session, select
 from sqlalchemy import func
+import json
 
 try:
-    from backend.models import Edition, ReadingProgress, ReadingStats
+    from backend.models import Edition, ReadingProgress, ReadingStats, Book
     from backend.database import get_db_session
 except ImportError:
-    from models import Edition, ReadingProgress, ReadingStats
+    from models import Edition, ReadingProgress, ReadingStats, Book
     from database import get_db_session
 
 
@@ -51,7 +52,7 @@ class ReadingProgressService:
         """Get reading statistics for the user"""
         with get_db_session() as session:
             stats = ReadingStats()
-            
+
             # Count books by status
             stats.books_read = session.exec(
                 select(func.count(ReadingProgress.id)).where(
@@ -59,21 +60,21 @@ class ReadingProgressService:
                     ReadingProgress.status == "finished"
                 )
             ).first() or 0
-            
+
             stats.books_reading = session.exec(
                 select(func.count(ReadingProgress.id)).where(
                     ReadingProgress.user_id == 1,
                     ReadingProgress.status == "currently_reading"
                 )
             ).first() or 0
-            
+
             stats.books_want_to_read = session.exec(
                 select(func.count(ReadingProgress.id)).where(
                     ReadingProgress.user_id == 1,
                     ReadingProgress.status == "want_to_read"
                 )
             ).first() or 0
-            
+
             # Calculate total pages read
             finished_books = session.exec(
                 select(ReadingProgress).where(
@@ -82,9 +83,9 @@ class ReadingProgressService:
                     ReadingProgress.total_pages.isnot(None)
                 )
             ).all()
-            
+
             stats.total_pages_read = sum(book.total_pages for book in finished_books if book.total_pages)
-            
+
             # Calculate average rating
             ratings = session.exec(
                 select(ReadingProgress.rating).where(
@@ -92,15 +93,15 @@ class ReadingProgressService:
                     ReadingProgress.rating.isnot(None)
                 )
             ).all()
-            
+
             if ratings:
                 stats.average_rating = sum(ratings) / len(ratings)
-            
+
             # Books read this month and year
             current_date = date.today()
             month_start = date(current_date.year, current_date.month, 1)
             year_start = date(current_date.year, 1, 1)
-            
+
             stats.books_read_this_month = session.exec(
                 select(func.count(ReadingProgress.id)).where(
                     ReadingProgress.user_id == 1,
@@ -108,7 +109,7 @@ class ReadingProgressService:
                     ReadingProgress.finish_date >= month_start
                 )
             ).first() or 0
-            
+
             stats.books_read_this_year = session.exec(
                 select(func.count(ReadingProgress.id)).where(
                     ReadingProgress.user_id == 1,
@@ -116,7 +117,10 @@ class ReadingProgressService:
                     ReadingProgress.finish_date >= year_start
                 )
             ).first() or 0
-            
+
+            # Calculate genre breakdown
+            stats.genre_breakdown, stats.genre_percentages = self._calculate_genre_breakdown(session, finished_books)
+
             return stats
 
     def get_books_by_status(self, status: str) -> List[ReadingProgress]:
@@ -196,7 +200,7 @@ class ReadingProgressService:
                     ReadingProgress.user_id == 1
                 )
             ).first()
-            
+
             if not progress:
                 progress = ReadingProgress(
                     user_id=1,
@@ -207,7 +211,47 @@ class ReadingProgressService:
             else:
                 progress.status = "want_to_read"
                 progress.updated_at = datetime.utcnow()
-            
+
             session.commit()
             session.refresh(progress)
             return progress
+
+    def _calculate_genre_breakdown(self, session: Session, finished_books: List[ReadingProgress]) -> tuple:
+        """Calculate genre breakdown from finished books"""
+        genre_count: Dict[str, int] = {}
+
+        for progress in finished_books:
+            edition = session.exec(
+                select(Edition).where(Edition.id == progress.edition_id)
+            ).first()
+
+            if not edition:
+                continue
+
+            book = session.exec(
+                select(Book).where(Book.id == edition.book_id)
+            ).first()
+
+            if not book or not book.genres:
+                continue
+
+            try:
+                genres = json.loads(book.genres) if isinstance(book.genres, str) else book.genres
+                if isinstance(genres, list):
+                    for genre in genres:
+                        genre_str = str(genre).strip()
+                        if genre_str:
+                            genre_count[genre_str] = genre_count.get(genre_str, 0) + 1
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        # Calculate percentages
+        genre_percentages: Dict[str, float] = {}
+        total_books = len(finished_books)
+
+        if total_books > 0:
+            for genre, count in genre_count.items():
+                percentage = (count / total_books) * 100
+                genre_percentages[genre] = round(percentage, 2)
+
+        return genre_count, genre_percentages

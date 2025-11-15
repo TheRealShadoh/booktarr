@@ -321,17 +321,102 @@ export interface ReadingStatsResponse {
   books_this_month: number;
 }
 
+// ============ Reading Goals & Challenges ============
+
+export enum GoalType {
+  BOOKS = 'books',
+  PAGES = 'pages',
+  STREAK = 'streak',
+  GENRE = 'genre',
+  SERIES = 'series',
+  AUTHOR = 'author',
+}
+
+export enum GoalStatus {
+  ACTIVE = 'active',
+  COMPLETED = 'completed',
+  ABANDONED = 'abandoned',
+}
+
 export interface ReadingGoal {
-  id: string;
+  id: number;
   title: string;
-  target_books?: number;
-  target_pages?: number;
+  description?: string;
+  goal_type: GoalType;
+  target_value: number;
+  current_value: number;
+  progress_percentage: number;
+  days_remaining: number;
+  status: GoalStatus;
   start_date: string;
   end_date: string;
+  completed_date?: string;
+  is_custom: boolean;
+  icon?: string;
+  color?: string;
+  genre?: string;
+  author?: string;
+  series_id?: number;
+}
+
+export interface Challenge extends ReadingGoal {
+  // Alias for ReadingGoal used in frontend
+}
+
+export interface MonthlyGoal {
+  id: number;
+  year_month: string;
+  target_books: number;
+  target_pages: number;
   current_books: number;
   current_pages: number;
-  is_completed: boolean;
-  created_date: string;
+  books_progress_percentage: number;
+  pages_progress_percentage: number;
+}
+
+export interface GoalProgress {
+  id: number;
+  goal_id: number;
+  value_added: number;
+  total_value: number;
+  recorded_at: string;
+  source: string;
+  notes?: string;
+}
+
+export interface CreateGoalRequest {
+  title: string;
+  goal_type: GoalType;
+  target_value: number;
+  start_date: string;
+  end_date: string;
+  description?: string;
+  genre?: string;
+  author?: string;
+  series_id?: number;
+  icon?: string;
+  color?: string;
+}
+
+export interface UpdateGoalRequest {
+  title?: string;
+  target_value?: number;
+  description?: string;
+  end_date?: string;
+}
+
+export interface ReadingVelocityStats {
+  books_per_month: number;
+  months_analyzed: number;
+  books_per_year: number;
+}
+
+export interface GenreBreakdown {
+  [genre: string]: number;
+}
+
+export interface GenrePercentages {
+  [genre: string]: number;
 }
 
 // CSV Import API types
