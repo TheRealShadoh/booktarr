@@ -112,7 +112,7 @@ export const IntegrationSearchModal: React.FC<IntegrationSearchModalProps> = ({
           setResults(formattedResults);
         }
 
-        if (formattedResults.length === 0) {
+        if (results.length === 0) {
           setError('No results found. Try a different search.');
         }
       } else {

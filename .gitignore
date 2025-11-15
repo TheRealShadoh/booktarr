@@ -144,6 +144,14 @@ skoolib_cache/
 book_covers/
 .book_metadata_cache/
 
+# Repair and troubleshooting files
+*REPAIR*.md
+GIT_WORKFLOW*.md
+QUICK_START*.md
+*.backup_*
+start-hotfix-*.sh
+nul
+
 # PWA
 frontend/public/service-worker.js
 frontend/public/precache-manifest.*

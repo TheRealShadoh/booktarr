@@ -172,8 +172,6 @@ const VisualShelf: React.FC<VisualShelfProps> = ({
                         src={book.cover_url || book.thumbnail_url || ''}
                         alt={book.title}
                         className="absolute inset-0 w-full h-full object-cover"
-                        width={200}
-                        height={300}
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-booktarr-surface to-booktarr-surface2">

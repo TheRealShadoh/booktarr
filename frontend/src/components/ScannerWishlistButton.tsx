@@ -81,10 +81,10 @@ const ScannerWishlistButton: React.FC<ScannerWishlistButtonProps> = ({
 
         setIsScanning(true);
 
-        // Start scanning
-        const result = await readerRef.current.decodeFromVideoElement(
-          videoRef.current,
-          (result, error) => {
+        // Start scanning - continuously scan until a code is found
+        const scanInterval = setInterval(async () => {
+          try {
+            const result = await readerRef.current!.decodeFromVideoElement(videoRef.current!);
             if (result) {
               const isbn = result.getText();
               console.log('ISBN Scanned:', isbn);
@@ -92,10 +92,13 @@ const ScannerWishlistButton: React.FC<ScannerWishlistButtonProps> = ({
               onISBNScanned?.(isbn);
 
               // Stop scanning after successful scan
+              clearInterval(scanInterval);
               stopScanning();
             }
+          } catch (err) {
+            // Continue scanning on error
           }
-        );
+        }, 100);
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to access camera';

@@ -434,7 +434,7 @@ const WantedPage: React.FC<WantedPageProps> = ({
                         Search for Book
                       </button>
                       <button
-                        onClick={() => handleRemoveFromWantlist(item.id)}
+                        onClick={() => handleRemoveFromWishlist(item.id)}
                         className="booktarr-btn booktarr-btn-danger text-xs"
                       >
                         Remove

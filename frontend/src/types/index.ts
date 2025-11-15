@@ -3,6 +3,7 @@
  */
 
 export interface Book {
+  id?: number;
   isbn: string;
   title: string;
   authors: string[];
@@ -20,6 +21,7 @@ export interface Book {
   metadata_source: MetadataSource;
   added_date: string;
   last_updated: string;
+  created_at?: string;
   isbn10?: string;
   isbn13?: string;
   // Metadata enhancement fields
@@ -33,6 +35,7 @@ export interface Book {
   date_started?: string;
   date_finished?: string;
   personal_rating?: number; // 1-5 star rating
+  rating?: number; // Alias for personal_rating (for backwards compatibility)
   personal_notes?: string;
   reading_goal_id?: string;
   times_read: number;
@@ -422,6 +425,8 @@ export interface Series {
   cover_url?: string;
   created_date: string;
   last_updated: string;
+  universe?: string;
+  universe_order?: number;
 }
 
 export interface SeriesInfo {
@@ -681,4 +686,57 @@ export interface PreOrderResponse {
   pre_order?: PreOrder;
   pre_orders?: PreOrder[];
   count?: number;
+}
+
+// Collection Filter Stats types
+export interface CollectionStats {
+  total_books: number;
+  total_series: number;
+  formats: { [format: string]: number };
+  categories: { [category: string]: number };
+  tags: { [tag: string]: number };
+  languages: { [language: string]: number };
+  publishers: { [publisher: string]: number };
+  authors: { [author: string]: number };
+  unique_languages: number;
+  unique_tags: number;
+  unique_formats: number;
+}
+
+// Reading Goal types
+export interface CreateGoalRequest {
+  title: string;
+  target_books?: number;
+  target_pages?: number;
+  start_date: string;
+  end_date: string;
+}
+
+export interface UpdateGoalRequest {
+  title?: string;
+  target_books?: number;
+  target_pages?: number;
+  start_date?: string;
+  end_date?: string;
+}
+
+export interface GoalProgress {
+  goal_id: string;
+  current_books: number;
+  current_pages: number;
+  progress_percentage: number;
+  is_on_track: boolean;
+}
+
+export interface ReadingVelocityStats {
+  books_per_week: number;
+  pages_per_day: number;
+  estimated_completion_date?: string;
+}
+
+export interface MonthlyGoal {
+  month: string;
+  target: number;
+  current: number;
+  is_complete: boolean;
 }
