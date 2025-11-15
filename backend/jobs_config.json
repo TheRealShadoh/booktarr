@@ -5,8 +5,8 @@
       "description": "Updates missing metadata for all books from online sources",
       "interval_hours": 168.0,
       "enabled": true,
-      "last_run": "2025-08-24T19:07:50.478379",
-      "next_run": "2025-08-31T19:07:50.478379",
+      "last_run": "2025-11-15T03:40:09.778791",
+      "next_run": "2025-11-22T03:40:09.778779",
       "status": "completed",
       "last_error": null,
       "items_processed": 0,
@@ -17,12 +17,12 @@
       "description": "Updates series metadata from external sources (AniList, Google Books)",
       "interval_hours": 168.0,
       "enabled": true,
-      "last_run": "2025-08-24T19:07:56.674747",
-      "next_run": "2025-08-31T19:07:56.674747",
+      "last_run": "2025-11-15T03:40:09.866125",
+      "next_run": "2025-11-22T03:40:09.866112",
       "status": "completed",
       "last_error": null,
-      "items_processed": 5,
-      "items_failed": 7
+      "items_processed": 0,
+      "items_failed": 0
     }
   ]
 }

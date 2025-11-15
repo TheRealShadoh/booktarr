@@ -24,6 +24,11 @@ import SeriesManagement from './components/SeriesManagement';
 import SeriesDetailsPage from './components/SeriesDetailsPage';
 import LogsPage from './components/LogsPage';
 import ReleaseCalendarPage from './components/ReleaseCalendarPage';
+import AuthorProfilePage from './components/AuthorProfilePage';
+import PublisherDiscoveryPage from './components/PublisherDiscoveryPage';
+import SeasonalDiscoveryPage from './components/SeasonalDiscoveryPage';
+import MagazineTrackingPage from './components/MagazineTrackingPage';
+import SmartInsightsPage from './components/SmartInsightsPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import PageErrorBoundary from './components/PageErrorBoundary';
 import ComponentErrorBoundary from './components/ComponentErrorBoundary';
@@ -209,8 +214,13 @@ const AppInner: React.FC = () => {
     if (path === '/activity') return 'activity';
     if (path === '/logs') return 'logs';
     if (path === '/release-calendar') return 'release-calendar';
+    if (path === '/authors') return 'authors';
+    if (path === '/publishers') return 'publishers';
+    if (path === '/seasonal') return 'seasonal';
+    if (path === '/magazines') return 'magazines';
     if (path.startsWith('/book/')) return 'book-details';
     if (path.startsWith('/series/')) return 'series-details';
+    if (path.startsWith('/author/')) return 'author-profile';
     if (path === '/error-boundary-test') return 'error-boundary-test';
     return 'library';
   }, [location.pathname]);
@@ -470,8 +480,8 @@ const AppInner: React.FC = () => {
             } />
             
             <Route path="/release-calendar" element={
-              <PageErrorBoundary 
-                pageName="Release Calendar" 
+              <PageErrorBoundary
+                pageName="Release Calendar"
                 onNavigateBack={() => navigate('/')}
               >
                 <ReleaseCalendarPage
@@ -481,7 +491,76 @@ const AppInner: React.FC = () => {
                 />
               </PageErrorBoundary>
             } />
-            
+
+            <Route path="/author/:authorName" element={
+              <PageErrorBoundary
+                pageName="Author Profile"
+                onNavigateBack={() => navigate('/')}
+              >
+                <AuthorProfilePage
+                  books={state.filteredBooks}
+                  allBooks={Object.values(state.filteredBooks).flat()}
+                  loading={state.loading}
+                  error={state.error}
+                  onBookClick={handleBookClick}
+                />
+              </PageErrorBoundary>
+            } />
+
+            <Route path="/publishers" element={
+              <PageErrorBoundary
+                pageName="Publisher Discovery"
+                onNavigateBack={() => navigate('/')}
+              >
+                <PublisherDiscoveryPage
+                  books={state.filteredBooks}
+                  allBooks={Object.values(state.filteredBooks).flat()}
+                  loading={state.loading}
+                  error={state.error}
+                  onBookClick={handleBookClick}
+                />
+              </PageErrorBoundary>
+            } />
+
+            <Route path="/seasonal" element={
+              <PageErrorBoundary
+                pageName="Seasonal Discovery"
+                onNavigateBack={() => navigate('/')}
+              >
+                <SeasonalDiscoveryPage
+                  books={state.filteredBooks}
+                  allBooks={Object.values(state.filteredBooks).flat()}
+                  loading={state.loading}
+                  error={state.error}
+                  onBookClick={handleBookClick}
+                />
+              </PageErrorBoundary>
+            } />
+
+            <Route path="/magazines" element={
+              <PageErrorBoundary
+                pageName="Magazine Tracking"
+                onNavigateBack={() => navigate('/')}
+              >
+                <MagazineTrackingPage
+                  books={state.filteredBooks}
+                  allBooks={Object.values(state.filteredBooks).flat()}
+                  loading={state.loading}
+                  error={state.error}
+                  onBookClick={handleBookClick}
+                />
+              </PageErrorBoundary>
+            } />
+
+            <Route path="/insights" element={
+              <PageErrorBoundary
+                pageName="Smart Insights"
+                onNavigateBack={() => navigate('/')}
+              >
+                <SmartInsightsPage />
+              </PageErrorBoundary>
+            } />
+
             {process.env.NODE_ENV === 'development' && (
               <Route path="/error-boundary-test" element={
                 <PageErrorBoundary 

@@ -117,6 +117,7 @@ class GoogleBooksClient:
                 "isbn_13": isbn_13,
                 "release_date": release_date.isoformat() if release_date else None,
                 "page_count": volume_info.get("pageCount"),
+                "language": volume_info.get("language"),  # Extract language code (e.g., "en", "ja")
                 "categories": volume_info.get("categories", []),
                 "description": volume_info.get("description"),
                 "cover_url": volume_info.get("imageLinks", {}).get("thumbnail"),

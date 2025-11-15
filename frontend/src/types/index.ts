@@ -529,3 +529,156 @@ export interface ErrorRecoveryAction {
   action: () => void;
   variant: 'primary' | 'secondary' | 'danger';
 }
+
+// ============= WISHLIST & ACQUISITION TYPES =============
+
+export interface WishlistItem {
+  id: number;
+  title: string;
+  isbn_13?: string;
+  isbn_10?: string;
+  author?: string;
+  priority: 'low' | 'medium' | 'high';
+  target_price?: number;
+  notes?: string;
+  purchase_source?: string;
+  date_needed_by?: string;
+  acquisition_status: 'watching' | 'ready_to_buy' | 'pre_ordered' | 'acquired';
+  purchase_url?: string;
+  purchased_date?: string;
+  purchased_price?: number;
+  date_added: string;
+  updated_at: string;
+}
+
+export interface Wishlist {
+  id: number;
+  name: string;
+  description?: string;
+  is_default: boolean;
+  item_count: number;
+}
+
+export interface WishlistRequest {
+  title: string;
+  isbn_13?: string;
+  isbn_10?: string;
+  author?: string;
+  edition_id?: number;
+  priority?: 'low' | 'medium' | 'high';
+  target_price?: number;
+  notes?: string;
+  purchase_source?: string;
+  date_needed_by?: string;
+}
+
+export interface WishlistUpdateRequest {
+  priority?: 'low' | 'medium' | 'high';
+  target_price?: number;
+  notes?: string;
+  purchase_source?: string;
+  date_needed_by?: string;
+  acquisition_status?: 'watching' | 'ready_to_buy' | 'pre_ordered' | 'acquired';
+  purchase_url?: string;
+  purchased_date?: string;
+  purchased_price?: number;
+}
+
+export interface WishlistStats {
+  total_items: number;
+  high_priority: number;
+  medium_priority: number;
+  low_priority: number;
+  watching: number;
+  ready_to_buy: number;
+  pre_ordered: number;
+  acquired: number;
+  estimated_total_cost: number;
+  average_item_cost: number;
+  items_with_price_drops: number;
+  upcoming_releases: number;
+}
+
+export interface AcquisitionPreference {
+  preferred_format: string;
+  max_acceptable_price?: number;
+  preferred_retailers: string[];
+  price_drop_threshold_percent: number;
+  notify_new_releases: boolean;
+  notify_pre_orders: boolean;
+}
+
+export interface PriceTracking {
+  id: number;
+  price: number;
+  currency: string;
+  source: string;
+  recorded_at: string;
+  is_current: boolean;
+  previous_price?: number;
+  price_change_percent?: number;
+}
+
+export interface PriceTrend {
+  current_price: number;
+  lowest_price: number;
+  highest_price: number;
+  average_price: number;
+  price_range: number;
+  trend: 'up' | 'down' | 'stable';
+  records_count: number;
+}
+
+export interface PreOrder {
+  id: number;
+  title: string;
+  expected_release_date: string;
+  isbn?: string;
+  author?: string;
+  format?: string;
+  status: 'active' | 'cancelled' | 'fulfilled' | 'delayed';
+  pre_order_price?: number;
+  retailer?: string;
+  pre_order_url?: string;
+  estimated_delivery_date?: string;
+}
+
+export interface PreOrderRequest {
+  title: string;
+  expected_release_date: string;
+  isbn?: string;
+  author?: string;
+  format?: string;
+  pre_order_price?: number;
+  retailer?: string;
+  pre_order_url?: string;
+}
+
+// API Response types for wishlist endpoints
+export interface WishlistResponse {
+  success: boolean;
+  message?: string;
+  wishlists?: Wishlist[];
+  items?: WishlistItem[];
+  item?: WishlistItem;
+  stats?: WishlistStats;
+  count?: number;
+  items_with_price_drops?: number;
+}
+
+export interface PriceTrackingResponse {
+  success: boolean;
+  message?: string;
+  price?: PriceTracking;
+  history?: PriceTracking[];
+  trend?: PriceTrend;
+  items?: PriceTracking[];
+}
+
+export interface PreOrderResponse {
+  success: boolean;
+  message?: string;
+  pre_order?: PreOrder;
+  pre_orders?: PreOrder[];
+  count?: number;
+}

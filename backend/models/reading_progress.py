@@ -1,5 +1,5 @@
 from sqlmodel import SQLModel, Field, Relationship
-from typing import Optional
+from typing import Optional, Dict, Any
 from datetime import datetime, date
 
 
@@ -31,3 +31,5 @@ class ReadingStats(SQLModel):
     reading_streak_days: int = 0
     books_read_this_month: int = 0
     books_read_this_year: int = 0
+    genre_breakdown: Optional[dict] = None  # {genre: count, ...}
+    genre_percentages: Optional[dict] = None  # {genre: percentage, ...}

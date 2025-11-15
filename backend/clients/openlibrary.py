@@ -102,6 +102,8 @@ class OpenLibraryClient:
             "isbn_13": None,
             "release_date": None,
             "page_count": book_data.get("number_of_pages"),
+            "language": book_data.get("languages", [None])[0] if book_data.get("languages") else None,
+            "categories": [],
             "cover_url": None,
             "format": None,
             "source": "openlibrary"
@@ -154,6 +156,9 @@ class OpenLibraryClient:
             result["description"] = work_data.get("description")
             if isinstance(result["description"], dict):
                 result["description"] = result["description"].get("value")
+            # Extract categories from work data
+            if work_data.get("subjects"):
+                result["categories"] = work_data.get("subjects", [])
         
         # Extract series information
         series_name, series_position = self._extract_series_info(result["title"], work_data)
@@ -172,6 +177,8 @@ class OpenLibraryClient:
             "isbn_13": None,
             "release_date": None,
             "page_count": doc.get("number_of_pages_median"),
+            "language": doc.get("language", [None])[0] if doc.get("language") else None,
+            "categories": doc.get("subject", []) if doc.get("subject") else [],  # OpenLibrary uses "subject" for categories
             "cover_url": None,
             "format": None,
             "source": "openlibrary"

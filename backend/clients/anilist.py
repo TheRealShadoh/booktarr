@@ -128,46 +128,82 @@ class AniListClient:
         return volumes
     
     def _parse_manga_data(self, media: Dict[str, Any]) -> Dict[str, Any]:
-        """Parse AniList media data into our series format"""
-        # Extract title
+        """Parse AniList media data into our series format with manga-specific metadata"""
+        # Extract titles
         title = media["title"]["english"] or media["title"]["romaji"]
-        
-        # Extract author from staff
+        original_title = media["title"].get("native")  # Japanese title
+
+        # Extract creators by role
+        creators = []
         author = None
+        artist = None
+
         for edge in media.get("staff", {}).get("edges", []):
-            if edge["role"] in ["Story", "Story & Art", "Original Creator"]:
-                author = edge["node"]["name"]["full"]
-                break
-        
+            role = edge["role"]
+            name = edge["node"]["name"]["full"]
+
+            # Track author (original creator/writer)
+            if role in ["Story", "Original Creator"]:
+                author = name
+                creators.append({
+                    "name": name,
+                    "role": "author"
+                })
+            # Track artist/mangaka
+            elif role == "Story & Art":
+                author = name
+                artist = name
+                creators.append({
+                    "name": name,
+                    "role": "mangaka"  # Author who also drew it
+                })
+            elif role == "Art":
+                artist = name
+                creators.append({
+                    "name": name,
+                    "role": "artist"
+                })
+
         # Parse dates
         start_date = None
         end_date = None
-        
+        year_started = None
+
         if media.get("startDate"):
             sd = media["startDate"]
             if sd.get("year"):
+                year_started = sd["year"]
                 start_date = f"{sd['year']}-{sd.get('month', 1):02d}-{sd.get('day', 1):02d}"
-        
+
         if media.get("endDate"):
             ed = media["endDate"]
             if ed.get("year"):
                 end_date = f"{ed['year']}-{ed.get('month', 1):02d}-{ed.get('day', 1):02d}"
-        
+
         # Extract genres and tags
         genres = media.get("genres", [])
         tags = [tag["name"] for tag in media.get("tags", []) if tag.get("rank", 0) > 50]
-        
+
+        # Determine series type based on API type
+        series_type = "manga_series"  # Default to manga since this is the manga search
+
         return {
             "name": title,
+            "original_title": original_title,
+            "original_language": "ja",  # AniList is primarily for Japanese manga
             "author": author,
+            "artist": artist,
+            "creators": creators,
             "description": media.get("description"),
             "total_volumes": media.get("volumes") or 0,
             "total_chapters": media.get("chapters") or 0,
             "status": media.get("status", "UNKNOWN").lower(),
             "genres": genres,
             "tags": tags,
+            "series_type": series_type,
             "first_published": start_date,
             "last_published": end_date,
+            "year_started": year_started,
             "cover_url": media.get("coverImage", {}).get("large"),
             "anilist_id": media.get("id")
         }
@@ -252,6 +288,35 @@ class AniListClient:
         
         return {}
     
+    def detect_book_type(self, title: str, description: str, tags: List[str], genres: List[str]) -> str:
+        """
+        Detect the book type based on title, description, tags, and genres.
+        Returns: manga, light_novel, manhwa, manhua, web_novel, etc.
+        """
+        text_lower = f"{title} {description}".lower()
+
+        # Check for light novel indicators
+        if any(indicator in text_lower for indicator in ["light novel", "ln", "web novel", "web serial"]):
+            return "light_novel"
+
+        # Check for manhwa (Korean manga)
+        if any(tag.lower() in ["manhwa", "korean", "webtoon"] for tag in tags) or \
+           "manhwa" in text_lower:
+            return "manhwa"
+
+        # Check for manhua (Chinese manga)
+        if any(tag.lower() in ["manhua", "chinese", "donghua"] for tag in tags) or \
+           "manhua" in text_lower:
+            return "manhua"
+
+        # Check for web novel
+        if any(tag.lower() in ["web novel", "web serial", "original web"] for tag in tags) or \
+           any(indicator in text_lower for indicator in ["web novel", "web serial", "original web"]):
+            return "web_novel"
+
+        # Default to manga (since this is AniList which primarily has manga)
+        return "manga"
+
     async def close(self):
         if self.session:
             await self.session.close()

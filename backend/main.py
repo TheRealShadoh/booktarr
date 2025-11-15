@@ -4,10 +4,11 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import os
 
-# Always use relative imports when in backend directory  
+# Always use relative imports when in backend directory
 from database import init_db
 from routes import books_router, settings_router
 from routes.reading import router as reading_router
+from routes.goals import router as goals_router
 from routes.series import router as series_router
 from routes.search import router as search_router
 from routes.images import router as images_router
@@ -19,6 +20,11 @@ from routes.advanced_search import router as advanced_search_router
 from routes.calendar import router as calendar_router
 from routes.bulk import router as bulk_router
 from routes.auth import router as auth_router
+from routes.integrations import router as integrations_router
+from routes.manga import router as manga_router
+from routes.collections import router as collections_router
+from routes.smart_insights import router as smart_insights_router
+from routes.wishlist import router as wishlist_router
 
 # Import library router directly from books module
 try:
@@ -94,6 +100,7 @@ app.include_router(books_router, prefix="/api")
 app.include_router(library_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(reading_router, prefix="/api/reading")
+app.include_router(goals_router, prefix="/api/goals")
 app.include_router(series_router, prefix="/api/series")
 app.include_router(search_router, prefix="/api")
 app.include_router(images_router, prefix="/api/images")
@@ -105,6 +112,11 @@ app.include_router(advanced_search_router, prefix="/api/advanced-search")
 app.include_router(calendar_router, prefix="/api/calendar")
 app.include_router(bulk_router, prefix="/api/bulk")
 app.include_router(auth_router, prefix="/api/auth")
+app.include_router(integrations_router)
+app.include_router(manga_router, prefix="/api")
+app.include_router(collections_router)  # Collections router includes /api prefix in its routes
+app.include_router(smart_insights_router)
+app.include_router(wishlist_router, prefix="/api/wishlist")
 
 # Mount static files for cover images
 static_dir = os.path.join(os.path.dirname(__file__), "static")
