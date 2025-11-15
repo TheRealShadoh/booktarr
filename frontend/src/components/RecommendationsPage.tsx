@@ -15,7 +15,7 @@ interface RecommendationsPageProps {
 }
 
 interface Recommendation {
-  type: 'author' | 'series' | 'category' | 'similar_rating' | 'trending';
+  type: 'author' | 'series' | 'category' | 'similar_rating' | 'similar_books' | 'trending';
   title: string;
   description: string;
   books: Book[];
@@ -167,8 +167,8 @@ const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
       // Find unread books from same authors/categories as high-rated books
       const highRatedAuthors = new Set(highRatedBooks.flatMap(book => book.authors));
       const highRatedCategories = new Set(highRatedBooks.flatMap(book => book.categories));
-      
-      const similarBooks = unreadBooks.filter(book => 
+
+      const similarBooks = unreadBooks.filter(book =>
         book.authors.some(author => highRatedAuthors.has(author)) ||
         book.categories.some(category => highRatedCategories.has(category))
       ).slice(0, 8);
@@ -180,6 +180,68 @@ const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
           description: `Based on books you rated 4+ stars`,
           books: similarBooks,
           confidence: 75
+        });
+      }
+    }
+
+    // Similar Books recommendations (content-based similarity)
+    if (readBooks.length > 0) {
+      // Pick a highly-rated book to find similar ones
+      const referenceBook = highRatedBooks.length > 0
+        ? highRatedBooks[Math.floor(Math.random() * highRatedBooks.length)]
+        : readBooks[Math.floor(Math.random() * readBooks.length)];
+
+      const similarByContent = unreadBooks
+        .map(candidate => {
+          let similarityScore = 0;
+          let factors = 0;
+
+          // Author similarity (40% weight)
+          const authorMatch = candidate.authors.some(a =>
+            referenceBook.authors.some(b => a.toLowerCase() === b.toLowerCase())
+          );
+          if (authorMatch) {
+            similarityScore += 40;
+            factors += 40;
+          } else {
+            factors += 40;
+          }
+
+          // Category/genre similarity (40% weight)
+          const categoryMatches = candidate.categories.filter(c =>
+            referenceBook.categories.includes(c)
+          ).length;
+          const categoryScore = (categoryMatches / Math.max(referenceBook.categories.length, 1)) * 40;
+          similarityScore += categoryScore;
+          factors += 40;
+
+          // Publication year proximity (20% weight)
+          if (referenceBook.published_date && candidate.published_date) {
+            const refYear = new Date(referenceBook.published_date).getFullYear();
+            const candYear = new Date(candidate.published_date).getFullYear();
+            const yearDiff = Math.abs(refYear - candYear);
+            const yearScore = Math.max(0, 20 - (yearDiff / 2));
+            similarityScore += yearScore;
+          }
+          factors += 20;
+
+          return {
+            book: candidate,
+            score: factors > 0 ? (similarityScore / factors) * 100 : 0
+          };
+        })
+        .sort((a, b) => b.score - a.score)
+        .filter(item => item.score > 30)
+        .slice(0, 6)
+        .map(item => item.book);
+
+      if (similarByContent.length > 0) {
+        recommendations.push({
+          type: 'similar_books',
+          title: `Books Like "${referenceBook.title}"`,
+          description: `Based on content similarity to one of your favorite reads`,
+          books: similarByContent,
+          confidence: 65
         });
       }
     }
@@ -302,6 +364,7 @@ const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
               { id: 'series', name: 'Series Completion', count: recommendations.filter(r => r.type === 'series').length },
               { id: 'category', name: 'By Category', count: recommendations.filter(r => r.type === 'category').length },
               { id: 'similar_rating', name: 'Similar Favorites', count: recommendations.filter(r => r.type === 'similar_rating').length },
+              { id: 'similar_books', name: 'Similar Books', count: recommendations.filter(r => r.type === 'similar_books').length },
               { id: 'trending', name: 'Continue Reading', count: recommendations.filter(r => r.type === 'trending').length }
             ].map(tab => (
               <button
@@ -361,11 +424,12 @@ const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                 </div>
                 {showRecommendationDetails && (
                   <div className="mt-3 text-sm text-booktarr-textMuted">
-                    <p><strong>Recommendation Logic:</strong> 
+                    <p><strong>Recommendation Logic:</strong>
                       {recommendation.type === 'author' && ' Based on your high ratings for this author\'s previous works'}
                       {recommendation.type === 'series' && ' Continue series you\'ve already started and enjoyed'}
                       {recommendation.type === 'category' && ' More books from genres you consistently rate highly'}
                       {recommendation.type === 'similar_rating' && ' Books similar to ones you\'ve rated 4+ stars'}
+                      {recommendation.type === 'similar_books' && ' Based on content similarity (author, genre, publication year)'}
                       {recommendation.type === 'trending' && ' Books you\'re currently reading or random discoveries'}
                     </p>
                   </div>
