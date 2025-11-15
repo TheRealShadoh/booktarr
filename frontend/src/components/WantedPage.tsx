@@ -1,15 +1,12 @@
 /**
  * Wanted page component with Missing From Series and Wantlist functionality
- * Now with backend persistence and offline support
+ * Integrated with backend Wishlist API for persistence
  */
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
-import { BooksBySeriesMap, Book } from '../types';
-import { booktarrAPI } from '../services/api';
-import { offlineQueue } from '../services/offlineQueue';
-import PhotoNotesCapture from './PhotoNotesCapture';
-import ScannerWishlistButton from './ScannerWishlistButton';
+import { BooksBySeriesMap, Book, WishlistItem as ApiWishlistItem, WishlistRequest } from '../types';
+import booktarrAPI from '../services/api';
 
 interface WantedPageProps {
   books: BooksBySeriesMap;
@@ -27,21 +24,6 @@ interface MissingBook {
   id: string;
 }
 
-interface WantlistItem {
-  id: string;
-  title: string;
-  author?: string;
-  isbn?: string;
-  seriesName?: string;
-  seriesPosition?: number;
-  dateAdded: Date;
-  notes?: string;
-  priority: 'low' | 'medium' | 'high';
-  // Backend fields
-  editions?: any[];
-  isSyncedToBackend?: boolean;
-}
-
 const WantedPage: React.FC<WantedPageProps> = ({
   books,
   loading,
@@ -50,65 +32,35 @@ const WantedPage: React.FC<WantedPageProps> = ({
   onBookClick
 }) => {
   const [activeTab, setActiveTab] = useState<'missing' | 'wantlist'>('missing');
-  const [wantlist, setWantlist] = useState<WantlistItem[]>([]);
+  const [wantlist, setWantlist] = useState<ApiWishlistItem[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newWantlistItem, setNewWantlistItem] = useState<Partial<WantlistItem>>({
+  const [newWantlistItem, setNewWantlistItem] = useState<Partial<WishlistRequest>>({
     priority: 'medium'
   });
-  const [syncStatus, setSyncStatus] = useState<'synced' | 'pending' | 'error'>('synced');
-  const [loadingWishlist, setLoadingWishlist] = useState(true);
+  const [isLoadingWishlist, setIsLoadingWishlist] = useState(false);
   const [wishlistError, setWishlistError] = useState<string | null>(null);
-  const [showPhotoCapture, setShowPhotoCapture] = useState(false);
 
-  // Load wishlist from backend on mount
-  useEffect(() => {
-    const loadWishlist = async () => {
-      try {
-        setLoadingWishlist(true);
-        setWishlistError(null);
-        const wishlistBooks = await booktarrAPI.getWishlist();
-
-        // Convert backend books to WantlistItem format
-        const items: WantlistItem[] = wishlistBooks.map(book => ({
-          id: book.isbn || `book-${book.id}`,
-          title: book.title,
-          author: book.authors?.[0],
-          isbn: book.isbn,
-          seriesName: book.series_name,
-          seriesPosition: book.series_position,
-          dateAdded: new Date(), // Backend doesn't track this yet
-          notes: book.notes,
-          priority: 'medium', // Default priority
-          editions: book.editions,
-          isSyncedToBackend: true
-        }));
-
-        setWantlist(items);
-      } catch (err) {
-        // If offline, try to load from localStorage
-        const stored = localStorage.getItem('booktarr_wantlist');
-        if (stored) {
-          try {
-            const items = JSON.parse(stored) as WantlistItem[];
-            setWantlist(items);
-          } catch {
-            setWishlistError('Failed to load wishlist. Please refresh to try again.');
-          }
-        } else {
-          console.log('Wishlist not available (offline) - starting with empty list');
-        }
-      } finally {
-        setLoadingWishlist(false);
+  // Load wishlist items from API on component mount
+  const loadWishlist = useCallback(async () => {
+    try {
+      setIsLoadingWishlist(true);
+      setWishlistError(null);
+      const response = await booktarrAPI.getWishlistItems();
+      if (response.success && response.items) {
+        setWantlist(response.items);
       }
-    };
-
-    loadWishlist();
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to load wishlist';
+      setWishlistError(errorMsg);
+      console.error('Error loading wishlist:', err);
+    } finally {
+      setIsLoadingWishlist(false);
+    }
   }, []);
 
-  // Persist wantlist to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('booktarr_wantlist', JSON.stringify(wantlist));
-  }, [wantlist]);
+    loadWishlist();
+  }, [loadWishlist]);
 
   // Calculate missing books from series
   const missingBooks = useMemo(() => {
@@ -142,123 +94,64 @@ const WantedPage: React.FC<WantedPageProps> = ({
   }, [books]);
 
   const handleAddToWantlist = async (missingBook: MissingBook) => {
-    const newItem: WantlistItem = {
-      id: `wl-${Date.now()}`,
-      title: missingBook.title || `${missingBook.seriesName} #${missingBook.position}`,
-      author: missingBook.author,
-      seriesName: missingBook.seriesName,
-      seriesPosition: missingBook.position,
-      dateAdded: new Date(),
-      priority: 'medium',
-      isSyncedToBackend: false
-    };
-
-    // Add to local state first
-    setWantlist(prev => [...prev, newItem]);
-    setSyncStatus('pending');
-
-    // Try to sync to backend
     try {
-      // For now, we store this in local wishlist with notes
-      // The backend will be updated via the offline queue
-      setSyncStatus('synced');
+      setWishlistError(null);
+      const request: WishlistRequest = {
+        title: missingBook.title || `${missingBook.seriesName} #${missingBook.position}`,
+        author: missingBook.author,
+        priority: 'medium'
+      };
+
+      const response = await booktarrAPI.addToWishlistItem(request);
+      if (response.success) {
+        await loadWishlist();
+      }
     } catch (err) {
-      console.error('Failed to add to wishlist:', err);
-      setSyncStatus('error');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to add to wishlist';
+      setWishlistError(errorMsg);
+      console.error('Error adding to wishlist:', err);
     }
   };
 
   const handleAddManualWantlistItem = async () => {
-    if (!newWantlistItem.title || !newWantlistItem.isbn) {
-      setWishlistError('ISBN is required to add to wishlist');
-      return;
-    }
-
-    const item: WantlistItem = {
-      id: newWantlistItem.isbn,
-      title: newWantlistItem.title,
-      author: newWantlistItem.author,
-      isbn: newWantlistItem.isbn,
-      seriesName: newWantlistItem.seriesName,
-      seriesPosition: newWantlistItem.seriesPosition,
-      dateAdded: new Date(),
-      notes: newWantlistItem.notes,
-      priority: newWantlistItem.priority || 'medium',
-      isSyncedToBackend: false
-    };
-
-    // Add to local state first
-    setWantlist(prev => [...prev, item]);
-    setSyncStatus('pending');
+    if (!newWantlistItem.title) return;
 
     try {
-      // Queue the operation for offline support
-      if (newWantlistItem.isbn) {
-        await offlineQueue.addOperation({
-          type: 'ADD_TO_WISHLIST',
-          payload: {
-            isbn: newWantlistItem.isbn,
-            notes: newWantlistItem.notes
-          },
-          timestamp: Date.now()
-        });
-      }
+      setWishlistError(null);
+      const request: WishlistRequest = {
+        title: newWantlistItem.title,
+        isbn_13: newWantlistItem.isbn_13,
+        isbn_10: newWantlistItem.isbn_10,
+        author: newWantlistItem.author,
+        priority: newWantlistItem.priority as 'low' | 'medium' | 'high',
+        notes: newWantlistItem.notes,
+        target_price: newWantlistItem.target_price
+      };
 
-      // Try to sync immediately
-      try {
-        await booktarrAPI.addToWishlist(newWantlistItem.isbn);
-        // Update the item to mark as synced
-        setWantlist(prev =>
-          prev.map(i =>
-            i.id === item.id ? { ...i, isSyncedToBackend: true } : i
-          )
-        );
-        setSyncStatus('synced');
-      } catch (err) {
-        // Offline or error - will retry later
-        setSyncStatus('pending');
+      const response = await booktarrAPI.addToWishlistItem(request);
+      if (response.success) {
+        await loadWishlist();
+        setNewWantlistItem({ priority: 'medium' });
+        setShowAddForm(false);
       }
-
-      setNewWantlistItem({ priority: 'medium' });
-      setShowAddForm(false);
     } catch (err) {
-      console.error('Failed to add to wishlist:', err);
-      setSyncStatus('error');
-      setWishlistError('Failed to add to wishlist. Please try again.');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to add item to wishlist';
+      setWishlistError(errorMsg);
+      console.error('Error adding manual item:', err);
     }
   };
 
-  const handleRemoveFromWantlist = async (id: string, isbn?: string) => {
-    // Remove from local state first
-    setWantlist(prev => prev.filter(item => item.id !== id));
-    setSyncStatus('pending');
-
+  const handleRemoveFromWishlist = async (id: number) => {
     try {
-      if (isbn) {
-        // Queue the operation for offline support
-        await offlineQueue.addOperation({
-          type: 'REMOVE_FROM_WISHLIST',
-          payload: { isbn },
-          timestamp: Date.now()
-        });
-
-        // Try to sync immediately
-        try {
-          await booktarrAPI.removeFromWishlist(isbn);
-          setSyncStatus('synced');
-        } catch (err) {
-          // Offline or error - will retry later
-          setSyncStatus('pending');
-        }
+      setWishlistError(null);
+      const response = await booktarrAPI.removeFromWishlist(id);
+      if (response.success) {
+        await loadWishlist();
       }
     } catch (err) {
-      console.error('Failed to remove from wishlist:', err);
-      setSyncStatus('error');
-      // Re-add the item since removal failed
-      const item = wantlist.find(i => i.id === id);
-      if (item) {
-        setWantlist(prev => [...prev, item]);
-      }
+      const errorMsg = err instanceof Error ? err.message : 'Failed to remove from wishlist';
+      setWishlistError(errorMsg);
+      console.error('Error removing from wishlist:', err);
     }
   };
 
@@ -281,31 +174,27 @@ const WantedPage: React.FC<WantedPageProps> = ({
     );
   }
 
+  // Show any wishlist-specific errors as a banner
+  const displayError = wishlistError || error;
+
   return (
     <div className="space-y-8">
+      {/* Error Banner */}
+      {displayError && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+          <ErrorMessage error={displayError} onRetry={activeTab === 'wantlist' ? loadWishlist : onRefresh} />
+        </div>
+      )}
+
       {/* Header */}
       <div className="booktarr-card">
         <div className="booktarr-card-header">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-booktarr-text text-2xl font-bold">Wanted Books</h1>
-                {syncStatus === 'synced' && (
-                  <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">✓ Synced</span>
-                )}
-                {syncStatus === 'pending' && (
-                  <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">⟳ Syncing...</span>
-                )}
-                {syncStatus === 'error' && (
-                  <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">✗ Error</span>
-                )}
-              </div>
+              <h1 className="text-booktarr-text text-2xl font-bold mb-2">Wanted Books</h1>
               <p className="text-booktarr-textSecondary text-sm">
                 Track missing books from your series and manage your wishlist
               </p>
-              {wishlistError && (
-                <p className="text-red-600 text-sm mt-2">{wishlistError}</p>
-              )}
             </div>
             <div className="flex items-center space-x-3 bg-booktarr-surface2 rounded-lg p-2">
               <button
@@ -355,39 +244,6 @@ const WantedPage: React.FC<WantedPageProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Floating Action Button for Photo Capture */}
-      <div className="fixed bottom-6 right-6 z-40">
-        <button
-          onClick={() => setShowPhotoCapture(true)}
-          className="bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition transform hover:scale-110"
-          title="Capture bookstore photos"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Photo Capture Modal */}
-      {showPhotoCapture && (
-        <PhotoNotesCapture
-          onClose={() => setShowPhotoCapture(false)}
-          onCapture={(photo) => {
-            console.log('Photo captured:', photo);
-            // Auto-add photo series to wishlist if series name is provided
-            if (photo.seriesName) {
-              setNewWantlistItem({
-                title: photo.seriesName,
-                seriesName: photo.seriesName,
-                notes: photo.notes,
-                priority: 'high'
-              });
-            }
-          }}
-        />
-      )}
 
       {/* Tab Content */}
       {activeTab === 'missing' ? (
@@ -459,38 +315,7 @@ const WantedPage: React.FC<WantedPageProps> = ({
               </button>
             </div>
           </div>
-          <div className="booktarr-card-body space-y-6">
-            {/* Quick Scanner for ISBNs */}
-            <div className="bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">📱 Scan ISBNs</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Quickly scan book ISBNs while shopping to add them to your wishlist offline
-              </p>
-              <ScannerWishlistButton
-                onAddedToWishlist={(isbn, title) => {
-                  // Automatically add scanned books to wishlist
-                  const newItem: WantlistItem = {
-                    id: isbn,
-                    title: title || `ISBN: ${isbn}`,
-                    isbn,
-                    dateAdded: new Date(),
-                    priority: 'medium',
-                    isSyncedToBackend: false
-                  };
-                  setWantlist(prev => {
-                    // Avoid duplicates
-                    if (prev.find(i => i.isbn === isbn)) {
-                      return prev;
-                    }
-                    return [newItem, ...prev];
-                  });
-                  setSyncStatus('pending');
-                }}
-                onError={(error) => {
-                  setWishlistError(error);
-                }}
-              />
-            </div>
+          <div className="booktarr-card-body">
             {showAddForm && (
               <div className="mb-6 p-4 bg-booktarr-surface2 rounded-lg border border-booktarr-border">
                 <h3 className="text-booktarr-text font-medium mb-4">Add New Wantlist Item</h3>
@@ -519,8 +344,8 @@ const WantedPage: React.FC<WantedPageProps> = ({
                     <label className="booktarr-form-label">ISBN</label>
                     <input
                       type="text"
-                      value={newWantlistItem.isbn || ''}
-                      onChange={(e) => setNewWantlistItem(prev => ({ ...prev, isbn: e.target.value }))}
+                      value={newWantlistItem.isbn_13 || ''}
+                      onChange={(e) => setNewWantlistItem(prev => ({ ...prev, isbn_13: e.target.value }))}
                       className="booktarr-form-input"
                       placeholder="Enter ISBN"
                     />
@@ -594,21 +419,22 @@ const WantedPage: React.FC<WantedPageProps> = ({
                       {item.author && (
                         <p className="text-booktarr-textSecondary text-sm">by {item.author}</p>
                       )}
-                      {item.seriesName && (
-                        <p className="text-booktarr-textMuted text-sm">
-                          {item.seriesName} {item.seriesPosition && `#${item.seriesPosition}`}
-                        </p>
+                      {item.target_price && (
+                        <p className="text-booktarr-textMuted text-sm">Target Price: ${item.target_price.toFixed(2)}</p>
                       )}
                       {item.notes && (
                         <p className="text-booktarr-textMuted text-sm mt-1">{item.notes}</p>
                       )}
+                      <p className="text-booktarr-textMuted text-xs mt-1">
+                        {item.acquisition_status.replace('_', ' ')} • Added: {new Date(item.date_added).toLocaleDateString()}
+                      </p>
                     </div>
                     <div className="flex items-center space-x-2">
                       <button className="booktarr-btn booktarr-btn-primary text-xs">
                         Search for Book
                       </button>
                       <button
-                        onClick={() => handleRemoveFromWantlist(item.id, item.isbn)}
+                        onClick={() => handleRemoveFromWantlist(item.id)}
                         className="booktarr-btn booktarr-btn-danger text-xs"
                       >
                         Remove

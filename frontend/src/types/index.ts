@@ -3,7 +3,6 @@
  */
 
 export interface Book {
-  id: number; // Database ID for selection/tracking
   isbn: string;
   title: string;
   authors: string[];
@@ -17,11 +16,9 @@ export interface Book {
   cover_url?: string;
   description?: string;
   categories: string[];
-  tags?: string[];  // Smart collection tags (e.g., "Isekai", "Found Family")
   pricing: PriceInfo[];
   metadata_source: MetadataSource;
   added_date: string;
-  created_at?: string; // Alias for added_date for visual component consistency
   last_updated: string;
   isbn10?: string;
   isbn13?: string;
@@ -36,7 +33,6 @@ export interface Book {
   date_started?: string;
   date_finished?: string;
   personal_rating?: number; // 1-5 star rating
-  rating?: number; // Alias for visual components
   personal_notes?: string;
   reading_goal_id?: string;
   times_read: number;
@@ -325,102 +321,17 @@ export interface ReadingStatsResponse {
   books_this_month: number;
 }
 
-// ============ Reading Goals & Challenges ============
-
-export enum GoalType {
-  BOOKS = 'books',
-  PAGES = 'pages',
-  STREAK = 'streak',
-  GENRE = 'genre',
-  SERIES = 'series',
-  AUTHOR = 'author',
-}
-
-export enum GoalStatus {
-  ACTIVE = 'active',
-  COMPLETED = 'completed',
-  ABANDONED = 'abandoned',
-}
-
 export interface ReadingGoal {
-  id: number;
+  id: string;
   title: string;
-  description?: string;
-  goal_type: GoalType;
-  target_value: number;
-  current_value: number;
-  progress_percentage: number;
-  days_remaining: number;
-  status: GoalStatus;
+  target_books?: number;
+  target_pages?: number;
   start_date: string;
   end_date: string;
-  completed_date?: string;
-  is_custom: boolean;
-  icon?: string;
-  color?: string;
-  genre?: string;
-  author?: string;
-  series_id?: number;
-}
-
-export interface Challenge extends ReadingGoal {
-  // Alias for ReadingGoal used in frontend
-}
-
-export interface MonthlyGoal {
-  id: number;
-  year_month: string;
-  target_books: number;
-  target_pages: number;
   current_books: number;
   current_pages: number;
-  books_progress_percentage: number;
-  pages_progress_percentage: number;
-}
-
-export interface GoalProgress {
-  id: number;
-  goal_id: number;
-  value_added: number;
-  total_value: number;
-  recorded_at: string;
-  source: string;
-  notes?: string;
-}
-
-export interface CreateGoalRequest {
-  title: string;
-  goal_type: GoalType;
-  target_value: number;
-  start_date: string;
-  end_date: string;
-  description?: string;
-  genre?: string;
-  author?: string;
-  series_id?: number;
-  icon?: string;
-  color?: string;
-}
-
-export interface UpdateGoalRequest {
-  title?: string;
-  target_value?: number;
-  description?: string;
-  end_date?: string;
-}
-
-export interface ReadingVelocityStats {
-  books_per_month: number;
-  months_analyzed: number;
-  books_per_year: number;
-}
-
-export interface GenreBreakdown {
-  [genre: string]: number;
-}
-
-export interface GenrePercentages {
-  [genre: string]: number;
+  is_completed: boolean;
+  created_date: string;
 }
 
 // CSV Import API types
@@ -508,8 +419,6 @@ export interface Series {
   status?: string;
   genres: string[];
   tags: string[];
-  universe?: string; // e.g., "Cosmere", "Middle Earth", for grouping related series
-  universe_order?: number; // Order within the universe for visual organization
   cover_url?: string;
   created_date: string;
   last_updated: string;
@@ -621,124 +530,155 @@ export interface ErrorRecoveryAction {
   variant: 'primary' | 'secondary' | 'danger';
 }
 
-// Smart Collection Types (Tags, Categories, Languages)
-export interface CollectionStats {
-  total_books: number;
-  total_editions: number;
-  languages: { [key: string]: number };
-  formats: { [key: string]: number };
-  categories: { [key: string]: number };
-  tags: { [key: string]: number };
-  unique_languages: number;
-  unique_formats: number;
-  unique_categories: number;
-  unique_tags: number;
-}
+// ============= WISHLIST & ACQUISITION TYPES =============
 
-export interface CollectionStatsResponse {
-  success: boolean;
-  statistics: CollectionStats;
-}
-
-export interface TagResponse {
-  success: boolean;
-  book_id: number;
-  tags: string[];
-  message: string;
-}
-
-export interface AllTagsResponse {
-  tags: string[];
-  count: number;
-  message: string;
-}
-
-export interface BooksByTagResponse {
-  tag: string;
-  books: Array<{
-    id: number;
-    title: string;
-    authors: string[];
-    tags: string[];
-  }>;
-  count: number;
-}
-
-export interface CategoriesResponse {
-  categories: string[];
-  count: number;
-  message: string;
-}
-
-export interface BooksByCategoryResponse {
-  category: string;
-  books: Array<{
-    id: number;
-    title: string;
-    authors: string[];
-    categories: string[];
-  }>;
-  count: number;
-}
-
-export interface LanguagesResponse {
-  languages: { [key: string]: number };
-  unique_languages: number;
-  total_books: number;
-}
-
-export interface BooksByLanguageResponse {
-  language: string;
-  books: Array<{
-    id: number;
-    title: string;
-    authors: string[];
-    language: string;
-  }>;
-  count: number;
-}
-
-export interface EditionVariant {
+export interface WishlistItem {
   id: number;
+  title: string;
   isbn_13?: string;
   isbn_10?: string;
-  format: string;
-  language?: string;
-  publisher?: string;
-  release_date?: string;
-  price?: number;
-  cover_url?: string;
+  author?: string;
+  priority: 'low' | 'medium' | 'high';
+  target_price?: number;
+  notes?: string;
+  purchase_source?: string;
+  date_needed_by?: string;
+  acquisition_status: 'watching' | 'ready_to_buy' | 'pre_ordered' | 'acquired';
+  purchase_url?: string;
+  purchased_date?: string;
+  purchased_price?: number;
+  date_added: string;
+  updated_at: string;
 }
 
-export interface EditionVariantsResponse {
-  book_id: number;
+export interface Wishlist {
+  id: number;
+  name: string;
+  description?: string;
+  is_default: boolean;
+  item_count: number;
+}
+
+export interface WishlistRequest {
   title: string;
-  variants: { [key: string]: EditionVariant[] };
-  total_editions: number;
+  isbn_13?: string;
+  isbn_10?: string;
+  author?: string;
+  edition_id?: number;
+  priority?: 'low' | 'medium' | 'high';
+  target_price?: number;
+  notes?: string;
+  purchase_source?: string;
+  date_needed_by?: string;
 }
 
-export interface DuplicateBook {
+export interface WishlistUpdateRequest {
+  priority?: 'low' | 'medium' | 'high';
+  target_price?: number;
+  notes?: string;
+  purchase_source?: string;
+  date_needed_by?: string;
+  acquisition_status?: 'watching' | 'ready_to_buy' | 'pre_ordered' | 'acquired';
+  purchase_url?: string;
+  purchased_date?: string;
+  purchased_price?: number;
+}
+
+export interface WishlistStats {
+  total_items: number;
+  high_priority: number;
+  medium_priority: number;
+  low_priority: number;
+  watching: number;
+  ready_to_buy: number;
+  pre_ordered: number;
+  acquired: number;
+  estimated_total_cost: number;
+  average_item_cost: number;
+  items_with_price_drops: number;
+  upcoming_releases: number;
+}
+
+export interface AcquisitionPreference {
+  preferred_format: string;
+  max_acceptable_price?: number;
+  preferred_retailers: string[];
+  price_drop_threshold_percent: number;
+  notify_new_releases: boolean;
+  notify_pre_orders: boolean;
+}
+
+export interface PriceTracking {
+  id: number;
+  price: number;
+  currency: string;
+  source: string;
+  recorded_at: string;
+  is_current: boolean;
+  previous_price?: number;
+  price_change_percent?: number;
+}
+
+export interface PriceTrend {
+  current_price: number;
+  lowest_price: number;
+  highest_price: number;
+  average_price: number;
+  price_range: number;
+  trend: 'up' | 'down' | 'stable';
+  records_count: number;
+}
+
+export interface PreOrder {
   id: number;
   title: string;
-  authors: string[];
-  series?: string;
+  expected_release_date: string;
+  isbn?: string;
+  author?: string;
+  format?: string;
+  status: 'active' | 'cancelled' | 'fulfilled' | 'delayed';
+  pre_order_price?: number;
+  retailer?: string;
+  pre_order_url?: string;
+  estimated_delivery_date?: string;
 }
 
-export interface DuplicatePair {
-  book1: DuplicateBook;
-  book2: DuplicateBook;
-  confidence: number;
+export interface PreOrderRequest {
+  title: string;
+  expected_release_date: string;
+  isbn?: string;
+  author?: string;
+  format?: string;
+  pre_order_price?: number;
+  retailer?: string;
+  pre_order_url?: string;
 }
 
-export interface DuplicatesResponse {
-  duplicates_found: number;
-  confidence_threshold: number;
-  duplicates: DuplicatePair[];
-}
-
-export interface MergeDuplicatesResponse {
+// API Response types for wishlist endpoints
+export interface WishlistResponse {
   success: boolean;
-  primary_book_id: number;
-  merged_count: number;
-  message: string;
+  message?: string;
+  wishlists?: Wishlist[];
+  items?: WishlistItem[];
+  item?: WishlistItem;
+  stats?: WishlistStats;
+  count?: number;
+  items_with_price_drops?: number;
+}
+
+export interface PriceTrackingResponse {
+  success: boolean;
+  message?: string;
+  price?: PriceTracking;
+  history?: PriceTracking[];
+  trend?: PriceTrend;
+  items?: PriceTracking[];
+}
+
+export interface PreOrderResponse {
+  success: boolean;
+  message?: string;
+  pre_order?: PreOrder;
+  pre_orders?: PreOrder[];
+  count?: number;
 }
