@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Book } from '../types';
 import { useStateManager } from '../hooks/useStateManager';
 
@@ -17,13 +17,14 @@ interface SearchResult {
   subtitle?: string;
 }
 
-const BookSearch: React.FC<BookSearchProps> = ({ 
-  onBookSelect, 
+const BookSearch: React.FC<BookSearchProps> = ({
+  onBookSelect,
   onAddNewBook,
   placeholder = "Search books...",
   className = ""
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -31,6 +32,7 @@ const BookSearch: React.FC<BookSearchProps> = ({
   const { state } = useStateManager();
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -44,26 +46,53 @@ const BookSearch: React.FC<BookSearchProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Search books in the collection
+  // Debounce search term - only update after user stops typing for 300ms
   useEffect(() => {
-    if (searchTerm.trim() === '') {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // Show loading indicator while typing
+    if (searchTerm.trim() !== '') {
+      setIsSearching(true);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [searchTerm]);
+
+  // Memoize the flattened books array to prevent recalculation on every render
+  const allBooks = useMemo(() => {
+    return Object.values(state.books).flat();
+  }, [state.books]);
+
+  // Perform search only when debounced term changes
+  useEffect(() => {
+    if (debouncedSearchTerm.trim() === '') {
       setSearchResults([]);
       setShowDropdown(false);
+      setIsSearching(false);
       return;
     }
 
     setIsSearching(true);
-    const lowercaseSearch = searchTerm.toLowerCase();
-    
-    // Search in local collection - flatten books from series map
-    const allBooks = Object.values(state.books).flat();
-    const matchingBooks = allBooks.filter((book: Book) => 
+    const lowercaseSearch = debouncedSearchTerm.toLowerCase();
+
+    // Search in local collection
+    const matchingBooks = allBooks.filter((book: Book) =>
       book.title.toLowerCase().includes(lowercaseSearch) ||
       book.authors.some((author: string) => author.toLowerCase().includes(lowercaseSearch)) ||
       (book.series && book.series.toLowerCase().includes(lowercaseSearch)) ||
-      (book.isbn && book.isbn.includes(searchTerm)) ||
-      (book.isbn13 && book.isbn13.includes(searchTerm)) ||
-      (book.isbn10 && book.isbn10.includes(searchTerm))
+      (book.isbn && book.isbn.includes(debouncedSearchTerm)) ||
+      (book.isbn13 && book.isbn13.includes(debouncedSearchTerm)) ||
+      (book.isbn10 && book.isbn10.includes(debouncedSearchTerm))
     );
 
     const results: SearchResult[] = matchingBooks.slice(0, 5).map((book: Book) => ({
@@ -76,8 +105,8 @@ const BookSearch: React.FC<BookSearchProps> = ({
     // Add "Add new book" option
     results.push({
       type: 'add_new',
-      searchQuery: searchTerm,
-      title: `Add "${searchTerm}"`,
+      searchQuery: debouncedSearchTerm,
+      title: `Add "${debouncedSearchTerm}"`,
       subtitle: 'Search and add new book to collection'
     });
 
@@ -85,7 +114,7 @@ const BookSearch: React.FC<BookSearchProps> = ({
     setShowDropdown(true);
     setSelectedIndex(-1);
     setIsSearching(false);
-  }, [searchTerm, state.books]);
+  }, [debouncedSearchTerm, allBooks]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!showDropdown || searchResults.length === 0) return;
