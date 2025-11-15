@@ -222,3 +222,4 @@ target/
 pyrightconfig.json
 backend/backend/static/*
 backend/book_cache.json
+backend/inspect_series_names.py
