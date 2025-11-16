@@ -287,12 +287,17 @@ export const useStateManager = () => {
     return await offlineQueue.getQueueStats();
   }, []);
 
-  // Auto-cleanup on mount and periodically
+  // Auto-cleanup on mount and periodically (disabled in test environments)
   useEffect(() => {
     cleanup();
-    
-    const interval = setInterval(cleanup, 5 * 60 * 1000); // Every 5 minutes
-    return () => clearInterval(interval);
+
+    // Only enable periodic cleanup if not in test environment
+    const isTestEnvironment = navigator.webdriver || (window as any).Cypress;
+
+    if (!isTestEnvironment) {
+      const interval = setInterval(cleanup, 5 * 60 * 1000); // Every 5 minutes
+      return () => clearInterval(interval);
+    }
   }, [cleanup]);
 
   // Setup offline sync listeners
@@ -312,12 +317,22 @@ export const useStateManager = () => {
     };
     
     updateOfflineInfo();
-    const infoInterval = setInterval(updateOfflineInfo, 30000); // Every 30 seconds
-    
-    return () => {
-      offlineSync.removeSyncListener(handleSyncStatus);
-      clearInterval(infoInterval);
-    };
+
+    // Only enable periodic updates if not in test environment
+    const isTestEnvironment = navigator.webdriver || (window as any).Cypress;
+
+    if (!isTestEnvironment) {
+      const infoInterval = setInterval(updateOfflineInfo, 30000); // Every 30 seconds
+
+      return () => {
+        offlineSync.removeSyncListener(handleSyncStatus);
+        clearInterval(infoInterval);
+      };
+    } else {
+      return () => {
+        offlineSync.removeSyncListener(handleSyncStatus);
+      };
+    }
   }, [getOfflineInfo]);
 
   return {

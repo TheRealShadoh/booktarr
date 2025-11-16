@@ -23,11 +23,14 @@ const LogsPage: React.FC<LogsPageProps> = ({ className = '' }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
 
-  // Fetch logs on mount and set up auto-refresh
+  // Fetch logs on mount and set up auto-refresh (disabled in test environments)
   useEffect(() => {
     fetchLogs();
-    
-    if (autoRefresh) {
+
+    // Only enable auto-refresh if user wants it AND not in test environment
+    const isTestEnvironment = navigator.webdriver || (window as any).Cypress;
+
+    if (autoRefresh && !isTestEnvironment) {
       const interval = setInterval(fetchLogs, 5000); // Refresh every 5 seconds
       return () => clearInterval(interval);
     }

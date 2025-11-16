@@ -242,6 +242,6 @@ const SeriesCard: React.FC<SeriesCardProps> = React.memo(({ seriesName, books, t
       </div>
     </div>
   );
-};
+});
 
 export default SeriesCard;

@@ -186,7 +186,11 @@ class OwnershipService:
             for status in owned_statuses:
                 edition = status.edition
                 book = edition.book
-                
+
+                # Skip if book or edition is None (orphaned data)
+                if not book or not edition:
+                    continue
+
                 owned_editions.append({
                     "title": book.title,
                     "authors": json.loads(book.authors) if book.authors else [],

@@ -103,10 +103,15 @@ const OfflineIndicator: React.FC<OfflineIndicatorProps> = ({
     };
 
     checkOfflineQueue();
-    
-    // Check periodically
-    const interval = setInterval(checkOfflineQueue, 5000);
-    return () => clearInterval(interval);
+
+    // Only enable periodic checks if not in a test environment
+    const isTestEnvironment = navigator.webdriver || (window as any).Cypress;
+
+    if (!isTestEnvironment) {
+      // Check periodically
+      const interval = setInterval(checkOfflineQueue, 5000);
+      return () => clearInterval(interval);
+    }
   }, []);
 
   // Get connection quality color

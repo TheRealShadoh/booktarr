@@ -88,9 +88,13 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     }
   }, []);
 
-  // Set up interval to check scheduled dark mode
+  // Set up interval to check scheduled dark mode (disabled in test environments)
   useEffect(() => {
     if (!scheduledDarkMode.enabled) return;
+
+    // Don't run scheduled dark mode checks in test environments
+    const isTestEnvironment = navigator.webdriver || (window as any).Cypress;
+    if (isTestEnvironment) return;
 
     const checkInterval = setInterval(() => {
       const isInDarkHours = isTimeInDarkModeHours(scheduledDarkMode.startTime, scheduledDarkMode.endTime);

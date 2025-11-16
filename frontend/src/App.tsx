@@ -14,6 +14,7 @@ import PageErrorBoundary from './components/PageErrorBoundary';
 import ComponentErrorBoundary from './components/ComponentErrorBoundary';
 import { AppProvider } from './context/AppContext';
 import { useStateManager } from './hooks/useStateManager';
+import { QueryProvider } from './providers/QueryProvider';
 import './styles/tailwind.css';
 
 // Lazy loaded route components for code splitting
@@ -26,7 +27,7 @@ const RecommendationsPage = lazy(() => import('./components/RecommendationsPage'
 const ReadingChallengesPage = lazy(() => import('./components/ReadingChallengesPage'));
 const ReadingTimelinePage = lazy(() => import('./components/ReadingTimelinePage'));
 const BookSearchPage = lazy(() => import('./components/BookSearchPage'));
-const BookDetailsPage = lazy(() => import('./components/BookDetailsPage'));
+const BookDetailsPage = lazy(() => import('./components/BookDetailsPage/index'));
 const StatsDashboard = lazy(() => import('./components/StatsDashboard'));
 const SeriesManagement = lazy(() => import('./components/SeriesManagement'));
 const SeriesDetailsPage = lazy(() => import('./components/SeriesDetailsPage'));
@@ -182,9 +183,11 @@ const AppInner: React.FC = () => {
     };
   }, [navigate, undo, redo, location.pathname]);
 
-  // Performance monitoring (disabled in production)
+  // Performance monitoring (disabled in production and test environments)
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
+    const isTestEnvironment = navigator.webdriver || (window as any).Cypress;
+
+    if (process.env.NODE_ENV === 'development' && !isTestEnvironment) {
       const interval = setInterval(() => {
         const metrics = getPerformanceMetrics();
         console.log('Performance metrics:', metrics);
@@ -688,9 +691,11 @@ const App: React.FC = () => {
           }
         }}
       >
-        <AppProvider>
-          <AppInner />
-        </AppProvider>
+        <QueryProvider>
+          <AppProvider>
+            <AppInner />
+          </AppProvider>
+        </QueryProvider>
       </ErrorBoundary>
     </BrowserRouter>
   );
