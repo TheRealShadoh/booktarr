@@ -1,11 +1,13 @@
 /**
  * Enhanced BookCard component with Sonarr-inspired styling and reading progress
+ * Optimized with lazy loading for images
  */
 import React, { useState, useCallback, useMemo } from 'react';
 import { Book, ReadingStatus } from '../types';
 import ReadingStatusBadge from './ReadingStatusBadge';
 import ReadingProgressBar from './ReadingProgressBar';
 import StarRating from './StarRating';
+import LazyImage from './LazyImage';
 
 interface BookCardProps {
   book: Book;
@@ -83,8 +85,8 @@ const BookCard: React.FC<BookCardProps> = React.memo(({ book, onClick, viewMode 
       >
         <div className="flex-shrink-0 w-16 h-24 relative">
           {(book.cover_url || book.thumbnail_url) && !imageError ? (
-            <img 
-              src={book.cover_url || book.thumbnail_url} 
+            <LazyImage
+              src={book.cover_url || book.thumbnail_url}
               alt={book.title}
               className="w-full h-full object-cover rounded"
               onLoad={handleImageLoad}
@@ -183,20 +185,13 @@ const BookCard: React.FC<BookCardProps> = React.memo(({ book, onClick, viewMode 
     >
       <div className="relative overflow-hidden rounded-t-lg">
         {(book.cover_url || book.thumbnail_url) && !imageError ? (
-          <div className="relative">
-            <img 
-              src={book.cover_url || book.thumbnail_url} 
-              alt={book.title}
-              className={`booktarr-book-cover transition-all duration-300 group-hover:scale-105 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
-              onLoad={handleImageLoad}
-              onError={handleImageError}
-            />
-            {!imageLoaded && (
-              <div className="absolute inset-0 bg-booktarr-surface2 animate-pulse flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-booktarr-accent border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            )}
-          </div>
+          <LazyImage
+            src={book.cover_url || book.thumbnail_url}
+            alt={book.title}
+            className="booktarr-book-cover transition-all duration-300 group-hover:scale-105"
+            onLoad={handleImageLoad}
+            onError={handleImageError}
+          />
         ) : (
           <div className="booktarr-book-cover bg-booktarr-surface2 border border-booktarr-border flex items-center justify-center grayscale">
             <div className="text-center p-4">
