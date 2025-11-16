@@ -20,7 +20,7 @@ backend_dir = Path(__file__).parent.parent
 sys.path.append(str(backend_dir))
 
 try:
-    from database import get_engine
+    from database import engine
     from models.book import Book, Edition, UserEditionStatus
     from models.reading_progress import ReadingProgress
     from models.series import Series, SeriesVolume
@@ -32,9 +32,9 @@ except ImportError as e:
 
 class DatabaseIndexManager:
     """Manages database indexes for performance optimization"""
-    
+
     def __init__(self):
-        self.engine = get_engine()
+        self.engine = engine
     
     def create_all_indexes(self):
         """Create all performance indexes"""

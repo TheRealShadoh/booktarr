@@ -1,7 +1,8 @@
 /**
  * SeriesCard component - Grid view for series similar to BookCard
+ * Optimized with React.memo to prevent unnecessary re-renders
  */
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Book } from '../types';
 
 interface SeriesCardProps {
@@ -13,7 +14,7 @@ interface SeriesCardProps {
   viewMode?: 'grid' | 'list';
 }
 
-const SeriesCard: React.FC<SeriesCardProps> = ({ seriesName, books, totalBooksInSeries, onClick, className = '', viewMode = 'grid' }) => {
+const SeriesCard: React.FC<SeriesCardProps> = React.memo(({ seriesName, books, totalBooksInSeries, onClick, className = '', viewMode = 'grid' }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [seriesMetadata, setSeriesMetadata] = useState<{ total_books?: number } | null>(null);
@@ -35,19 +36,19 @@ const SeriesCard: React.FC<SeriesCardProps> = ({ seriesName, books, totalBooksIn
     }
   }, [seriesName, totalBooksInSeries]);
 
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     if (onClick) {
       onClick(seriesName);
     }
-  };
+  }, [onClick, seriesName]);
 
-  const handleImageLoad = () => {
+  const handleImageLoad = useCallback(() => {
     setImageLoaded(true);
-  };
+  }, []);
 
-  const handleImageError = () => {
+  const handleImageError = useCallback(() => {
     setImageError(true);
-  };
+  }, []);
 
   // Select a random book cover from the series as the series art
   const randomCover = useMemo(() => {
