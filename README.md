@@ -266,16 +266,72 @@ The system automatically detects and configures for your current network:
 ![Book Details](screenshots/book-details.png)
 ![Metadata Editor](screenshots/metadata-editor.png)
 
-## 🐳 Docker Support
+## 🐳 Docker Deployment
+
+### Quick Docker Start
+
+The easiest way to run BookTarr in production:
 
 ```bash
-# Build and run with Docker Compose
-docker-compose up --build
+# 1. Create environment file
+cp .env.docker .env
 
-# Or use the provided Dockerfile
-docker build -t booktarr .
-docker run -p 3000:3000 -p 8000:8000 booktarr
+# 2. Add your API keys to .env (optional but recommended)
+# GOOGLE_BOOKS_API_KEY=your_key_here
+
+# 3. Build and start containers
+docker-compose up --build -d
+
+# 4. Access the application
+# http://localhost (frontend)
+# http://localhost:8000/docs (API documentation)
 ```
+
+### What Gets Deployed
+
+- **Frontend**: Nginx serving optimized React build (Port 80)
+- **Backend**: Python FastAPI application (Port 8000)
+- **Data Persistence**: Named volumes for database, covers, and cache
+
+### Docker Features
+
+✅ **Multi-stage builds** for optimized image sizes
+✅ **Health checks** for both frontend and backend
+✅ **Volume persistence** for database and cover images
+✅ **Non-root containers** for security
+✅ **Automatic dependency installation**
+✅ **Network isolation** with custom bridge network
+
+### Docker Commands
+
+```bash
+# Start services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+
+# Rebuild after code changes
+docker-compose up --build -d
+
+# Backup database
+docker run --rm -v booktarr-db:/data -v $(pwd):/backup alpine \
+  tar czf /backup/booktarr-backup.tar.gz -C /data .
+```
+
+### Production Deployment
+
+For detailed production deployment instructions, including:
+- SSL/HTTPS configuration
+- Volume backups
+- Performance tuning
+- Monitoring setup
+- Database migration
+
+See **[DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md)** for complete documentation.
 
 ## 🤝 Contributing
 

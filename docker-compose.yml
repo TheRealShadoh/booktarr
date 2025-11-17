@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: booktarr-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./data/booktarr.db
+      - PORT=8000
+      - CACHE_FILE=/app/cache/book_cache.json
+      - API_RATE_LIMIT_DELAY=1.0
+      - CORS_ORIGINS=http://localhost,http://localhost:80,http://localhost:3000
+      # API Keys (override with .env file)
+      - GOOGLE_BOOKS_API_KEY=${GOOGLE_BOOKS_API_KEY:-}
+      - AMAZON_CLIENT_ID=${AMAZON_CLIENT_ID:-}
+      - AMAZON_CLIENT_SECRET=${AMAZON_CLIENT_SECRET:-}
+      - AMAZON_REDIRECT_URI=${AMAZON_REDIRECT_URI:-http://localhost/auth/amazon/callback}
+    volumes:
+      - booktarr-db:/app/data
+      - booktarr-covers:/app/static/covers
+      - booktarr-cache:/app/cache
+    networks:
+      - booktarr-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # React Frontend with Nginx
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: booktarr-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - booktarr-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Named volumes for data persistence
+volumes:
+  booktarr-db:
+    driver: local
+    name: booktarr-db
+  booktarr-covers:
+    driver: local
+    name: booktarr-covers
+  booktarr-cache:
+    driver: local
+    name: booktarr-cache
+
+# Custom network for inter-container communication
+networks:
+  booktarr-network:
+    driver: bridge
+    name: booktarr-network
