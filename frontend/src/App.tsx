@@ -1,41 +1,49 @@
 /**
  * Main App component with React Router and comprehensive error boundaries
  * Now uses proper URL-based routing with React Router DOM
+ * Optimized with lazy loading for all route components to reduce initial bundle size
  */
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
-import BookList from './components/BookList';
-import SettingsPage from './components/SettingsPage';
-import WantedPage from './components/WantedPage';
-import CollectionsPage from './components/CollectionsPage';
-import AdvancedSearchPage from './components/AdvancedSearchPage';
-import RecommendationsPage from './components/RecommendationsPage';
-import ReadingChallengesPage from './components/ReadingChallengesPage';
-import ReadingTimelinePage from './components/ReadingTimelinePage';
+
+// Core components that need to be loaded immediately
 import Toast from './components/Toast';
 import MainLayout from './components/MainLayout';
-import BookSearchPage from './components/BookSearchPage';
-import BookDetailsPage from './components/BookDetailsPage';
-import StatsDashboard from './components/StatsDashboard';
-import PWAInstallPrompt from './components/PWAInstallPrompt';
-import OfflineIndicator from './components/OfflineIndicator';
-import PWAUpdateNotification from './components/PWAUpdateNotification';
-import SeriesManagement from './components/SeriesManagement';
-import SeriesDetailsPage from './components/SeriesDetailsPage';
-import LogsPage from './components/LogsPage';
-import ReleaseCalendarPage from './components/ReleaseCalendarPage';
-import AuthorProfilePage from './components/AuthorProfilePage';
-import PublisherDiscoveryPage from './components/PublisherDiscoveryPage';
-import SeasonalDiscoveryPage from './components/SeasonalDiscoveryPage';
-import MagazineTrackingPage from './components/MagazineTrackingPage';
-import SmartInsightsPage from './components/SmartInsightsPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import PageErrorBoundary from './components/PageErrorBoundary';
 import ComponentErrorBoundary from './components/ComponentErrorBoundary';
-import ErrorBoundaryTestPage from './components/ErrorBoundaryTestPage';
 import { AppProvider } from './context/AppContext';
 import { useStateManager } from './hooks/useStateManager';
+import { QueryProvider } from './providers/QueryProvider';
 import './styles/tailwind.css';
+
+// Lazy loaded route components for code splitting
+const BookList = lazy(() => import('./components/BookList'));
+const SettingsPage = lazy(() => import('./components/SettingsPage'));
+const WantedPage = lazy(() => import('./components/WantedPage'));
+const CollectionsPage = lazy(() => import('./components/CollectionsPage'));
+const AdvancedSearchPage = lazy(() => import('./components/AdvancedSearchPage'));
+const RecommendationsPage = lazy(() => import('./components/RecommendationsPage'));
+const ReadingChallengesPage = lazy(() => import('./components/ReadingChallengesPage'));
+const ReadingTimelinePage = lazy(() => import('./components/ReadingTimelinePage'));
+const BookSearchPage = lazy(() => import('./components/BookSearchPage'));
+const BookDetailsPage = lazy(() => import('./components/BookDetailsPage/index'));
+const StatsDashboard = lazy(() => import('./components/StatsDashboard'));
+const SeriesManagement = lazy(() => import('./components/SeriesManagement'));
+const SeriesDetailsPage = lazy(() => import('./components/SeriesDetailsPage'));
+const LogsPage = lazy(() => import('./components/LogsPage'));
+const ReleaseCalendarPage = lazy(() => import('./components/ReleaseCalendarPage'));
+const AuthorProfilePage = lazy(() => import('./components/AuthorProfilePage'));
+const PublisherDiscoveryPage = lazy(() => import('./components/PublisherDiscoveryPage'));
+const SeasonalDiscoveryPage = lazy(() => import('./components/SeasonalDiscoveryPage'));
+const MagazineTrackingPage = lazy(() => import('./components/MagazineTrackingPage'));
+const SmartInsightsPage = lazy(() => import('./components/SmartInsightsPage'));
+const ErrorBoundaryTestPage = lazy(() => import('./components/ErrorBoundaryTestPage'));
+
+// Lazy loaded PWA components
+const PWAInstallPrompt = lazy(() => import('./components/PWAInstallPrompt'));
+const OfflineIndicator = lazy(() => import('./components/OfflineIndicator'));
+const PWAUpdateNotification = lazy(() => import('./components/PWAUpdateNotification'));
 
 // Router-aware App component that uses URL-based navigation
 const AppInner: React.FC = () => {
@@ -175,14 +183,18 @@ const AppInner: React.FC = () => {
     };
   }, [navigate, undo, redo, location.pathname]);
 
-  // Performance monitoring
+  // Performance monitoring (disabled in production and test environments)
   useEffect(() => {
-    const interval = setInterval(() => {
-      const metrics = getPerformanceMetrics();
-      console.log('Performance metrics:', metrics);
-    }, 30000); // Every 30 seconds
+    const isTestEnvironment = navigator.webdriver || (window as any).Cypress;
 
-    return () => clearInterval(interval);
+    if (process.env.NODE_ENV === 'development' && !isTestEnvironment) {
+      const interval = setInterval(() => {
+        const metrics = getPerformanceMetrics();
+        console.log('Performance metrics:', metrics);
+      }, 30000); // Every 30 seconds
+
+      return () => clearInterval(interval);
+    }
   }, [getPerformanceMetrics]);
 
   const handleBookClick = useCallback((book: any) => {
@@ -252,18 +264,20 @@ const AppInner: React.FC = () => {
         Skip to main content
       </a>
 
-      {/* PWA Components with Error Boundaries */}
-      <ComponentErrorBoundary componentName="Offline Indicator" showMinimal={true}>
-        <OfflineIndicator />
-      </ComponentErrorBoundary>
-      
-      <ComponentErrorBoundary componentName="PWA Update Notification" showMinimal={true}>
-        <PWAUpdateNotification />
-      </ComponentErrorBoundary>
-      
-      <ComponentErrorBoundary componentName="PWA Install Prompt" showMinimal={true}>
-        <PWAInstallPrompt />
-      </ComponentErrorBoundary>
+      {/* PWA Components with Error Boundaries and Suspense */}
+      <Suspense fallback={null}>
+        <ComponentErrorBoundary componentName="Offline Indicator" showMinimal={true}>
+          <OfflineIndicator />
+        </ComponentErrorBoundary>
+
+        <ComponentErrorBoundary componentName="PWA Update Notification" showMinimal={true}>
+          <PWAUpdateNotification />
+        </ComponentErrorBoundary>
+
+        <ComponentErrorBoundary componentName="PWA Install Prompt" showMinimal={true}>
+          <PWAInstallPrompt />
+        </ComponentErrorBoundary>
+      </Suspense>
       
       {/* Toast Notifications with Error Boundary */}
       {state.toast && (
@@ -322,8 +336,16 @@ const AppInner: React.FC = () => {
           }, [navigate])}
         >
           <div id="main-content">
-            <Routes>
-            <Route path="/" element={
+            <Suspense fallback={
+              <div className="flex items-center justify-center h-screen">
+                <div className="text-center">
+                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                  <p className="mt-4 text-gray-600">Loading...</p>
+                </div>
+              </div>
+            }>
+              <Routes>
+              <Route path="/" element={
               <PageErrorBoundary 
                 pageName="Book Library" 
                 onNavigateBack={() => navigate('/')}
@@ -598,9 +620,10 @@ const AppInner: React.FC = () => {
               } />
             )}
             
-            {/* Redirect unknown routes to home */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+              {/* Redirect unknown routes to home */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            </Suspense>
           </div>
         </MainLayout>
       </ErrorBoundary>
@@ -668,9 +691,11 @@ const App: React.FC = () => {
           }
         }}
       >
-        <AppProvider>
-          <AppInner />
-        </AppProvider>
+        <QueryProvider>
+          <AppProvider>
+            <AppInner />
+          </AppProvider>
+        </QueryProvider>
       </ErrorBoundary>
     </BrowserRouter>
   );

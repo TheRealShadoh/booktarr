@@ -1,8 +1,11 @@
 /**
  * SeriesCard component - Grid view for series similar to BookCard
+ * Optimized with React.memo, lazy loading, and React Query caching
  */
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Book } from '../types';
+import LazyImage from './LazyImage';
 
 interface SeriesCardProps {
   seriesName: string;
@@ -13,41 +16,41 @@ interface SeriesCardProps {
   viewMode?: 'grid' | 'list';
 }
 
-const SeriesCard: React.FC<SeriesCardProps> = ({ seriesName, books, totalBooksInSeries, onClick, className = '', viewMode = 'grid' }) => {
+const SeriesCard: React.FC<SeriesCardProps> = React.memo(({ seriesName, books, totalBooksInSeries, onClick, className = '', viewMode = 'grid' }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const [seriesMetadata, setSeriesMetadata] = useState<{ total_books?: number } | null>(null);
 
-  // Fetch series metadata if not provided and not standalone
-  useEffect(() => {
-    if (!totalBooksInSeries && seriesName !== 'Standalone' && seriesName !== 'Standalone Books') {
-      // Fetch series metadata from the API
-      fetch(`/api/series/${encodeURIComponent(seriesName)}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.series && data.series.total_books) {
-            setSeriesMetadata({ total_books: data.series.total_books });
-          }
-        })
-        .catch(err => {
-          console.error('Failed to fetch series metadata:', err);
-        });
-    }
-  }, [seriesName, totalBooksInSeries]);
+  // Fetch series metadata using React Query for caching and automatic refetching
+  const shouldFetchMetadata = !totalBooksInSeries && seriesName !== 'Standalone' && seriesName !== 'Standalone Books';
 
-  const handleClick = () => {
+  const { data: seriesMetadata } = useQuery({
+    queryKey: ['series-metadata', seriesName],
+    queryFn: async () => {
+      const response = await fetch(`/api/series/${encodeURIComponent(seriesName)}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch series metadata');
+      }
+      const data = await response.json();
+      return data.series as { total_books?: number };
+    },
+    enabled: shouldFetchMetadata,
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes (renamed from cacheTime in v5)
+  });
+
+  const handleClick = useCallback(() => {
     if (onClick) {
       onClick(seriesName);
     }
-  };
+  }, [onClick, seriesName]);
 
-  const handleImageLoad = () => {
+  const handleImageLoad = useCallback(() => {
     setImageLoaded(true);
-  };
+  }, []);
 
-  const handleImageError = () => {
+  const handleImageError = useCallback(() => {
     setImageError(true);
-  };
+  }, []);
 
   // Select a random book cover from the series as the series art
   const randomCover = useMemo(() => {
@@ -83,20 +86,13 @@ const SeriesCard: React.FC<SeriesCardProps> = ({ seriesName, books, totalBooksIn
       <div className={`booktarr-book-card flex p-4 space-x-4 hover:bg-booktarr-hover transition-colors cursor-pointer ${className}`} onClick={handleClick}>
         <div className="flex-shrink-0 w-16 h-24 relative">
           {randomCover && !imageError ? (
-            <div className="relative">
-              <img 
-                src={randomCover} 
-                alt={seriesName}
-                className={`w-full h-full object-cover rounded transition-all duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
-                onLoad={handleImageLoad}
-                onError={handleImageError}
-              />
-              {!imageLoaded && (
-                <div className="absolute inset-0 bg-booktarr-surface2 animate-pulse flex items-center justify-center rounded">
-                  <div className="w-4 h-4 border-2 border-booktarr-accent border-t-transparent rounded-full animate-spin"></div>
-                </div>
-              )}
-            </div>
+            <LazyImage
+              src={randomCover}
+              alt={seriesName}
+              className="w-full h-full object-cover rounded"
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+            />
           ) : (
             <div className="w-full h-full bg-booktarr-surface2 border border-booktarr-border rounded flex items-center justify-center">
               <svg className="w-8 h-8 text-booktarr-textMuted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -159,21 +155,14 @@ const SeriesCard: React.FC<SeriesCardProps> = ({ seriesName, books, totalBooksIn
       <div className="relative overflow-hidden rounded-t-lg">
         {randomCover && !imageError ? (
           <div className="relative">
-            <img 
-              src={randomCover} 
+            <LazyImage
+              src={randomCover}
               alt={seriesName}
-              className={`booktarr-book-cover transition-all duration-300 group-hover:scale-105 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+              className="booktarr-book-cover transition-all duration-300 group-hover:scale-105"
               onLoad={handleImageLoad}
               onError={handleImageError}
             />
-            {!imageLoaded && (
-              <div className="absolute inset-0 bg-booktarr-surface2 animate-pulse flex items-center justify-center">
-                <svg className="w-12 h-12 text-booktarr-textMuted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-              </div>
-            )}
-            
+
             {/* Series indicator overlay */}
             <div className="absolute top-2 left-2 bg-booktarr-accent text-white px-2 py-1 rounded-full text-xs font-medium">
               📚 Series
@@ -253,6 +242,6 @@ const SeriesCard: React.FC<SeriesCardProps> = ({ seriesName, books, totalBooksIn
       </div>
     </div>
   );
-};
+});
 
 export default SeriesCard;

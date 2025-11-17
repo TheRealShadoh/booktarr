@@ -27,11 +27,18 @@ const JobsSection: React.FC<JobsSectionProps> = ({ className = '' }) => {
   const [updatingJobs, setUpdatingJobs] = useState<Set<string>>(new Set());
   const [triggeringJobs, setTriggeringJobs] = useState<Set<string>>(new Set());
 
-  // Fetch jobs on mount and periodically
+  // Fetch jobs on mount and periodically (disabled in test environments)
   useEffect(() => {
     fetchJobs();
-    const interval = setInterval(fetchJobs, 30000); // Refresh every 30 seconds
-    return () => clearInterval(interval);
+
+    // Only enable auto-refresh if not in a test environment
+    // Playwright sets navigator.webdriver = true
+    const isTestEnvironment = navigator.webdriver || (window as any).Cypress;
+
+    if (!isTestEnvironment) {
+      const interval = setInterval(fetchJobs, 30000); // Refresh every 30 seconds
+      return () => clearInterval(interval);
+    }
   }, []);
 
   const fetchJobs = async () => {

@@ -621,29 +621,30 @@ async def get_book_by_isbn(isbn: str, user_id: int = Query(1, description="User 
     try:
         with get_db_session() as session:
             from sqlmodel import select, or_
-            
-            # Find edition by ISBN
+            from sqlalchemy.orm import selectinload
+
+            # Find edition by ISBN with eager loading
             stmt = select(Edition).where(
                 or_(Edition.isbn_10 == isbn, Edition.isbn_13 == isbn)
+            ).options(
+                selectinload(Edition.book).selectinload(Book.editions).selectinload(Edition.user_statuses)
             )
             edition = session.exec(stmt).first()
-            
+
             if not edition:
                 raise HTTPException(status_code=404, detail=f"Book with ISBN {isbn} not found")
-            
+
             book = edition.book
-            
-            # Get all editions for this book
+
+            # Get all editions for this book (now preloaded with user_statuses)
             editions = []
             for ed in book.editions:
-                # Get user status for this edition
-                user_status = session.exec(
-                    select(UserEditionStatus).where(
-                        UserEditionStatus.user_id == user_id,
-                        UserEditionStatus.edition_id == ed.id
-                    )
-                ).first()
-                
+                # Find user status from preloaded data
+                user_status = next(
+                    (us for us in ed.user_statuses if us.user_id == user_id),
+                    None
+                )
+
                 editions.append({
                     "id": ed.id,
                     "isbn_13": ed.isbn_13,
@@ -685,27 +686,33 @@ async def get_books(user_id: int = Query(1, description="User ID")) -> Dict[str,
         # Group books by series as expected by frontend
         series_grouped = {}
         series_metadata = {}
-        
-        with get_db_session() as session:
-            from sqlmodel import select
-            from models import Series
-            
-            for book in owned_books:
-                series_name = book.get("series_name") or book.get("series", "Standalone Books")
-                if series_name not in series_grouped:
-                    series_grouped[series_name] = []
-                    
-                    # Fetch series metadata if it's not standalone
-                    if series_name != "Standalone Books":
-                        series = session.exec(select(Series).where(Series.name == series_name)).first()
-                        if series:
-                            series_metadata[series_name] = {
-                                "total_books": series.total_books,
-                                "description": series.description,
-                                "status": series.status
-                            }
-                
-                series_grouped[series_name].append(book)
+
+        # Collect unique series names (excluding standalone)
+        unique_series = set()
+        for book in owned_books:
+            series_name = book.get("series_name") or book.get("series", "Standalone Books")
+            if series_name not in series_grouped:
+                series_grouped[series_name] = []
+                if series_name != "Standalone Books":
+                    unique_series.add(series_name)
+            series_grouped[series_name].append(book)
+
+        # Fetch all series metadata in a single query
+        if unique_series:
+            with get_db_session() as session:
+                from sqlmodel import select
+                from models import Series
+
+                series_list = session.exec(
+                    select(Series).where(Series.name.in_(unique_series))
+                ).all()
+
+                for series in series_list:
+                    series_metadata[series.name] = {
+                        "total_books": series.total_books,
+                        "description": series.description,
+                        "status": series.status
+                    }
         
         return {
             "series": series_grouped,
@@ -1347,23 +1354,26 @@ async def get_book_by_id(book_id: int, user_id: int = Query(1, description="User
     try:
         with get_db_session() as session:
             from sqlmodel import select
-            
-            # Get the book
-            book = session.get(Book, book_id)
+            from sqlalchemy.orm import selectinload
+
+            # Get the book with eager loading of editions and their user statuses
+            stmt = select(Book).where(Book.id == book_id).options(
+                selectinload(Book.editions).selectinload(Edition.user_statuses)
+            )
+            book = session.exec(stmt).first()
+
             if not book:
                 raise HTTPException(status_code=404, detail=f"Book with id {book_id} not found")
-            
-            # Get all editions for this book
+
+            # Get all editions for this book (now preloaded with user_statuses)
             editions = []
             for edition in book.editions:
-                # Get user status for this edition
-                user_status = session.exec(
-                    select(UserEditionStatus).where(
-                        UserEditionStatus.user_id == user_id,
-                        UserEditionStatus.edition_id == edition.id
-                    )
-                ).first()
-                
+                # Find user status from preloaded data
+                user_status = next(
+                    (us for us in edition.user_statuses if us.user_id == user_id),
+                    None
+                )
+
                 editions.append({
                     "id": edition.id,
                     "isbn_13": edition.isbn_13,

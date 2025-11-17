@@ -41,7 +41,8 @@
     "setup": "node scripts/setup.js",
     "clean": "node scripts/clean.js",
     "cert:generate": "node scripts/generate-certs.js",
-    "cert:clean": "node scripts/clean-certs.js"
+    "cert:clean": "node scripts/clean-certs.js",
+    "cert:test": "node scripts/test-https.js"
   },
   "devDependencies": {
     "cross-spawn": "^7.0.3",

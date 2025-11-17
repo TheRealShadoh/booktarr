@@ -96,7 +96,7 @@ const BookSearchPage: React.FC<BookSearchPageProps> = ({ onBookAdded, initialSea
         clearTimeout(searchDebounce);
       }
     };
-  }, [query, handleSearch, searchDebounce]);
+  }, [query, handleSearch]);
 
   const handleAddBook = async (book: Book, source: string) => {
     setAddingBooks(prev => new Set(prev).add(book.isbn));
