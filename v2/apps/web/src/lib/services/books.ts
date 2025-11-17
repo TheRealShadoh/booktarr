@@ -266,20 +266,21 @@ export class BookService {
 
     // Add search filter if provided (case-insensitive, punctuation-flexible)
     if (filters?.search) {
-      // Generate search variations to handle punctuation
-      // e.g., "dont" should match "don't", "cant" should match "can't"
-      const searchVariations = [
-        filters.search, // Original
-        filters.search.replace(/'/g, ''), // Remove apostrophes
-        filters.search.replace(/[^\w\s]/g, ''), // Remove all punctuation
-      ].filter((v, i, arr) => arr.indexOf(v) === i); // Remove duplicates
+      // Strip punctuation from search term for flexible matching
+      const normalizedSearch = filters.search.replace(/[^\w\s]/g, '');
 
-      const searchConditions = searchVariations.flatMap(variation => [
-        ilike(books.title, `%${variation}%`),
-        ilike(books.description, `%${variation}%`)
-      ]);
-
-      query = query.where(or(...searchConditions));
+      // Search using PostgreSQL's regexp_replace to strip punctuation from database values
+      // This allows "dont" to match "don't", "cant" to match "can't", etc.
+      query = query.where(
+        or(
+          // Regular search (exact match with punctuation)
+          ilike(books.title, `%${filters.search}%`),
+          ilike(books.description, `%${filters.search}%`),
+          // Punctuation-stripped search (flexible match)
+          sql`regexp_replace(lower(${books.title}), '[^a-z0-9\\s]', '', 'g') LIKE ${`%${normalizedSearch.toLowerCase()}%`}`,
+          sql`regexp_replace(lower(${books.description}), '[^a-z0-9\\s]', '', 'g') LIKE ${`%${normalizedSearch.toLowerCase()}%`}`
+        )
+      );
     }
 
     // Add year filters if provided
