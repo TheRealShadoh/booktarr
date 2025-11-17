@@ -264,14 +264,22 @@ export class BookService {
       .limit(limit)
       .offset(offset);
 
-    // Add search filter if provided (case-insensitive)
+    // Add search filter if provided (case-insensitive, punctuation-flexible)
     if (filters?.search) {
-      query = query.where(
-        or(
-          ilike(books.title, `%${filters.search}%`),
-          ilike(books.description, `%${filters.search}%`)
-        )
-      );
+      // Generate search variations to handle punctuation
+      // e.g., "dont" should match "don't", "cant" should match "can't"
+      const searchVariations = [
+        filters.search, // Original
+        filters.search.replace(/'/g, ''), // Remove apostrophes
+        filters.search.replace(/[^\w\s]/g, ''), // Remove all punctuation
+      ].filter((v, i, arr) => arr.indexOf(v) === i); // Remove duplicates
+
+      const searchConditions = searchVariations.flatMap(variation => [
+        ilike(books.title, `%${variation}%`),
+        ilike(books.description, `%${variation}%`)
+      ]);
+
+      query = query.where(or(...searchConditions));
     }
 
     // Add year filters if provided
