@@ -97,7 +97,9 @@ export default function LibraryPage() {
           <p className="text-muted-foreground">
             No books found. Add your first book to get started!
           </p>
-          <Button className="mt-4">Add Book</Button>
+          <Button className="mt-4" onClick={() => setShowAddBookDialog(true)}>
+            Add Book
+          </Button>
         </div>
       )}
 

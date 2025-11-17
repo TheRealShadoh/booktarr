@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { books, editions, authors, bookAuthors, userBooks, readingProgress } from '@booktarr/database';
-import { eq, and, or, like, desc, sql } from 'drizzle-orm';
+import { eq, and, or, like, ilike, desc, sql } from 'drizzle-orm';
 import { MetadataService } from './metadata';
 import { BookMetadata } from './google-books';
 
@@ -264,12 +264,12 @@ export class BookService {
       .limit(limit)
       .offset(offset);
 
-    // Add search filter if provided
+    // Add search filter if provided (case-insensitive)
     if (filters?.search) {
       query = query.where(
         or(
-          like(books.title, `%${filters.search}%`),
-          like(books.description, `%${filters.search}%`)
+          ilike(books.title, `%${filters.search}%`),
+          ilike(books.description, `%${filters.search}%`)
         )
       );
     }
