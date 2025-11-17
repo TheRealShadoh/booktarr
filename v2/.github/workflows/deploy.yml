@@ -1,0 +1,62 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build --workspace=apps/web
+        env:
+          NODE_ENV: production
+
+      - name: Build Docker image
+        run: |
+          docker build -t booktarr:latest -f Dockerfile.production .
+
+      - name: Tag Docker image
+        run: |
+          docker tag booktarr:latest booktarr:${{ github.sha }}
+
+      - name: Deploy
+        run: |
+          echo "Deployment step would go here"
+          echo "This could push to Docker registry, deploy to VPS, etc."
+          # Example deployment steps:
+          # - docker login
+          # - docker push
+          # - SSH to server and pull/restart containers
+          # - Or use Docker Compose on the target server
+
+      - name: Run database migrations
+        run: |
+          echo "Run migrations on production database"
+          # npm run db:migrate --workspace=packages/database
+
+      - name: Health check
+        run: |
+          echo "Verify deployment is healthy"
+          # curl https://your-domain.com/api/health
+
+      - name: Notify deployment
+        if: always()
+        run: |
+          echo "Send deployment notification (Slack, Discord, etc.)"

@@ -1,0 +1,38 @@
+FROM node:20-alpine AS base
+
+# Install dependencies only when needed
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+# Copy package files
+COPY package.json package-lock.json ./
+COPY apps/web/package.json ./apps/web/
+COPY packages/database/package.json ./packages/database/
+COPY packages/ui/package.json ./packages/ui/
+
+# Install dependencies
+RUN npm ci
+
+# Development image
+FROM base AS dev
+WORKDIR /app
+
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+COPY --from=deps /app/packages/database/node_modules ./packages/database/node_modules
+COPY --from=deps /app/packages/ui/node_modules ./packages/ui/node_modules
+
+# Copy source code
+COPY . .
+
+# Run database migrations on startup
+WORKDIR /app/packages/database
+RUN npm run db:generate || true
+
+# Start development server
+WORKDIR /app/apps/web
+CMD ["npm", "run", "dev"]
+
+EXPOSE 3000

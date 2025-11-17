@@ -1,0 +1,126 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: booktarr-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: booktarr
+      POSTGRES_USER: booktarr
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-booktarr_dev_password}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U booktarr -d booktarr']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - booktarr-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: booktarr-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-booktarr_dev_password}
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - booktarr-network
+
+  # MinIO S3-compatible Object Storage
+  minio:
+    image: minio/minio:latest
+    container_name: booktarr-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-booktarr}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-booktarr_dev_password}
+    ports:
+      - '9000:9000'  # API
+      - '9001:9001'  # Console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - booktarr-network
+
+  # Next.js Application (Development)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: booktarr-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      # Database
+      DATABASE_URL: postgresql://booktarr:${DB_PASSWORD:-booktarr_dev_password}@postgres:5432/booktarr
+
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD:-booktarr_dev_password}@redis:6379
+
+      # MinIO S3
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-booktarr}
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-booktarr_dev_password}
+      S3_BUCKET: booktarr-covers
+      S3_REGION: us-east-1
+      S3_USE_PATH_STYLE: "true"
+
+      # NextAuth
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-dev_secret_change_in_production}
+
+      # External APIs
+      GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY:-}
+
+      # Application
+      NODE_ENV: development
+      PORT: 3000
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./apps/web:/app/apps/web
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/web/node_modules
+      - /app/apps/web/.next
+    networks:
+      - booktarr-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  booktarr-network:
+    driver: bridge
