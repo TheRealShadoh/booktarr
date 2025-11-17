@@ -5,6 +5,7 @@ httpx==0.28.1
 aiohttp==3.10.11
 pydantic==2.10.3
 python-dotenv==1.0.1
+python-multipart==0.0.9
 aiofiles==24.1.0
 pytest==8.3.4
 pytest-asyncio==0.25.0
