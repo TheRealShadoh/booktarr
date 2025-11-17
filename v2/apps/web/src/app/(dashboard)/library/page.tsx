@@ -12,11 +12,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { CSVImportDialog } from '@/components/import/csv-import-dialog';
+import { AddBookDialog } from '@/components/books/add-book-dialog';
 import { AdvancedSearch, SearchFilters } from '@/components/search/advanced-search';
 
 export default function LibraryPage() {
   const [filters, setFilters] = useState<SearchFilters>({});
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showAddBookDialog, setShowAddBookDialog] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['books', filters],
@@ -57,7 +59,9 @@ export default function LibraryPage() {
             <Button>Add Book</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem>Add Single Book</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setShowAddBookDialog(true)}>
+              Add Single Book
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setShowImportDialog(true)}>
               Import from CSV
             </DropdownMenuItem>
@@ -65,6 +69,7 @@ export default function LibraryPage() {
         </DropdownMenu>
       </div>
 
+      <AddBookDialog open={showAddBookDialog} onOpenChange={setShowAddBookDialog} />
       <CSVImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} />
 
       <AdvancedSearch onSearch={setFilters} initialFilters={filters} />
