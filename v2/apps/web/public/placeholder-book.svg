@@ -1,0 +1,30 @@
+<svg width="400" height="600" viewBox="0 0 400 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="600" fill="#25262a"/>
+
+  <!-- Book icon -->
+  <g transform="translate(100, 200)">
+    <!-- Book pages -->
+    <rect x="20" y="0" width="160" height="200" fill="#404147" rx="4"/>
+    <rect x="15" y="5" width="160" height="200" fill="#4a4b4f" rx="4"/>
+    <rect x="10" y="10" width="160" height="200" fill="#f2f2f3" rx="4"/>
+
+    <!-- Book spine -->
+    <rect x="10" y="10" width="30" height="200" fill="#e6956f" rx="4"/>
+
+    <!-- Vertical lines on spine -->
+    <line x1="20" y1="20" x2="20" y2="200" stroke="#ed9d72" stroke-width="2"/>
+    <line x1="30" y1="20" x2="30" y2="200" stroke="#d97757" stroke-width="2"/>
+
+    <!-- Pages detail -->
+    <line x1="40" y1="30" x2="160" y2="30" stroke="#a8a9ad" stroke-width="1" opacity="0.5"/>
+    <line x1="40" y1="50" x2="140" y2="50" stroke="#a8a9ad" stroke-width="1" opacity="0.5"/>
+    <line x1="40" y1="70" x2="150" y2="70" stroke="#a8a9ad" stroke-width="1" opacity="0.5"/>
+    <line x1="40" y1="90" x2="145" y2="90" stroke="#a8a9ad" stroke-width="1" opacity="0.5"/>
+  </g>
+
+  <!-- Text -->
+  <text x="200" y="450" font-family="Arial, sans-serif" font-size="18" fill="#a8a9ad" text-anchor="middle">
+    No Cover Available
+  </text>
+</svg>

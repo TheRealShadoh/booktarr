@@ -46,7 +46,7 @@ export function BookCard({ book, onClick }: BookCardProps) {
   const coverUrl =
     book.edition.coverUrl ||
     book.edition.coverThumbnailUrl ||
-    '/placeholder-book.png';
+    '/placeholder-book.svg';
 
   const statusColors: Record<string, string> = {
     owned: 'bg-green-500',
