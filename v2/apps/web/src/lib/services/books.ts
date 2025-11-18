@@ -1,8 +1,10 @@
 import { db } from '../db';
-import { books, editions, authors, bookAuthors, userBooks, readingProgress } from '@booktarr/database';
+import { books, editions, authors, bookAuthors, userBooks, readingProgress, seriesBooks, series } from '@booktarr/database';
 import { eq, and, or, like, ilike, desc, sql } from 'drizzle-orm';
 import { MetadataService } from './metadata';
 import { BookMetadata } from './google-books';
+import { SeriesParserService } from './series-parser';
+import { SeriesService } from './series';
 
 export interface CreateBookInput {
   // Search-based creation
@@ -41,9 +43,13 @@ export interface CreateBookInput {
 
 export class BookService {
   private metadataService: MetadataService;
+  private seriesParser: SeriesParserService;
+  private seriesService: SeriesService;
 
   constructor() {
     this.metadataService = new MetadataService();
+    this.seriesParser = new SeriesParserService();
+    this.seriesService = new SeriesService();
   }
 
   async createBook(input: CreateBookInput) {
@@ -143,9 +149,46 @@ export class BookService {
           });
         }
       }
+
+      // 5. Auto-detect and link series (only for new books)
+      try {
+        const seriesInfo = this.seriesParser.parseTitle(metadata.title);
+        if (seriesInfo) {
+          // Find or create series
+          const seriesRecord = await this.seriesService.findOrCreateSeries(
+            seriesInfo.seriesName,
+            // Detect type from categories if available
+            metadata.categories?.some((c) => c.toLowerCase().includes('manga'))
+              ? 'manga'
+              : undefined
+          );
+
+          // Check if book is already linked to this series
+          const existingLink = await db.query.seriesBooks.findFirst({
+            where: and(
+              eq(seriesBooks.seriesId, seriesRecord.id),
+              eq(seriesBooks.bookId, book.id)
+            ),
+          });
+
+          // Link book to series if not already linked
+          if (!existingLink) {
+            await db.insert(seriesBooks).values({
+              seriesId: seriesRecord.id,
+              bookId: book.id,
+              volumeNumber: seriesInfo.volumeNumber,
+              volumeName: seriesInfo.volumeName || null,
+              displayOrder: seriesInfo.volumeNumber,
+            });
+          }
+        }
+      } catch (error) {
+        // Log series detection error but don't fail book creation
+        console.error('Series detection error:', error);
+      }
     }
 
-    // 5. Create or get edition
+    // 7. Create or get edition
     const isbn13 = metadata.isbn13 || input.edition?.isbn13;
     const isbn10 = metadata.isbn10 || input.edition?.isbn10;
 
@@ -182,7 +225,7 @@ export class BookService {
       edition = newEdition;
     }
 
-    // 6. Add to user's collection (or update if already exists)
+    // 8. Add to user's collection (or update if already exists)
     // Check if user already owns this edition
     const existingUserBook = await db.query.userBooks.findFirst({
       where: and(
@@ -299,7 +342,7 @@ export class BookService {
 
     const results = await query;
 
-    // Get authors and reading progress for each book
+    // Get authors, reading progress, and series for each book
     let booksWithAuthors = await Promise.all(
       results.map(async (result) => {
         const bookAuthorsData = await db
@@ -320,10 +363,28 @@ export class BookService {
           ),
         });
 
+        // Get series information for this book
+        const seriesData = await db
+          .select({
+            seriesBook: seriesBooks,
+            series: series,
+          })
+          .from(seriesBooks)
+          .innerJoin(series, eq(seriesBooks.seriesId, series.id))
+          .where(eq(seriesBooks.bookId, result.book.id))
+          .limit(1);
+
+        const seriesInfo = seriesData.length > 0 ? {
+          id: seriesData[0].series.id,
+          name: seriesData[0].series.name,
+          volumeNumber: seriesData[0].seriesBook.volumeNumber,
+        } : null;
+
         return {
           ...result,
           authors: bookAuthorsData.map((ba) => ba.author),
           readingProgress: progress || null,
+          series: seriesInfo,
         };
       })
     );
@@ -576,5 +637,89 @@ export class BookService {
       enriched,
       failed,
     };
+  }
+
+  /**
+   * Add an edition to user's collection
+   */
+  async addEditionToCollection(
+    userId: string,
+    editionId: string,
+    status: 'owned' | 'wanted' | 'missing' = 'owned'
+  ) {
+    // Check if user already has this edition
+    const existing = await db.query.userBooks.findFirst({
+      where: and(
+        eq(userBooks.userId, userId),
+        eq(userBooks.editionId, editionId)
+      ),
+    });
+
+    if (existing) {
+      // Update existing status
+      const [updated] = await db
+        .update(userBooks)
+        .set({ status })
+        .where(eq(userBooks.id, existing.id))
+        .returning();
+      return updated;
+    }
+
+    // Create new user book entry
+    const [newUserBook] = await db
+      .insert(userBooks)
+      .values({
+        userId,
+        editionId,
+        status,
+        acquisitionDate: new Date().toISOString().split('T')[0],
+      })
+      .returning();
+
+    return newUserBook;
+  }
+
+  /**
+   * Update edition ownership status
+   */
+  async updateEditionStatus(
+    userId: string,
+    editionId: string,
+    status: 'owned' | 'wanted' | 'missing'
+  ) {
+    const userBook = await db.query.userBooks.findFirst({
+      where: and(
+        eq(userBooks.userId, userId),
+        eq(userBooks.editionId, editionId)
+      ),
+    });
+
+    if (!userBook) {
+      throw new Error('User does not own this edition');
+    }
+
+    const [updated] = await db
+      .update(userBooks)
+      .set({ status })
+      .where(eq(userBooks.id, userBook.id))
+      .returning();
+
+    return updated;
+  }
+
+  /**
+   * Remove edition from user's collection
+   */
+  async removeEditionFromCollection(userId: string, editionId: string) {
+    await db
+      .delete(userBooks)
+      .where(
+        and(
+          eq(userBooks.userId, userId),
+          eq(userBooks.editionId, editionId)
+        )
+      );
+
+    return { success: true };
   }
 }

@@ -1,7 +1,9 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { BookOpen } from 'lucide-react';
 
 interface SeriesCardProps {
   series: {
@@ -11,6 +13,7 @@ interface SeriesCardProps {
     totalVolumes: number;
     ownedVolumes: number;
     completionPercentage: number;
+    coverUrl?: string | null;
   };
 }
 
@@ -26,11 +29,31 @@ export function SeriesCard({ series }: SeriesCardProps) {
     <Link href={`/series/${series.id}`}>
       <Card className="cursor-pointer transition-shadow hover:shadow-md">
         <CardHeader>
-          <div className="flex items-start justify-between">
-            <CardTitle className="line-clamp-2 text-lg">{series.name}</CardTitle>
-            <Badge className={statusColors[series.status] || 'bg-gray-500'}>
-              {series.status}
-            </Badge>
+          <div className="flex gap-3">
+            {/* Small Series Cover Thumbnail */}
+            <div className="relative h-20 w-14 flex-shrink-0 overflow-hidden rounded bg-muted">
+              {series.coverUrl ? (
+                <Image
+                  src={series.coverUrl}
+                  alt={`${series.name} cover`}
+                  fill
+                  className="object-cover"
+                  sizes="56px"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <BookOpen className="h-6 w-6 text-muted-foreground/30" />
+                </div>
+              )}
+            </div>
+
+            {/* Title and Status */}
+            <div className="flex flex-1 items-start justify-between">
+              <CardTitle className="line-clamp-2 text-lg">{series.name}</CardTitle>
+              <Badge className={statusColors[series.status] || 'bg-gray-500'}>
+                {series.status}
+              </Badge>
+            </div>
           </div>
         </CardHeader>
 

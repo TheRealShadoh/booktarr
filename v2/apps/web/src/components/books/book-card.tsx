@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,11 @@ interface BookCardProps {
     authors?: Array<{
       name: string;
     }>;
+    series?: {
+      id: string;
+      name: string;
+      volumeNumber: number;
+    } | null;
     userBook: {
       status: string;
     };
@@ -104,6 +110,18 @@ export function BookCard({ book, onClick }: BookCardProps) {
                 <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
                   {book.authors.map((a) => a.name).join(', ')}
                 </p>
+              )}
+
+              {book.series && (
+                <Link
+                  href={`/series/${book.series.id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="mt-2 inline-block"
+                >
+                  <Badge variant="secondary" className="text-xs hover:bg-secondary/80">
+                    {book.series.name} #{book.series.volumeNumber}
+                  </Badge>
+                </Link>
               )}
 
               {book.edition.format && (

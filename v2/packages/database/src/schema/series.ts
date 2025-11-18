@@ -9,6 +9,7 @@ export const series = pgTable('series', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: varchar('name', { length: 500 }).notNull(),
   description: text('description'),
+  coverUrl: text('cover_url'), // Series cover image URL
 
   // Series metadata
   totalVolumes: integer('total_volumes'), // Total expected volumes (null if ongoing)

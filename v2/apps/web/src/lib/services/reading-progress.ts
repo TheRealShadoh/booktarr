@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { readingProgress, readingGoals, books } from '@booktarr/database';
+import { readingProgress, readingGoals, books, editions, authors, bookAuthors, userBooks } from '@booktarr/database';
 import { eq, and, desc, sql, gte, lte } from 'drizzle-orm';
 
 export type ReadingStatus = 'want_to_read' | 'currently_reading' | 'finished' | 'dnf' | 'on_hold';
@@ -152,15 +152,48 @@ export class ReadingProgressService {
   async getCurrentlyReading(userId: string): Promise<any[]> {
     const results = await db
       .select({
-        progress: readingProgress,
+        readingProgress: readingProgress,
         book: books,
+        edition: editions,
+        userBook: userBooks,
       })
       .from(readingProgress)
       .innerJoin(books, eq(readingProgress.bookId, books.id))
-      .where(and(eq(readingProgress.userId, userId), eq(readingProgress.status, 'currently_reading')))
+      .innerJoin(editions, eq(books.id, editions.bookId))
+      .innerJoin(userBooks, and(
+        eq(userBooks.editionId, editions.id),
+        eq(userBooks.userId, userId)
+      ))
+      .where(and(
+        eq(readingProgress.userId, userId),
+        eq(readingProgress.status, 'currently_reading')
+      ))
       .orderBy(desc(readingProgress.lastReadAt));
 
-    return results;
+    // Get authors for each book
+    const booksWithAuthors = await Promise.all(
+      results.map(async (result) => {
+        const bookAuthorsData = await db
+          .select({
+            author: authors,
+            role: bookAuthors.role,
+          })
+          .from(bookAuthors)
+          .innerJoin(authors, eq(bookAuthors.authorId, authors.id))
+          .where(eq(bookAuthors.bookId, result.book.id))
+          .orderBy(bookAuthors.displayOrder);
+
+        return {
+          userBook: result.userBook,
+          edition: result.edition,
+          book: result.book,
+          authors: bookAuthorsData.map((ba) => ba.author),
+          readingProgress: result.readingProgress,
+        };
+      })
+    );
+
+    return booksWithAuthors;
   }
 
   /**

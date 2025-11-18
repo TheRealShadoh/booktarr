@@ -6,7 +6,7 @@ const seriesService = new SeriesService();
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -15,7 +15,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const series = await seriesService.getSeriesById(params.id, session.user.id);
+    const { id } = await params;
+    const series = await seriesService.getSeriesById(id, session.user.id);
 
     if (!series) {
       return NextResponse.json({ error: 'Series not found' }, { status: 404 });
@@ -23,7 +24,8 @@ export async function GET(
 
     return NextResponse.json(series);
   } catch (error) {
-    console.error(`GET /api/series/${params.id} error:`, error);
+    const { id } = await params;
+    console.error(`GET /api/series/${id} error:`, error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -33,7 +35,7 @@ export async function GET(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -42,13 +44,15 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { id } = await params;
     const body = await req.json();
 
-    const updated = await seriesService.updateSeries(params.id, body);
+    const updated = await seriesService.updateSeries(id, body);
 
     return NextResponse.json(updated);
   } catch (error) {
-    console.error(`PATCH /api/series/${params.id} error:`, error);
+    const { id } = await params;
+    console.error(`PATCH /api/series/${id} error:`, error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -58,7 +62,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -67,11 +71,13 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await seriesService.deleteSeries(params.id);
+    const { id } = await params;
+    await seriesService.deleteSeries(id);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error(`DELETE /api/series/${params.id} error:`, error);
+    const { id } = await params;
+    console.error(`DELETE /api/series/${id} error:`, error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

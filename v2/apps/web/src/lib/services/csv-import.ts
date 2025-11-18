@@ -1,5 +1,6 @@
 import { BookService } from './books';
 import { SeriesService } from './series';
+import { SeriesParserService } from './series-parser';
 
 interface CSVRow {
   [key: string]: string;
@@ -18,10 +19,12 @@ interface ImportResult {
 export class CSVImportService {
   private bookService: BookService;
   private seriesService: SeriesService;
+  private seriesParser: SeriesParserService;
 
   constructor() {
     this.bookService = new BookService();
     this.seriesService = new SeriesService();
+    this.seriesParser = new SeriesParserService();
   }
 
   parseCSV(csvContent: string): CSVRow[] {
@@ -179,7 +182,7 @@ export class CSVImportService {
         const authors = author ? author.split(/[,;]/).map((a: string) => a.trim()) : [];
 
         // Add book to collection with CSV data as fallback for failed API enrichment
-        await this.bookService.createBook({
+        const bookResult = await this.bookService.createBook({
           isbn: isbn || undefined,
           title: title || undefined,
           author: author || undefined,
@@ -204,28 +207,41 @@ export class CSVImportService {
           },
         });
 
-        // If series info is present, create/link to series
-        if (series) {
-          // Check if series exists
-          const existingSeries = await this.seriesService.getSeries(userId, {
-            search: series,
-            limit: 1,
-          });
+        // If series info is present in CSV, create/link to series
+        if (series && bookResult?.book?.id) {
+          try {
+            // Find or create series using case-insensitive search
+            const seriesRecord = await this.seriesService.findOrCreateSeries(series);
 
-          let seriesId: string;
-          if (existingSeries.length > 0) {
-            seriesId = existingSeries[0].id;
-          } else {
-            // Create new series
-            const newSeries = await this.seriesService.createSeries({
-              name: series,
-              status: 'ongoing',
+            // Try to extract volume number from title or series field
+            let volumeNumber = 1; // Default to volume 1
+
+            // First try to parse from the book title
+            const parsedFromTitle = this.seriesParser.parseTitle(title || '');
+            if (parsedFromTitle && parsedFromTitle.volumeNumber) {
+              volumeNumber = parsedFromTitle.volumeNumber;
+            } else {
+              // Try to extract volume number from the series field itself
+              // Common patterns: "Series Name #3", "Series Name - Book 3", "Series Name Vol. 3"
+              const volumeMatch = series.match(/#(\d+)|(?:Book|Vol\.?|Volume)\s+(\d+)/i);
+              if (volumeMatch) {
+                volumeNumber = parseInt(volumeMatch[1] || volumeMatch[2], 10);
+              }
+            }
+
+            // Link book to series
+            await this.seriesService.addBookToSeries({
+              seriesId: seriesRecord.id,
+              bookId: bookResult.book.id,
+              volumeNumber,
+              volumeName: parsedFromTitle?.volumeName || undefined,
             });
-            seriesId = newSeries.id;
-          }
 
-          // Add book to series (would need book ID from createBook response)
-          // This is simplified - in production, we'd need to track the book ID
+            console.log(`[CSV Import] Linked "${title}" to series "${series}" as volume ${volumeNumber}`);
+          } catch (seriesError) {
+            // Log series linking error but don't fail the import
+            console.error(`[CSV Import] Failed to link book to series "${series}":`, seriesError);
+          }
         }
 
         result.success++;

@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { BookCard } from '@/components/books/book-card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,6 +17,7 @@ import { AddBookDialog } from '@/components/books/add-book-dialog';
 import { AdvancedSearch, SearchFilters } from '@/components/search/advanced-search';
 
 export default function LibraryPage() {
+  const router = useRouter();
   const [filters, setFilters] = useState<SearchFilters>({});
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showAddBookDialog, setShowAddBookDialog] = useState(false);
@@ -109,6 +111,7 @@ export default function LibraryPage() {
             <BookCard
               key={(book as { userBook: { id: string } }).userBook.id}
               book={book as Parameters<typeof BookCard>[0]['book']}
+              onClick={() => router.push(`/library/${(book as { book: { id: string } }).book.id}`)}
             />
           ))}
         </div>

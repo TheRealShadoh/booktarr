@@ -13,6 +13,11 @@ const nextConfig: NextConfig = {
         hostname: 'covers.openlibrary.org',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 's4.anilist.co',
+        pathname: '/**',
+      },
     ],
   },
 };

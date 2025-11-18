@@ -119,20 +119,10 @@ export default function CurrentlyReadingPage() {
 
         {!isLoading && booksData && booksData.length > 0 && (
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {booksData.map((item: any) => (
+            {booksData.map((book: any) => (
               <BookCard
-                key={item.progress.id}
-                book={{
-                  ...item,
-                  readingProgress: {
-                    status: item.progress.status,
-                    currentPage: item.progress.currentPage,
-                    totalPages: item.progress.totalPages,
-                    progressPercentage: item.progress.progressPercentage,
-                    rating: item.progress.rating,
-                    review: item.progress.review,
-                  },
-                }}
+                key={book.readingProgress.id}
+                book={book}
               />
             ))}
           </div>

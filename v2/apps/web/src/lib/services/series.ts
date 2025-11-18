@@ -8,6 +8,7 @@ import {
   editions,
 } from '@booktarr/database';
 import { eq, and, sql, desc } from 'drizzle-orm';
+import { VolumeReconciliationService } from './volume-reconciliation';
 
 export interface CreateSeriesInput {
   name: string;
@@ -27,6 +28,12 @@ export interface AddBookToSeriesInput {
 }
 
 export class SeriesService {
+  private volumeReconciliation: VolumeReconciliationService;
+
+  constructor() {
+    this.volumeReconciliation = new VolumeReconciliationService();
+  }
+
   async createSeries(input: CreateSeriesInput) {
     const [newSeries] = await db
       .insert(series)
@@ -40,7 +47,33 @@ export class SeriesService {
       })
       .returning();
 
+    // If totalVolumes is set, populate expected volume entries
+    if (input.totalVolumes && input.totalVolumes > 0) {
+      await this.volumeReconciliation.populateExpectedVolumes(newSeries.id);
+    }
+
     return newSeries;
+  }
+
+  /**
+   * Find series by name (case-insensitive) or create if doesn't exist
+   */
+  async findOrCreateSeries(name: string, type?: string): Promise<any> {
+    // Search for existing series (case-insensitive)
+    const existing = await db.query.series.findFirst({
+      where: sql`LOWER(${series.name}) = LOWER(${name})`,
+    });
+
+    if (existing) {
+      return existing;
+    }
+
+    // Create new series
+    return this.createSeries({
+      name,
+      type,
+      status: 'ongoing',
+    });
   }
 
   async getSeries(userId: string, filters?: {
@@ -113,50 +146,67 @@ export class SeriesService {
       return null;
     }
 
-    // Get all books in series
-    const seriesBooksData = await db
+    // Get all expected volumes from seriesVolumes (includes missing volumes)
+    const volumesData = await db
       .select({
-        seriesBook: seriesBooks,
+        volume: seriesVolumes,
         book: books,
       })
-      .from(seriesBooks)
-      .innerJoin(books, eq(seriesBooks.bookId, books.id))
-      .where(eq(seriesBooks.seriesId, seriesId))
-      .orderBy(seriesBooks.volumeNumber);
+      .from(seriesVolumes)
+      .leftJoin(books, eq(seriesVolumes.bookId, books.id))
+      .where(eq(seriesVolumes.seriesId, seriesId))
+      .orderBy(seriesVolumes.volumeNumber);
 
     // Get ownership status for each volume
     const volumesWithStatus = await Promise.all(
-      seriesBooksData.map(async (sb) => {
-        const editionsData = await db
-          .select({
-            edition: editions,
-            userBook: userBooks,
-          })
-          .from(editions)
-          .leftJoin(
-            userBooks,
-            and(
-              eq(userBooks.editionId, editions.id),
-              eq(userBooks.userId, userId)
-            )
-          )
-          .where(eq(editions.bookId, sb.book.id));
+      volumesData.map(async (v) => {
+        let owned = false;
+        let wanted = false;
+        let coverUrl: string | null = null;
 
-        const owned = editionsData.some((e) => e.userBook?.status === 'owned');
-        const wanted = editionsData.some((e) => e.userBook?.status === 'wanted');
+        // If volume has a linked book, check ownership and get cover
+        if (v.book) {
+          const editionsData = await db
+            .select({
+              edition: editions,
+              userBook: userBooks,
+            })
+            .from(editions)
+            .leftJoin(
+              userBooks,
+              and(
+                eq(userBooks.editionId, editions.id),
+                eq(userBooks.userId, userId)
+              )
+            )
+            .where(eq(editions.bookId, v.book.id));
+
+          owned = editionsData.some((e) => e.userBook?.status === 'owned');
+          wanted = editionsData.some((e) => e.userBook?.status === 'wanted');
+
+          // Get cover from book's edition (prefer owned edition)
+          const ownedEdition = editionsData.find((e) => e.userBook?.status === 'owned');
+          coverUrl = ownedEdition?.edition.coverUrl || editionsData[0]?.edition.coverUrl || null;
+        }
+
+        // Fallback to volume-specific cover, then series cover
+        if (!coverUrl) {
+          coverUrl = v.volume.coverUrl || seriesData.coverUrl || null;
+        }
 
         return {
-          volumeNumber: sb.seriesBook.volumeNumber,
-          volumeName: sb.seriesBook.volumeName,
-          book: sb.book,
+          volumeNumber: v.volume.volumeNumber,
+          volumeName: v.volume.title,
+          coverUrl,
+          book: v.book,
           owned,
           wanted,
-          status: owned ? 'owned' : wanted ? 'wanted' : 'missing',
+          status: owned ? ('owned' as const) : wanted ? ('wanted' as const) : ('missing' as const),
         };
       })
     );
 
-    const totalVolumes = seriesData.totalVolumes || volumesWithStatus.length;
+    const totalVolumes = seriesData.totalVolumes || volumesData.length;
     const ownedVolumes = volumesWithStatus.filter((v) => v.owned).length;
 
     return {
@@ -198,6 +248,14 @@ export class SeriesService {
       })
       .returning();
 
+    // Reconcile volume entry after adding book
+    await this.volumeReconciliation.reconcileAfterBookAdded(
+      input.seriesId,
+      input.bookId,
+      input.volumeNumber,
+      input.volumeName || undefined
+    );
+
     return seriesBook;
   }
 
@@ -229,6 +287,11 @@ export class SeriesService {
       })
       .where(eq(series.id, seriesId))
       .returning();
+
+    // If totalVolumes was updated, reconcile volume entries
+    if (updates.totalVolumes !== undefined && updates.totalVolumes > 0) {
+      await this.volumeReconciliation.populateExpectedVolumes(seriesId);
+    }
 
     return updated;
   }

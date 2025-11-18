@@ -6,7 +6,7 @@ const bookService = new BookService();
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -15,7 +15,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const book = await bookService.getBookById(params.id, session.user.id);
+    const { id } = await params;
+    const book = await bookService.getBookById(id, session.user.id);
 
     if (!book) {
       return NextResponse.json({ error: 'Book not found' }, { status: 404 });
@@ -23,7 +24,8 @@ export async function GET(
 
     return NextResponse.json(book);
   } catch (error) {
-    console.error(`GET /api/books/${params.id} error:`, error);
+    const { id } = await params;
+    console.error(`GET /api/books/${id} error:`, error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -33,7 +35,7 @@ export async function GET(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -42,11 +44,13 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await bookService.deleteBook(params.id, session.user.id);
+    const { id } = await params;
+    await bookService.deleteBook(id, session.user.id);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error(`DELETE /api/books/${params.id} error:`, error);
+    const { id } = await params;
+    console.error(`DELETE /api/books/${id} error:`, error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
