@@ -101,12 +101,15 @@ class Monitor {
    * Health check - returns system health metrics
    */
   async getHealthMetrics() {
+    // Check if running in Node.js (not Edge Runtime)
+    const isNode = typeof process !== 'undefined' && process.versions?.node;
+
     return {
       status: 'healthy',
       timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      memory: process.memoryUsage(),
-      nodeVersion: process.version,
+      uptime: isNode ? process.uptime() : undefined,
+      memory: isNode ? process.memoryUsage() : undefined,
+      nodeVersion: isNode ? process.version : undefined,
     };
   }
 }

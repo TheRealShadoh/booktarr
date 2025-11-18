@@ -36,6 +36,7 @@ export interface BookMetadata {
   thumbnailUrl?: string;
   language?: string;
   googleBooksId?: string;
+  openLibraryId?: string;
 }
 
 export class GoogleBooksClient {

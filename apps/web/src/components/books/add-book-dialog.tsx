@@ -20,8 +20,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, Camera } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { BarcodeScanner } from './barcode-scanner';
 
 interface AddBookDialogProps {
   open: boolean;
@@ -120,19 +121,45 @@ export function AddBookDialog({ open, onOpenChange }: AddBookDialogProps) {
     });
   };
 
+  const handleBarcodeScan = (scannedIsbn: string) => {
+    setIsbn(scannedIsbn);
+    toast({
+      title: 'Barcode scanned!',
+      description: `ISBN: ${scannedIsbn}`,
+    });
+    // Automatically search for the book
+    addBookMutation.mutate({
+      isbn: scannedIsbn,
+      status,
+      edition: format ? { format } : undefined,
+    });
+  };
+
+  const handleScanError = (error: string) => {
+    toast({
+      title: 'Scanner Error',
+      description: error,
+      variant: 'destructive',
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add a Book</DialogTitle>
           <DialogDescription>
-            Search by ISBN or title to add a book to your library.
+            Search by ISBN, scan a barcode, or search by title to add a book to your library.
           </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="isbn" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="isbn">ISBN Search</TabsTrigger>
+            <TabsTrigger value="scan">
+              <Camera className="mr-1 h-3 w-3" />
+              Scan Barcode
+            </TabsTrigger>
             <TabsTrigger value="title">Title Search</TabsTrigger>
           </TabsList>
 
@@ -184,6 +211,80 @@ export function AddBookDialog({ open, onOpenChange }: AddBookDialogProps) {
               onClick={handleAddByIsbn}
               className="w-full"
               disabled={addBookMutation.isPending}
+            >
+              {addBookMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding Book...
+                </>
+              ) : (
+                <>
+                  <Search className="mr-2 h-4 w-4" />
+                  Search and Add
+                </>
+              )}
+            </Button>
+          </TabsContent>
+
+          <TabsContent value="scan" className="space-y-4">
+            <BarcodeScanner onScan={handleBarcodeScan} onError={handleScanError} />
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">Or enter manually</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="isbn-manual">ISBN (Manual Entry)</Label>
+              <Input
+                id="isbn-manual"
+                placeholder="Enter ISBN-10 or ISBN-13"
+                value={isbn}
+                onChange={(e) => setIsbn(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddByIsbn()}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="format-scan">Format (Optional)</Label>
+              <Select value={format} onValueChange={setFormat}>
+                <SelectTrigger id="format-scan">
+                  <SelectValue placeholder="Select format" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hardcover">Hardcover</SelectItem>
+                  <SelectItem value="paperback">Paperback</SelectItem>
+                  <SelectItem value="ebook">E-book</SelectItem>
+                  <SelectItem value="audiobook">Audiobook</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="status-scan">Ownership Status</Label>
+              <Select
+                value={status}
+                onValueChange={(v) => setStatus(v as 'owned' | 'wanted' | 'missing')}
+              >
+                <SelectTrigger id="status-scan">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="owned">Owned</SelectItem>
+                  <SelectItem value="wanted">Wanted</SelectItem>
+                  <SelectItem value="missing">Missing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button
+              onClick={handleAddByIsbn}
+              className="w-full"
+              disabled={addBookMutation.isPending || !isbn.trim()}
             >
               {addBookMutation.isPending ? (
                 <>

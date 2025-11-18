@@ -52,7 +52,7 @@ export function VolumeCard({ volume, seriesId, onAddToCollection, onMarkAsWanted
     : {};
 
   return (
-    <CardWrapper {...cardProps}>
+    <CardWrapper {...(cardProps as any)}>
       <Card className={`${config.bgColor} ${config.borderColor} border-2 transition-all ${
         volume.owned && volume.book ? 'cursor-pointer hover:shadow-md' : ''
       }`}>

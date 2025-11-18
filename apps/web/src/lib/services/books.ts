@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { books, editions, authors, bookAuthors, userBooks, readingProgress, seriesBooks, series } from '@booktarr/database';
-import { eq, and, or, like, ilike, desc, sql } from 'drizzle-orm';
+import { eq, and, or, like, ilike, desc, sql, isNull } from 'drizzle-orm';
 import { MetadataService } from './metadata';
 import { BookMetadata } from './google-books';
 import { SeriesParserService } from './series-parser';
@@ -293,20 +293,6 @@ export class BookService {
       conditions.push(eq(editions.format, filters.format));
     }
 
-    let query = db
-      .select({
-        userBook: userBooks,
-        edition: editions,
-        book: books,
-      })
-      .from(userBooks)
-      .innerJoin(editions, eq(userBooks.editionId, editions.id))
-      .innerJoin(books, eq(editions.bookId, books.id))
-      .where(and(...conditions))
-      .orderBy(desc(userBooks.createdAt))
-      .limit(limit)
-      .offset(offset);
-
     // Add search filter if provided (case-insensitive, punctuation-flexible)
     if (filters?.search) {
       // Strip punctuation from search term for flexible matching
@@ -314,7 +300,7 @@ export class BookService {
 
       // Search using PostgreSQL's regexp_replace to strip punctuation from database values
       // This allows "dont" to match "don't", "cant" to match "can't", etc.
-      query = query.where(
+      conditions.push(
         or(
           // Regular search (exact match with punctuation)
           ilike(books.title, `%${filters.search}%`),
@@ -322,7 +308,7 @@ export class BookService {
           // Punctuation-stripped search (flexible match)
           sql`regexp_replace(lower(${books.title}), '[^a-z0-9\\s]', '', 'g') LIKE ${`%${normalizedSearch.toLowerCase()}%`}`,
           sql`regexp_replace(lower(${books.description}), '[^a-z0-9\\s]', '', 'g') LIKE ${`%${normalizedSearch.toLowerCase()}%`}`
-        )
+        )!
       );
     }
 
@@ -336,9 +322,23 @@ export class BookService {
         yearConditions.push(sql`CAST(SUBSTR(${books.publishedDate}, 1, 4) AS INTEGER) <= ${filters.yearMax}`);
       }
       if (yearConditions.length > 0) {
-        query = query.where(and(...yearConditions));
+        conditions.push(and(...yearConditions)!);
       }
     }
+
+    const query = db
+      .select({
+        userBook: userBooks,
+        edition: editions,
+        book: books,
+      })
+      .from(userBooks)
+      .innerJoin(editions, eq(userBooks.editionId, editions.id))
+      .innerJoin(books, eq(editions.bookId, books.id))
+      .where(and(...conditions))
+      .orderBy(desc(userBooks.createdAt))
+      .limit(limit)
+      .offset(offset);
 
     const results = await query;
 
@@ -526,12 +526,12 @@ export class BookService {
       .where(
         or(
           eq(books.description, ''),
-          eq(books.description, null),
+          isNull(books.description),
           eq(editions.coverUrl, ''),
-          eq(editions.coverUrl, null),
-          eq(books.pageCount, null),
+          isNull(editions.coverUrl),
+          isNull(books.pageCount),
           eq(books.publisher, ''),
-          eq(books.publisher, null)
+          isNull(books.publisher)
         )
       )
       .limit(limit);

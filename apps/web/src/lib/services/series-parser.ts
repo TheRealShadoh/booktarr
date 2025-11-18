@@ -100,7 +100,7 @@ export class SeriesParserService {
     const match2 = title.match(patterns[1]);
     if (match2) {
       return {
-        seriesName: match1[1].trim(),
+        seriesName: match2[1].trim(),
         volumeNumber: parseInt(match2[2], 10),
         volumeName: match2[3].trim(),
       };
