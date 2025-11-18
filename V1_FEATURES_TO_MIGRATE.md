@@ -7,44 +7,7 @@
 
 ## 🔴 **HIGH PRIORITY - Core Features Missing**
 
-### 1. CSV Import System ⚠️
-- **V1 Implementation**: `backend/routes/import_routes.py` + `services/csv_import_service.py`
-- **Features**:
-  - HandyLib format support (30 columns)
-  - Field mapping configuration
-  - Bulk metadata enrichment during import
-  - Duplicate detection and skipping
-  - Import progress tracking
-  - Import job management
-- **V2 Status**: ❌ Not implemented
-- **Priority**: CRITICAL - Sample data depends on this
-
-### 2. Advanced Search & Filtering
-- **V1 Implementation**: `frontend/src/components/BookSearch.tsx` + `FilterPanel.tsx`
-- **Features**:
-  - Multi-field search (ISBN, title, author, series)
-  - Fuzzy matching for titles
-  - Case-insensitive, punctuation-flexible search
-  - Filter by: status, genre, author, series, book type
-  - Tag-based filtering
-  - Search results highlighting
-- **V2 Status**: ⏳ Basic search only
-- **Priority**: HIGH
-
-### 3. Reading Progress Tracking UI
-- **V1 Implementation**: `frontend/src/components/ReadingProgress/`
-- **Features**:
-  - Page-level progress tracking with slider
-  - Reading status management (to-read, reading, finished, DNF)
-  - Star ratings (1-5 stars)
-  - Reading notes and reviews
-  - Start/finish date tracking
-  - Reading timeline visualization
-  - Reading activity page
-- **V2 Status**: ✅ Backend API done, ❌ Frontend UI missing
-- **Priority**: HIGH
-
-### 4. Barcode Scanner
+### 1. Barcode Scanner ⚠️
 - **V1 Implementation**: `frontend/src/components/Scanner/` + HTTPS cert generation
 - **Features**:
   - Mobile camera barcode scanning
@@ -53,7 +16,23 @@
   - Scan review page
   - Photo notes capture
 - **V2 Status**: ❌ Not implemented
-- **Priority**: HIGH - Key mobile feature
+- **Priority**: CRITICAL - Key mobile feature
+
+---
+
+## ❌ **NOT NEEDED - Removed from Migration**
+
+### CSV Import System
+- **Reason**: Not required for V2
+- **V2 Status**: Will not be implemented
+
+### Advanced Search & Filtering UI
+- **Reason**: Not required for V2 (basic search is sufficient)
+- **V2 Status**: Will not be implemented
+
+### Reading Progress Tracking UI
+- **Reason**: Not required for V2 (backend API exists but UI not needed)
+- **V2 Status**: Will not be implemented
 
 ---
 

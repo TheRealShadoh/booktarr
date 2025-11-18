@@ -185,26 +185,23 @@
 **See `V1_FEATURES_TO_MIGRATE.md` for complete list**
 
 ### **High Priority**
-- ❌ CSV Import System (HandyLib format)
-- ❌ Advanced Search & Filtering UI
-- ❌ Reading Progress Tracking UI (backend done)
-- ❌ Barcode Scanner (mobile camera)
+- ❌ **Barcode Scanner** (mobile camera) - CRITICAL mobile feature
 
-### **Medium Priority**
+### **Not Needed - Removed from Migration**
+- ~~CSV Import System~~ (not required for V2)
+- ~~Advanced Search & Filtering UI~~ (basic search is sufficient)
+- ~~Reading Progress Tracking UI~~ (backend API exists but UI not needed)
+
+### **Optional - Low Priority**
 - ❌ Collections Management
 - ❌ Tag System
 - ❌ Wishlist Management
-- ❌ Reading Goals & Challenges
-- ❌ Bulk Operations
+- ❌ PWA Features (offline support)
 - ❌ Theme Selector
 
-### **Low Priority**
-- ❌ PWA Features (offline support)
-- ❌ Amazon/Audible Integration
-- ❌ Release Calendar
-- ❌ Smart Insights & Analytics
-- ❌ Settings Page
-- ❌ Comprehensive E2E test suite (8/33 tests migrated)
+### **Test Coverage**
+- ✅ **E2E Tests**: 5 test suites (auth, library, series, reading-progress, main-user-journey)
+- ✅ **API Tests**: 3 test suites (auth, books, series)
 
 ---
 
@@ -420,13 +417,16 @@ npx playwright test --ui
 ## 🎯 **Next Steps**
 
 ### **Immediate Priorities**
-1. **Implement CSV Import** - Critical for loading sample data
-2. **Build Advanced Search UI** - Match V1 functionality
-3. **Add Reading Progress UI** - Backend exists, need frontend
-4. **Port Barcode Scanner** - Key mobile feature
+1. **Implement Barcode Scanner** - Critical mobile feature for ISBN scanning
+
+### **Testing**
+- ✅ **E2E Test Suite**: 5 comprehensive test files covering auth, library, series, and user journeys
+- ✅ **API Test Suite**: 3 integration test files covering auth, books, and series APIs
+- 📖 **Test Documentation**: See `apps/web/TESTING.md` for detailed testing guide
 
 ### **Reference Documents**
 - `V1_FEATURES_TO_MIGRATE.md` - Complete feature list with priorities
+- `apps/web/TESTING.md` - Testing guide and best practices
 - `TASKLIST.md` - Current task tracking
 - `COMPLETION_SUMMARY.md` - V2 completion status
 - `MIGRATION_GUIDE.md` - V1 to V2 migration details
