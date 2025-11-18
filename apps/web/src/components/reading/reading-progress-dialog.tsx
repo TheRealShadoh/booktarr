@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
@@ -47,16 +47,20 @@ export function ReadingProgressDialog({
   const [review, setReview] = useState(currentProgress?.review || '');
 
   const queryClient = useQueryClient();
+  const prevOpenRef = useRef(false);
 
+  // Reset form when dialog transitions to open
   useEffect(() => {
-    if (currentProgress) {
+    if (open && !prevOpenRef.current && currentProgress) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStatus(currentProgress.status);
       setCurrentPage(currentProgress.currentPage?.toString() || '0');
       setTotalPages(currentProgress.totalPages?.toString() || '');
       setRating(currentProgress.rating || 0);
       setReview(currentProgress.review || '');
     }
-  }, [currentProgress]);
+    prevOpenRef.current = open;
+  }, [open, currentProgress]);
 
   const updateMutation = useMutation({
     mutationFn: async () => {

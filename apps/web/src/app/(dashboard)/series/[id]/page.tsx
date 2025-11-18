@@ -205,7 +205,7 @@ export default function SeriesDetailsPage({
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">
-                This series doesn't have any volumes linked yet.
+                This series doesn&apos;t have any volumes linked yet.
               </p>
             </CardContent>
           </Card>

@@ -80,38 +80,65 @@ export function BarcodeScanner({ onScan, onError }: BarcodeScannerProps) {
   );
 
   /**
+   * Stop scanning and release camera
+   */
+  const stopScanning = useCallback(() => {
+    // Cancel animation frame
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = undefined;
+    }
+
+    // Stop all video tracks
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
+    // Clear video element
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    setIsScanning(false);
+  }, []);
+
+  /**
    * Scan loop - continuously capture frames and attempt to decode
    */
-  const scanFrame = useCallback(() => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
+  const scanFrame = useCallback(
+    function scan(): void {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
 
-    if (!video || !canvas || !video.readyState || video.readyState !== video.HAVE_ENOUGH_DATA) {
-      animationFrameRef.current = requestAnimationFrame(scanFrame);
-      return;
-    }
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Draw video frame to canvas
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    // Attempt to decode barcode
-    const code = decodeBarcode(canvas);
-
-    if (code) {
-      const isbn = extractISBN(code);
-      if (isbn) {
-        onScan(isbn);
-        stopScanning();
+      if (!video || !canvas || !video.readyState || video.readyState !== video.HAVE_ENOUGH_DATA) {
+        animationFrameRef.current = requestAnimationFrame(scan);
         return;
       }
-    }
 
-    // Continue scanning
-    animationFrameRef.current = requestAnimationFrame(scanFrame);
-  }, [decodeBarcode, onScan]);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Draw video frame to canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Attempt to decode barcode
+      const code = decodeBarcode(canvas);
+
+      if (code) {
+        const isbn = extractISBN(code);
+        if (isbn) {
+          onScan(isbn);
+          stopScanning();
+          return;
+        }
+      }
+
+      // Continue scanning
+      animationFrameRef.current = requestAnimationFrame(scan);
+    },
+    [decodeBarcode, onScan, stopScanning]
+  );
 
   /**
    * Start camera and begin scanning
@@ -166,36 +193,12 @@ export function BarcodeScanner({ onScan, onError }: BarcodeScannerProps) {
     }
   };
 
-  /**
-   * Stop scanning and release camera
-   */
-  const stopScanning = () => {
-    // Cancel animation frame
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = undefined;
-    }
-
-    // Stop all video tracks
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-
-    // Clear video element
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-
-    setIsScanning(false);
-  };
-
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopScanning();
     };
-  }, []);
+  }, [stopScanning]);
 
   return (
     <div className="space-y-4">

@@ -28,6 +28,12 @@ let toastCounter = 0
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = React.useState<ToastState>({ toasts: [] })
 
+  const dismiss = React.useCallback((id: string) => {
+    setState((state) => ({
+      toasts: state.toasts.filter((t) => t.id !== id),
+    }))
+  }, [])
+
   const toast = React.useCallback((props: Omit<Toast, 'id'>) => {
     const id = `toast-${toastCounter++}`
     const newToast: Toast = { id, ...props }
@@ -40,13 +46,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => {
       dismiss(id)
     }, 5000)
-  }, [])
-
-  const dismiss = React.useCallback((id: string) => {
-    setState((state) => ({
-      toasts: state.toasts.filter((t) => t.id !== id),
-    }))
-  }, [])
+  }, [dismiss])
 
   return (
     <ToastContext.Provider value={{ toasts: state.toasts, toast, dismiss }}>
