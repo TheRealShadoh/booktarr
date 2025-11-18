@@ -20,7 +20,7 @@ export function BarcodeScanner({ onScan, onError }: BarcodeScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | undefined>(undefined);
 
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string>('');

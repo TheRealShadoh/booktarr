@@ -9,7 +9,7 @@ import { eq } from 'drizzle-orm';
 import { users } from '@booktarr/database';
 
 export const authConfig: NextAuthConfig = {
-  adapter: DrizzleAdapter(db),
+  adapter: DrizzleAdapter(db) as any,
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -66,7 +66,7 @@ export const authConfig: NextAuthConfig = {
   },
   callbacks: {
     async jwt({ token, user, account }) {
-      if (user) {
+      if (user?.id) {
         token.id = user.id;
         token.role = user.role;
       }

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { BookOpen, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { ReadingProgressDialog } from '@/components/reading/reading-progress-dialog';
+import type { ReadingStatus } from '@/lib/services/reading-progress';
 
 interface BookDetailHeaderProps {
   book: {
@@ -22,10 +23,11 @@ interface BookDetailHeaderProps {
   };
   userStatus?: string | null;
   readingProgress?: {
-    status: string;
+    status: ReadingStatus;
     currentPage?: number;
     totalPages?: number;
     rating?: number;
+    review?: string;
   } | null;
   onDelete?: () => void;
 }
