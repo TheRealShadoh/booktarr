@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { ReadingProgressService } from '@/lib/services/reading-progress';
+import { startReadingSchema } from '@/lib/validators/reading';
+import { handleError } from '@/lib/api-error';
+import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
 
 const readingProgressService = new ReadingProgressService();
 
@@ -15,25 +19,46 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { bookId, totalPages } = body;
+    // Apply rate limiting
+    const identifier = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(identifier, 'api');
 
-    if (!bookId) {
-      return NextResponse.json({ error: 'Missing bookId' }, { status: 400 });
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Too many requests. Please try again later.',
+          retryAfter: rateLimitResult.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimitResult.retryAfter),
+            'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
+          },
+        }
+      );
     }
+
+    const body = await req.json();
+
+    // Validate with Zod
+    const validatedData = startReadingSchema.parse(body);
 
     const progress = await readingProgressService.startReading(
       session.user.id,
-      bookId,
-      totalPages
+      validatedData.bookId,
+      validatedData.startDate
     );
+
+    logger.info('Reading started', {
+      userId: session.user.id,
+      bookId: validatedData.bookId,
+    });
 
     return NextResponse.json(progress);
   } catch (error) {
     logger.error('Start reading error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to start reading' },
-      { status: 500 }
-    );
+    const apiError = handleError(error);
+    return apiError.toResponse();
   }
 }
