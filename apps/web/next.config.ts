@@ -80,15 +80,6 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  // Turbopack configuration (Next.js 16+)
-  // Disable on Vercel as it's experimental and causes routes-manifest issues
-  // Use webpack for production builds, turbopack for local dev
-  ...(process.env.VERCEL ? {} : {
-    turbopack: {
-      // Empty config to acknowledge we're using Turbopack locally
-    },
-  }),
-
   // Experimental features
   experimental: {
     // Enable server actions
