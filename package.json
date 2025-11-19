@@ -9,11 +9,14 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace=apps/web",
+    "start": "bash start.sh",
+    "stop": "bash stop.sh",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "type-check": "npm run type-check --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/*/.next",
+    "clean:local": "rm -rf .local-data",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
@@ -22,6 +25,7 @@
     "db:migrate": "npm run db:migrate --workspace=packages/database",
     "db:push": "npm run db:push --workspace=packages/database",
     "db:studio": "npm run db:studio --workspace=packages/database",
+    "db:reset": "psql -U postgres -c 'DROP DATABASE IF EXISTS booktarr;' && psql -U postgres -c 'CREATE DATABASE booktarr OWNER booktarr;' && npm run db:migrate",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\""
   },

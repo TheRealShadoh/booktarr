@@ -6,6 +6,9 @@ node_modules/
 # Testing
 coverage/
 *.log
+playwright-report/
+test-results/
+.playwright/
 
 # Next.js
 .next/
@@ -20,6 +23,8 @@ dist/
 # Misc
 .DS_Store
 *.pem
+nul
+Thumbs.db
 
 # Debug
 npm-debug.log*
@@ -80,9 +85,25 @@ postgres_data/
 redis_data/
 minio_data/
 
+# Local development data
+.local-data/
+
 # Book covers (stored in MinIO/S3)
 static/covers/
 covers/
 
 # Shell scripts (if temporary)
 start-hotfix-*.sh
+
+# Local development scripts & files
+start.sh
+start.bat
+start-dev.sh
+stop.sh
+stop.bat
+LOCAL_DEVELOPMENT.md
+LOCAL_SETUP_COMPLETE.md
+QUICKSTART.md
+
+# Docker development
+docker/

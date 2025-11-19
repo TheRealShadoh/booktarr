@@ -56,3 +56,22 @@ docker-compose*.yml
 # Documentation
 *.md
 docs
+
+# V1 Backup Files & Old Directories
+*.v1.backup
+backend
+frontend
+v2
+
+# Cache & Data
+cache
+data
+temp
+tmp
+
+# Screenshots & Images
+screenshots
+.playwright-mcp
+*.png
+*.jpg
+*.jpeg

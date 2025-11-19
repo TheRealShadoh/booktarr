@@ -142,9 +142,10 @@ export class CSVImportService {
       skipDuplicates?: boolean;
       enrichMetadata?: boolean;
       onProgress?: (processed: number, success: number, failed: number) => void;
+      shouldStop?: () => boolean;
     } = {}
   ): Promise<ImportResult> {
-    const { skipDuplicates = true, enrichMetadata = true, onProgress } = options;
+    const { skipDuplicates = true, enrichMetadata = true, onProgress, shouldStop } = options;
 
     const rows = this.parseCSV(csvContent);
     const result: ImportResult = {
@@ -154,6 +155,12 @@ export class CSVImportService {
     };
 
     for (let i = 0; i < rows.length; i++) {
+      // Check if job should stop (paused or cancelled)
+      if (shouldStop && shouldStop()) {
+        console.log(`[CSV Import] Stopped at row ${i + 1} of ${rows.length}`);
+        break;
+      }
+
       const row = rows[i];
 
       // Declare variables outside try block so they're accessible in catch

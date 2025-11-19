@@ -59,6 +59,9 @@ export async function POST(req: Request) {
               onProgress: (processed, success, failed) => {
                 importJobManager.updateProgress(job.id, processed, success, failed);
               },
+              shouldStop: () => {
+                return importJobManager.isPaused(job.id) || importJobManager.isCancelled(job.id);
+              },
             }
           );
         } else {
