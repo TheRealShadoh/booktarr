@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { ReadingProgressService } from '@/lib/services/reading-progress';
+import { logger } from '@/lib/logger';
 
 const readingProgressService = new ReadingProgressService();
 

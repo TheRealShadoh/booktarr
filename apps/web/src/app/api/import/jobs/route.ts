@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
-import { logger } from '@/lib/logger';
 import { auth } from '@/lib/auth';
 import { importJobManager } from '@/lib/services/import-job-manager';
 

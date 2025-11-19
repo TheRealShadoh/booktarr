@@ -124,7 +124,6 @@ export async function POST(req: Request) {
         currentPage: validatedData.currentPage,
         totalPages: validatedData.totalPages,
         progressPercentage: validatedData.progressPercentage,
-        notes: validatedData.notes,
       }
     );
 

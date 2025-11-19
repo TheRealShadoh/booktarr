@@ -8,8 +8,12 @@ import { compare } from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import { users } from '@booktarr/database';
 
+// During build, we don't have DATABASE_URL, so skip adapter initialization
+// The adapter will be properly initialized at runtime
+const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
+
 export const authConfig: NextAuthConfig = {
-  adapter: DrizzleAdapter(db) as any,
+  adapter: isBuild ? undefined : (DrizzleAdapter(db) as any),
   providers: [
     CredentialsProvider({
       name: 'credentials',

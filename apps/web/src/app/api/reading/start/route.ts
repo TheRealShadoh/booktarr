@@ -46,8 +46,7 @@ export async function POST(req: Request) {
 
     const progress = await readingProgressService.startReading(
       session.user.id,
-      validatedData.bookId,
-      validatedData.startDate
+      validatedData.bookId
     );
 
     logger.info('Reading started', {

@@ -47,7 +47,7 @@ export async function GET(req: Request) {
       month: searchParams.get('month') ? parseInt(searchParams.get('month')!) : undefined,
     });
 
-    const stats = await readingProgressService.getReadingStats(session.user.id, validatedParams);
+    const stats = await readingProgressService.getReadingStats(session.user.id);
 
     return NextResponse.json(stats);
   } catch (error) {

@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { books, series, seriesBooks } from '@booktarr/database';
 import { eq, and } from 'drizzle-orm';
+import { logger } from '@/lib/logger';
 import { SeriesParserService } from '@/lib/services/series-parser';
 import { SeriesService } from '@/lib/services/series';
 

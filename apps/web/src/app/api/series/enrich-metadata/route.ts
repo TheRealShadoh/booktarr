@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { auth } from '@/lib/auth';
 import { SeriesMetadataEnrichmentService } from '@/lib/services/series-metadata-enrichment';
 
