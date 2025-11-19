@@ -114,6 +114,26 @@ export const bulkDeleteSchema = z.object({
 });
 
 /**
+ * Book ID Parameter Schema (for route params)
+ */
+export const bookIdParamSchema = z.object({
+  id: z.string().uuid('Invalid book ID format'),
+});
+
+/**
+ * Book Search Schema (for search API)
+ */
+export const bookSearchSchema = z.object({
+  isbn: z.string().optional(),
+  title: z.string().min(1).max(500).optional(),
+  author: z.string().max(200).optional(),
+  limit: z.number().int().min(1).max(50).default(10).optional(),
+}).refine(
+  (data) => data.isbn || data.title,
+  'Either ISBN or title must be provided'
+);
+
+/**
  * Type exports
  */
 export type CreateBookInput = z.infer<typeof createBookSchema>;
@@ -122,3 +142,5 @@ export type BookSearchParams = z.infer<typeof bookSearchParamsSchema>;
 export type ISBNSearch = z.infer<typeof isbnSearchSchema>;
 export type MetadataSearch = z.infer<typeof metadataSearchSchema>;
 export type BulkDelete = z.infer<typeof bulkDeleteSchema>;
+export type BookIdParam = z.infer<typeof bookIdParamSchema>;
+export type BookSearch = z.infer<typeof bookSearchSchema>;
