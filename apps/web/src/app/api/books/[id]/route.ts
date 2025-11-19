@@ -25,7 +25,7 @@ export async function GET(
     return NextResponse.json(book);
   } catch (error) {
     const { id } = await params;
-    console.error(`GET /api/books/${id} error:`, error);
+    logger.error(`GET /api/books/${id} error:`, error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -50,7 +50,7 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     const { id } = await params;
-    console.error(`DELETE /api/books/${id} error:`, error);
+    logger.error(`DELETE /api/books/${id} error:`, error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

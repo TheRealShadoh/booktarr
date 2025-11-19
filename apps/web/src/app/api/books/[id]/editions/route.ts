@@ -41,7 +41,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, userBook }, { status: 201 });
   } catch (error) {
-    console.error('POST /api/books/[id]/editions error:', error);
+    logger.error('POST /api/books/[id]/editions error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
@@ -86,7 +86,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, userBook });
   } catch (error) {
-    console.error('PATCH /api/books/[id]/editions error:', error);
+    logger.error('PATCH /api/books/[id]/editions error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
@@ -120,7 +120,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('DELETE /api/books/[id]/editions error:', error);
+    logger.error('DELETE /api/books/[id]/editions error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }

@@ -1,26 +1,32 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '@booktarr/database';
+import { logger } from './logger';
 
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is not set');
 }
 
-console.log('[DB] ========== ENVIRONMENT DEBUG ==========');
-console.log('[DB] NODE_ENV:', process.env.NODE_ENV);
-console.log('[DB] DATABASE_URL:', process.env.DATABASE_URL?.replace(/:[^:@]+@/, ':****@'));
-console.log('[DB] All DATABASE* vars:', Object.keys(process.env).filter(k => k.includes('DATABASE')));
-console.log('[DB] All NEXT* vars:', Object.keys(process.env).filter(k => k.startsWith('NEXT')));
-console.log('[DB] Total env vars count:', Object.keys(process.env).length);
-console.log('[DB] Sample vars:', Object.keys(process.env).slice(0, 10));
-console.log('[DB] ==========================================');
+// Log connection initialization (no sensitive data)
+logger.info('Initializing database connection', {
+  poolSize: parseInt(process.env.DB_POOL_SIZE || '20', 10),
+  environment: process.env.NODE_ENV,
+});
 
-// Create PostgreSQL connection
+// Create PostgreSQL connection with production-ready settings
 const client = postgres(process.env.DATABASE_URL, {
-  max: 10,
-  idle_timeout: 20,
-  connect_timeout: 10,
+  max: parseInt(process.env.DB_POOL_SIZE || '20', 10),
+  idle_timeout: 30,
+  connect_timeout: 15,
+  onnotice: (notice) => {
+    if (process.env.NODE_ENV === 'development') {
+      logger.debug('PostgreSQL notice', { notice: notice.message });
+    }
+  },
 });
 
 // Export Drizzle instance
 export const db = drizzle(client, { schema });
+
+// Export connection client for health checks
+export const dbClient = client;

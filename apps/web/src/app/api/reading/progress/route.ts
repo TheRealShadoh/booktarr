@@ -36,7 +36,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ error: 'Missing bookId or status parameter' }, { status: 400 });
   } catch (error) {
-    console.error('Get reading progress error:', error);
+    logger.error('Get reading progress error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to get reading progress' },
       { status: 500 }
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(progress);
   } catch (error) {
-    console.error('Update reading progress error:', error);
+    logger.error('Update reading progress error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to update reading progress' },
       { status: 500 }
@@ -107,7 +107,7 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Delete reading progress error:', error);
+    logger.error('Delete reading progress error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to delete reading progress' },
       { status: 500 }

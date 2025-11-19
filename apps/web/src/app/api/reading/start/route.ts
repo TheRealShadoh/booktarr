@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(progress);
   } catch (error) {
-    console.error('Start reading error:', error);
+    logger.error('Start reading error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to start reading' },
       { status: 500 }

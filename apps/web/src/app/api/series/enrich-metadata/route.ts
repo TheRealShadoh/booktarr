@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       ...result,
     });
   } catch (error) {
-    console.error('[Series Enrichment] Error:', error);
+    logger.error('[Series Enrichment] Error:', error);
     return NextResponse.json(
       {
         error: 'Failed to enrich series metadata',

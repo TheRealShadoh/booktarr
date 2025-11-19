@@ -52,7 +52,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error) {
-    console.error('GET /api/books error:', error);
+    logger.error('GET /api/books error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    console.error('POST /api/books error:', error);
+    logger.error('POST /api/books error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }

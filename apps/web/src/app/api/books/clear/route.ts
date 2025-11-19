@@ -19,7 +19,7 @@ export async function DELETE() {
       message: 'All books have been removed from your library'
     });
   } catch (error) {
-    console.error('DELETE /api/books/clear error:', error);
+    logger.error('DELETE /api/books/clear error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

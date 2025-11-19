@@ -19,7 +19,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(stats);
   } catch (error) {
-    console.error('Get reading stats error:', error);
+    logger.error('Get reading stats error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to get reading stats' },
       { status: 500 }

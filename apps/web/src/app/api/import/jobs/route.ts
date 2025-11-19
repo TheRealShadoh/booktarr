@@ -14,7 +14,7 @@ export async function GET() {
 
     return NextResponse.json({ jobs });
   } catch (error) {
-    console.error('GET /api/import/jobs error:', error);
+    logger.error('GET /api/import/jobs error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -1,0 +1,113 @@
+version: 2
+updates:
+  # Enable version updates for npm
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "TheRealShadoh"
+    labels:
+      - "dependencies"
+      - "automated"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+
+  # Monitor web app dependencies
+  - package-ecosystem: "npm"
+    directory: "/apps/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "web-app"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Monitor database package dependencies
+  - package-ecosystem: "npm"
+    directory: "/packages/database"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "database"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Monitor GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci-cd"
+    commit-message:
+      prefix: "chore(ci)"
+
+  # Monitor Docker base images
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(docker)"
+
+# Dependency groups for better management
+groups:
+  # Group all minor and patch updates
+  development-dependencies:
+    patterns:
+      - "*"
+    update-types:
+      - "minor"
+      - "patch"
+
+  # Group all Drizzle-related updates
+  drizzle:
+    patterns:
+      - "drizzle-*"
+      - "@drizzle-*"
+
+  # Group all Next.js related updates
+  nextjs:
+    patterns:
+      - "next"
+      - "react"
+      - "react-dom"
+      - "@next/*"
+
+  # Group all testing dependencies
+  testing:
+    patterns:
+      - "@playwright/*"
+      - "@testing-library/*"
+      - "vitest"
+      - "@vitest/*"
+
+# Auto-merge configuration (use with caution)
+# Uncomment to enable auto-merge for patch updates
+# automerge:
+#   - match:
+#       dependency_type: "development"
+#       update_type: "semver:patch"

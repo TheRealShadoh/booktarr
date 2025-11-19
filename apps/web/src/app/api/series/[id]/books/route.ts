@@ -24,7 +24,7 @@ export async function POST(
 
     return NextResponse.json(seriesBook, { status: 201 });
   } catch (error) {
-    console.error(`POST /api/series/${params.id}/books error:`, error);
+    logger.error(`POST /api/series/${params.id}/books error:`, error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
@@ -57,7 +57,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error(`DELETE /api/series/${params.id}/books error:`, error);
+    logger.error(`DELETE /api/series/${params.id}/books error:`, error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

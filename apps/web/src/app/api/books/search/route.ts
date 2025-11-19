@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ results });
   } catch (error) {
-    console.error('POST /api/books/search error:', error);
+    logger.error('POST /api/books/search error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

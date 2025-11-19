@@ -33,7 +33,7 @@ export async function GET() {
       })),
     });
   } catch (error) {
-    console.error('GET /api/books/enrich error:', error);
+    logger.error('GET /api/books/enrich error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
       ...result,
     });
   } catch (error) {
-    console.error('POST /api/books/enrich error:', error);
+    logger.error('POST /api/books/enrich error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

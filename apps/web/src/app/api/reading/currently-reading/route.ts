@@ -19,7 +19,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(books);
   } catch (error) {
-    console.error('Get currently reading error:', error);
+    logger.error('Get currently reading error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to get currently reading books' },
       { status: 500 }

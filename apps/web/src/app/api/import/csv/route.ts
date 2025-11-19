@@ -95,7 +95,7 @@ export async function POST(req: Request) {
           failed: result.failed,
         });
       } catch (error) {
-        console.error('[CSV Import] Job failed:', error);
+        logger.error('[CSV Import] Job failed:', error);
         importJobManager.failJob(
           job.id,
           error instanceof Error ? error.message : 'Import failed'
@@ -113,7 +113,7 @@ export async function POST(req: Request) {
       message: 'Import started in background',
     });
   } catch (error) {
-    console.error('[CSV Import] Fatal error:', error);
+    logger.error('[CSV Import] Fatal error:', error);
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : 'Import failed',

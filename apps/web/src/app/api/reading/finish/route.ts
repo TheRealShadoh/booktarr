@@ -31,7 +31,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(progress);
   } catch (error) {
-    console.error('Finish reading error:', error);
+    logger.error('Finish reading error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to finish reading' },
       { status: 500 }

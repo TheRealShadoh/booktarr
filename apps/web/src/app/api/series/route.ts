@@ -34,7 +34,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error) {
-    console.error('GET /api/series error:', error);
+    logger.error('GET /api/series error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(series, { status: 201 });
   } catch (error) {
-    console.error('POST /api/series error:', error);
+    logger.error('POST /api/series error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
