@@ -13,11 +13,6 @@
       "NEXT_TELEMETRY_DISABLED": "1"
     }
   },
-  "functions": {
-    "apps/web/src/app/api/**/*.ts": {
-      "maxDuration": 10
-    }
-  },
   "headers": [
     {
       "source": "/api/(.*)",
