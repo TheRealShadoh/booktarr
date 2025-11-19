@@ -1,8 +1,17 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { SeriesService } from '@/lib/services/series';
+import { updateSeriesSchema } from '@/lib/validators/series';
+import { handleError } from '@/lib/api-error';
+import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
+import { z } from 'zod';
 
 const seriesService = new SeriesService();
+
+const seriesIdParamSchema = z.object({
+  id: z.string().uuid('Invalid series ID'),
+});
 
 export async function GET(
   req: Request,
@@ -15,8 +24,32 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Apply rate limiting
+    const identifier = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(identifier, 'api');
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Too many requests. Please try again later.',
+          retryAfter: rateLimitResult.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimitResult.retryAfter),
+            'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
+          },
+        }
+      );
+    }
+
     const { id } = await params;
-    const series = await seriesService.getSeriesById(id, session.user.id);
+
+    // Validate UUID
+    const { id: validatedId } = seriesIdParamSchema.parse({ id });
+
+    const series = await seriesService.getSeriesById(validatedId, session.user.id);
 
     if (!series) {
       return NextResponse.json({ error: 'Series not found' }, { status: 404 });
@@ -26,10 +59,8 @@ export async function GET(
   } catch (error) {
     const { id } = await params;
     logger.error(`GET /api/series/${id} error:`, error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    const apiError = handleError(error);
+    return apiError.toResponse();
   }
 }
 
@@ -44,19 +75,49 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Apply rate limiting
+    const identifier = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(identifier, 'api');
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Too many requests. Please try again later.',
+          retryAfter: rateLimitResult.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimitResult.retryAfter),
+            'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
+          },
+        }
+      );
+    }
+
     const { id } = await params;
+
+    // Validate UUID
+    const { id: validatedId } = seriesIdParamSchema.parse({ id });
+
     const body = await req.json();
 
-    const updated = await seriesService.updateSeries(id, body);
+    // Validate update data
+    const validatedData = updateSeriesSchema.parse(body);
+
+    const updated = await seriesService.updateSeries(validatedId, validatedData);
+
+    logger.info('Series updated', {
+      userId: session.user.id,
+      seriesId: validatedId,
+    });
 
     return NextResponse.json(updated);
   } catch (error) {
     const { id } = await params;
     logger.error(`PATCH /api/series/${id} error:`, error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    const apiError = handleError(error);
+    return apiError.toResponse();
   }
 }
 
@@ -71,16 +132,43 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Apply rate limiting
+    const identifier = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(identifier, 'api');
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Too many requests. Please try again later.',
+          retryAfter: rateLimitResult.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimitResult.retryAfter),
+            'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
+          },
+        }
+      );
+    }
+
     const { id } = await params;
-    await seriesService.deleteSeries(id);
+
+    // Validate UUID
+    const { id: validatedId } = seriesIdParamSchema.parse({ id });
+
+    await seriesService.deleteSeries(validatedId);
+
+    logger.info('Series deleted', {
+      userId: session.user.id,
+      seriesId: validatedId,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     const { id } = await params;
     logger.error(`DELETE /api/series/${id} error:`, error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    const apiError = handleError(error);
+    return apiError.toResponse();
   }
 }

@@ -3,32 +3,52 @@ import { hash } from 'bcryptjs';
 import { db } from '@/lib/db';
 import { users } from '@booktarr/database';
 import { eq } from 'drizzle-orm';
+import { registerSchema } from '@/lib/validators/auth';
+import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
+import { handleError } from '@/lib/api-error';
+import { logger } from '@/lib/logger';
 
 export async function POST(req: Request) {
   try {
-    const { email, password, name } = await req.json();
+    // Apply rate limiting for registration (3 per hour)
+    const identifier = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(identifier, 'register');
 
-    // Validate input
-    if (!email || !password) {
+    if (!rateLimitResult.success) {
+      logger.warn('Registration rate limit exceeded', {
+        identifier,
+        retryAfter: rateLimitResult.retryAfter,
+      });
+
       return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
+        {
+          error: 'Too many registration attempts. Please try again later.',
+          retryAfter: rateLimitResult.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimitResult.retryAfter),
+            'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
+          },
+        }
       );
     }
 
-    if (password.length < 8) {
-      return NextResponse.json(
-        { error: 'Password must be at least 8 characters' },
-        { status: 400 }
-      );
-    }
+    const body = await req.json();
+
+    // Validate input with Zod
+    const validatedData = registerSchema.parse(body);
 
     // Check if user already exists
     const existingUser = await db.query.users.findFirst({
-      where: eq(users.email, email),
+      where: eq(users.email, validatedData.email),
     });
 
     if (existingUser) {
+      logger.warn('Registration attempt with existing email', {
+        email: validatedData.email,
+      });
       return NextResponse.json(
         { error: 'User already exists with this email' },
         { status: 409 }
@@ -36,14 +56,14 @@ export async function POST(req: Request) {
     }
 
     // Hash password
-    const passwordHash = await hash(password, 12);
+    const passwordHash = await hash(validatedData.password, 12);
 
     // Create user
     const [newUser] = await db
       .insert(users)
       .values({
-        email,
-        name: name || null,
+        email: validatedData.email,
+        name: validatedData.name || null,
         passwordHash,
         role: 'user',
       })
@@ -53,6 +73,11 @@ export async function POST(req: Request) {
         name: users.name,
         role: users.role,
       });
+
+    logger.info('User registered successfully', {
+      userId: newUser.id,
+      email: newUser.email,
+    });
 
     return NextResponse.json(
       {
@@ -64,13 +89,17 @@ export async function POST(req: Request) {
           role: newUser.role,
         },
       },
-      { status: 201 }
+      {
+        status: 201,
+        headers: {
+          'X-RateLimit-Remaining': String(rateLimitResult.remaining || 0),
+          'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
+        },
+      }
     );
   } catch (error) {
     logger.error('Registration error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    const apiError = handleError(error);
+    return apiError.toResponse();
   }
 }
