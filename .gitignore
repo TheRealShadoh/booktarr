@@ -49,3 +49,40 @@ next-env.d.ts
 *.swp
 *.swo
 *~
+
+# Images & Screenshots
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.bmp
+*.svg
+screenshots/
+.playwright-mcp/
+
+# Cache & Temporary Files
+cache/
+*.cache
+.cache/
+tmp/
+temp/
+data/
+
+# V1 Backup Files
+*.v1.backup
+backend/
+frontend/
+v2/
+
+# Docker volumes
+postgres_data/
+redis_data/
+minio_data/
+
+# Book covers (stored in MinIO/S3)
+static/covers/
+covers/
+
+# Shell scripts (if temporary)
+start-hotfix-*.sh
