@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     // Validate with Zod
     const validatedData = bookSearchSchema.parse(body);
 
-    let results;
+    let results: any[] = [];
 
     if (validatedData.isbn) {
       const metadata = await metadataService.enrichByISBN(validatedData.isbn);
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ results });
   } catch (error) {
-    logger.error('POST /api/books/search error:', error);
+    logger.error('POST /api/books/search error:', error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }

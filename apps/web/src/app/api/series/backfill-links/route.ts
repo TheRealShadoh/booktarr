@@ -84,7 +84,7 @@ export async function POST(req: Request) {
           skipped++;
         }
       } catch (error) {
-        logger.error(`[Backfill]   ✗ Error processing "${book.title}":`, error);
+        logger.error(`[Backfill]   ✗ Error processing "${book.title}":`, error as Error);
         errors++;
         errorDetails.push({
           title: book.title,
@@ -106,7 +106,7 @@ export async function POST(req: Request) {
       errorDetails: errorDetails.length > 0 ? errorDetails.slice(0, 10) : undefined
     });
   } catch (error) {
-    logger.error('[Backfill] Fatal error:', error);
+    logger.error('[Backfill] Fatal error:', error as Error);
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : 'Backfill failed',

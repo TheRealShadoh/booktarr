@@ -27,8 +27,7 @@
     "db:studio": "npm run db:studio --workspace=packages/database",
     "db:reset": "psql -U postgres -c 'DROP DATABASE IF EXISTS booktarr;' && psql -U postgres -c 'CREATE DATABASE booktarr OWNER booktarr;' && npm run db:migrate",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "postinstall": "npm rebuild"
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.0.0",

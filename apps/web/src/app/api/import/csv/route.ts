@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { auth } from '@/lib/auth';
 import { CSVImportService } from '@/lib/services/csv-import';
 import { importJobManager } from '@/lib/services/import-job-manager';
@@ -95,7 +96,7 @@ export async function POST(req: Request) {
           failed: result.failed,
         });
       } catch (error) {
-        logger.error('[CSV Import] Job failed:', error);
+        logger.error('[CSV Import] Job failed:', error as Error);
         importJobManager.failJob(
           job.id,
           error instanceof Error ? error.message : 'Import failed'
@@ -113,7 +114,7 @@ export async function POST(req: Request) {
       message: 'Import started in background',
     });
   } catch (error) {
-    logger.error('[CSV Import] Fatal error:', error);
+    logger.error('[CSV Import] Fatal error:', error as Error);
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : 'Import failed',

@@ -61,7 +61,7 @@ export async function GET(req: Request) {
       })),
     });
   } catch (error) {
-    logger.error('GET /api/books/enrich error:', error);
+    logger.error('GET /api/books/enrich error:', error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }
@@ -122,7 +122,7 @@ export async function POST(req: Request) {
       ...result,
     });
   } catch (error) {
-    logger.error('POST /api/books/enrich error:', error);
+    logger.error('POST /api/books/enrich error:', error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }

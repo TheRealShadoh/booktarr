@@ -46,7 +46,7 @@ export async function DELETE(req: Request) {
       message: 'All books have been removed from your library',
     });
   } catch (error) {
-    logger.error('DELETE /api/books/clear error:', error);
+    logger.error('DELETE /api/books/clear error:', error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }

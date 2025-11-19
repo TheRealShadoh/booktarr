@@ -58,7 +58,7 @@ export async function GET(
     return NextResponse.json(series);
   } catch (error) {
     const { id } = await params;
-    logger.error(`GET /api/series/${id} error:`, error);
+    logger.error(`GET /api/series/${id} error:`, error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }
@@ -115,7 +115,7 @@ export async function PATCH(
     return NextResponse.json(updated);
   } catch (error) {
     const { id } = await params;
-    logger.error(`PATCH /api/series/${id} error:`, error);
+    logger.error(`PATCH /api/series/${id} error:`, error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }
@@ -167,7 +167,7 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     const { id } = await params;
-    logger.error(`DELETE /api/series/${id} error:`, error);
+    logger.error(`DELETE /api/series/${id} error:`, error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }

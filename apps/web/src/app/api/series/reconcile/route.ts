@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       ...result,
     });
   } catch (error) {
-    logger.error('[Series Reconciliation] Error:', error);
+    logger.error('[Series Reconciliation] Error:', error as Error);
     return NextResponse.json(
       {
         error: 'Failed to reconcile series volumes',

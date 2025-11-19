@@ -51,7 +51,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(stats);
   } catch (error) {
-    logger.error('Get reading stats error:', error);
+    logger.error('Get reading stats error:', error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }

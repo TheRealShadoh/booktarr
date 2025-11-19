@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
+import { logger } from '@/lib/logger';
 import { auth } from '@/lib/auth';
 import { importJobManager } from '@/lib/services/import-job-manager';
 
@@ -14,7 +16,7 @@ export async function GET() {
 
     return NextResponse.json({ jobs });
   } catch (error) {
-    logger.error('GET /api/import/jobs error:', error);
+    logger.error('GET /api/import/jobs error:', error as Error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

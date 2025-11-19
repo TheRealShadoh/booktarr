@@ -57,7 +57,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(progress);
   } catch (error) {
-    logger.error('Start reading error:', error);
+    logger.error('Start reading error:', error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }
