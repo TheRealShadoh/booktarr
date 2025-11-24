@@ -57,7 +57,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error) {
-    logger.error('GET /api/series error:', error);
+    logger.error('GET /api/series error:', error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }
@@ -106,7 +106,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(series, { status: 201 });
   } catch (error) {
-    logger.error('POST /api/series error:', error);
+    logger.error('POST /api/series error:', error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }

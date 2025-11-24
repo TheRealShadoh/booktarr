@@ -98,7 +98,7 @@ export async function POST(req: Request) {
       }
     );
   } catch (error) {
-    logger.error('Registration error:', error);
+    logger.error('Registration error:', error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }

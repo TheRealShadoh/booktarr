@@ -257,7 +257,7 @@ export async function validateStartup(): Promise<ValidationResult> {
 
   // Log results
   if (criticalErrors.length > 0) {
-    logger.error('❌ Startup validation failed with errors:', { errors: criticalErrors });
+    logger.error('❌ Startup validation failed with errors:', undefined, { errors: criticalErrors });
     criticalErrors.forEach(err => {
       logger.error(`  [${err.component}] ${err.message}`);
     });

@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -21,7 +22,7 @@ const errorMessages: Record<string, string> = {
   Default: 'An unexpected error occurred.',
 };
 
-export default function AuthErrorPage() {
+function ErrorContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get('error') || 'Default';
 
@@ -55,5 +56,21 @@ export default function AuthErrorPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function AuthErrorPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold">Loading...</CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+    }>
+      <ErrorContent />
+    </Suspense>
   );
 }

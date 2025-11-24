@@ -71,7 +71,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ error: 'Missing bookId or status parameter' }, { status: 400 });
   } catch (error) {
-    logger.error('Get reading progress error:', error);
+    logger.error('Get reading progress error:', error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }
@@ -124,7 +124,6 @@ export async function POST(req: Request) {
         currentPage: validatedData.currentPage,
         totalPages: validatedData.totalPages,
         progressPercentage: validatedData.progressPercentage,
-        notes: validatedData.notes,
       }
     );
 
@@ -136,7 +135,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(progress);
   } catch (error) {
-    logger.error('Update reading progress error:', error);
+    logger.error('Update reading progress error:', error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }
@@ -187,7 +186,7 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    logger.error('Delete reading progress error:', error);
+    logger.error('Delete reading progress error:', error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }

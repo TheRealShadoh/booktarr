@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { books, series, seriesBooks } from '@booktarr/database';
 import { eq, and } from 'drizzle-orm';
+import { logger } from '@/lib/logger';
 import { SeriesParserService } from '@/lib/services/series-parser';
 import { SeriesService } from '@/lib/services/series';
 
@@ -84,7 +85,7 @@ export async function POST(req: Request) {
           skipped++;
         }
       } catch (error) {
-        logger.error(`[Backfill]   ✗ Error processing "${book.title}":`, error);
+        logger.error(`[Backfill]   ✗ Error processing "${book.title}":`, error as Error);
         errors++;
         errorDetails.push({
           title: book.title,
@@ -106,7 +107,7 @@ export async function POST(req: Request) {
       errorDetails: errorDetails.length > 0 ? errorDetails.slice(0, 10) : undefined
     });
   } catch (error) {
-    logger.error('[Backfill] Fatal error:', error);
+    logger.error('[Backfill] Fatal error:', error as Error);
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : 'Backfill failed',

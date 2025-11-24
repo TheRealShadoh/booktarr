@@ -46,8 +46,7 @@ export async function POST(req: Request) {
 
     const progress = await readingProgressService.startReading(
       session.user.id,
-      validatedData.bookId,
-      validatedData.startDate
+      validatedData.bookId
     );
 
     logger.info('Reading started', {
@@ -57,7 +56,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(progress);
   } catch (error) {
-    logger.error('Start reading error:', error);
+    logger.error('Start reading error:', error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }

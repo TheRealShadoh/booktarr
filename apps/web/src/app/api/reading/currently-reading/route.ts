@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { ReadingProgressService } from '@/lib/services/reading-progress';
+import { logger } from '@/lib/logger';
 
 const readingProgressService = new ReadingProgressService();
 
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(books);
   } catch (error) {
-    logger.error('Get currently reading error:', error);
+    logger.error('Get currently reading error:', error as Error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to get currently reading books' },
       { status: 500 }

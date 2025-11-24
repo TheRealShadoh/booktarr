@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Enable standalone output for Docker deployments
-  output: 'standalone',
+  // Enable standalone output for Docker deployments only (not Vercel)
+  // Vercel doesn't support standalone mode and needs default output
+  ...(process.env.VERCEL ? {} : { output: 'standalone' }),
 
   // Enable compression
   compress: true,
@@ -77,11 +78,6 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
     ];
-  },
-
-  // Turbopack configuration (Next.js 16+)
-  turbopack: {
-    // Empty config to acknowledge we're using Turbopack
   },
 
   // Experimental features

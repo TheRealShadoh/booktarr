@@ -90,7 +90,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </h1>
 
             <p className="mb-6 text-center text-gray-600">
-              We're sorry for the inconvenience. The error has been logged and we'll look into it.
+              We&apos;re sorry for the inconvenience. The error has been logged and we&apos;ll look into it.
             </p>
 
             {process.env.NODE_ENV === 'development' && this.state.error && (

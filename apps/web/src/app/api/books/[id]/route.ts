@@ -53,7 +53,7 @@ export async function GET(
     return NextResponse.json(book);
   } catch (error) {
     const { id } = await params;
-    logger.error(`GET /api/books/${id} error:`, error);
+    logger.error(`GET /api/books/${id} error:`, error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }
@@ -105,7 +105,7 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     const { id } = await params;
-    logger.error(`DELETE /api/books/${id} error:`, error);
+    logger.error(`DELETE /api/books/${id} error:`, error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }

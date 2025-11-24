@@ -76,7 +76,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error) {
-    logger.error('GET /api/books error:', error);
+    logger.error('GET /api/books error:', error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }
@@ -115,20 +115,23 @@ export async function POST(req: Request) {
     // Validate with Zod
     const validatedData = createBookSchema.parse(body);
 
+    // Exclude edition field as it has a different structure in the service
+    const { edition, ...bookData } = validatedData;
+
     const result = await bookService.createBook({
-      ...validatedData,
+      ...bookData,
       userId: session.user.id,
     });
 
     logger.info('Book created', {
       userId: session.user.id,
-      bookId: result.id,
-      title: result.title,
+      bookId: result.book.id,
+      title: result.book.title,
     });
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    logger.error('POST /api/books error:', error);
+    logger.error('POST /api/books error:', error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
   }

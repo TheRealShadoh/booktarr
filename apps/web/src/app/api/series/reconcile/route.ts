@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { auth } from '@/lib/auth';
 import { VolumeReconciliationService } from '@/lib/services/volume-reconciliation';
 
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
       ...result,
     });
   } catch (error) {
-    logger.error('[Series Reconciliation] Error:', error);
+    logger.error('[Series Reconciliation] Error:', error as Error);
     return NextResponse.json(
       {
         error: 'Failed to reconcile series volumes',

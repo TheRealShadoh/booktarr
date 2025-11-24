@@ -122,7 +122,7 @@ export function handleError(error: unknown): ApiError {
   // Zod validation error
   if (error instanceof ZodError) {
     return Errors.validation('Validation failed', {
-      issues: error.errors.map(err => ({
+      issues: error.issues.map(err => ({
         path: err.path.join('.'),
         message: err.message,
       })),
