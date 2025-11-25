@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { ReadingProgressService } from '@/lib/services/reading-progress';
+import { readingStatsQuerySchema } from '@/lib/validators/reading';
+import { handleError } from '@/lib/api-error';
+import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
 
 const readingProgressService = new ReadingProgressService();
 
@@ -15,14 +19,40 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Apply rate limiting
+    const identifier = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(identifier, 'api');
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Too many requests. Please try again later.',
+          retryAfter: rateLimitResult.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimitResult.retryAfter),
+            'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
+          },
+        }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+
+    // Validate query params
+    const validatedParams = readingStatsQuerySchema.parse({
+      year: searchParams.get('year') ? parseInt(searchParams.get('year')!) : undefined,
+      month: searchParams.get('month') ? parseInt(searchParams.get('month')!) : undefined,
+    });
+
     const stats = await readingProgressService.getReadingStats(session.user.id);
 
     return NextResponse.json(stats);
   } catch (error) {
-    console.error('Get reading stats error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to get reading stats' },
-      { status: 500 }
-    );
+    logger.error('Get reading stats error:', error as Error);
+    const apiError = handleError(error);
+    return apiError.toResponse();
   }
 }

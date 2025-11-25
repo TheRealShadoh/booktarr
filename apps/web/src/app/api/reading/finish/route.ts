@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { ReadingProgressService } from '@/lib/services/reading-progress';
+import { finishReadingSchema } from '@/lib/validators/reading';
+import { handleError } from '@/lib/api-error';
+import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
 
 const readingProgressService = new ReadingProgressService();
 
@@ -15,26 +19,49 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { bookId, rating, review } = body;
+    // Apply rate limiting
+    const identifier = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(identifier, 'api');
 
-    if (!bookId) {
-      return NextResponse.json({ error: 'Missing bookId' }, { status: 400 });
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Too many requests. Please try again later.',
+          retryAfter: rateLimitResult.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimitResult.retryAfter),
+            'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
+          },
+        }
+      );
     }
+
+    const body = await req.json();
+
+    // Validate with Zod
+    const validatedData = finishReadingSchema.parse(body);
 
     const progress = await readingProgressService.finishReading(
       session.user.id,
-      bookId,
-      rating,
-      review
+      validatedData.bookId,
+      validatedData.rating,
+      validatedData.review
     );
+
+    logger.info('Reading finished', {
+      userId: session.user.id,
+      bookId: validatedData.bookId,
+      rating: validatedData.rating,
+      favorite: validatedData.favorite,
+    });
 
     return NextResponse.json(progress);
   } catch (error) {
-    console.error('Finish reading error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to finish reading' },
-      { status: 500 }
-    );
+    logger.error('Finish reading error:', error as Error);
+    const apiError = handleError(error);
+    return apiError.toResponse();
   }
 }

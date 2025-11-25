@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { auth } from '@/lib/auth';
 import { SeriesMetadataEnrichmentService } from '@/lib/services/series-metadata-enrichment';
 
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
       ...result,
     });
   } catch (error) {
-    console.error('[Series Enrichment] Error:', error);
+    logger.error('[Series Enrichment] Error:', error as Error);
     return NextResponse.json(
       {
         error: 'Failed to enrich series metadata',

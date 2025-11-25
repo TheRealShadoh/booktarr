@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { SeriesService } from '@/lib/services/series';
+import { logger } from '@/lib/logger';
 
 const seriesService = new SeriesService();
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -15,16 +16,18 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { id } = await params;
     const body = await req.json();
 
     const seriesBook = await seriesService.addBookToSeries({
-      seriesId: params.id,
+      seriesId: id,
       ...body,
     });
 
     return NextResponse.json(seriesBook, { status: 201 });
   } catch (error) {
-    console.error(`POST /api/series/${params.id}/books error:`, error);
+    const { id } = await params;
+    logger.error(`POST /api/series/${id}/books error:`, error as Error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
@@ -34,7 +37,7 @@ export async function POST(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -43,6 +46,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { id } = await params;
     const { searchParams } = new URL(req.url);
     const bookId = searchParams.get('bookId');
 
@@ -53,11 +57,12 @@ export async function DELETE(
       );
     }
 
-    await seriesService.removeBookFromSeries(params.id, bookId);
+    await seriesService.removeBookFromSeries(id, bookId);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error(`DELETE /api/series/${params.id}/books error:`, error);
+    const { id } = await params;
+    logger.error(`DELETE /api/series/${id}/books error:`, error as Error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

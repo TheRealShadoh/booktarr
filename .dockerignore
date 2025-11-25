@@ -46,16 +46,11 @@ dist
 
 # Git
 .git
-.gitignore
 
-# Docker
-Dockerfile*
-docker-compose*.yml
-.dockerignore
-
-# Documentation
-*.md
+# Documentation (keep essential docs)
 docs
+!README.md
+!DOCKER_DEPLOYMENT.md
 
 # V1 Backup Files & Old Directories
 *.v1.backup
@@ -75,3 +70,13 @@ screenshots
 *.png
 *.jpg
 *.jpeg
+
+# Temporary files
+temp-import.csv
+check-*.js
+check-*.ts
+direct-import.ts
+import-csv.js
+upload-csv.mjs
+fix-*.py
+update-*.py

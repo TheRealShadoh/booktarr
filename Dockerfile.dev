@@ -11,8 +11,9 @@ COPY apps/web/package.json ./apps/web/
 COPY packages/database/package.json ./packages/database/
 COPY packages/ui/package.json ./packages/ui/
 
-# Install dependencies
-RUN npm ci
+# Install dependencies with BuildKit cache mount
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
 # Development image
 FROM base AS dev

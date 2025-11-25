@@ -38,7 +38,7 @@ export interface CreateBookInput {
 
   // User collection details
   userId: string;
-  status?: 'owned' | 'wanted' | 'missing';
+  status?: 'owned' | 'wanted' | 'missing' | 'loaned';
 }
 
 export class BookService {

@@ -1,60 +1,67 @@
 import { NextResponse } from 'next/server';
-import { checkRateLimit, getRateLimitIdentifier } from '@/lib/security/rate-limit';
-import { isValidEmail } from '@/lib/security/validation';
+import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
+import { loginSchema } from '@/lib/validators/auth';
+import { handleError } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
 
 /**
- * Login endpoint with rate limiting
+ * Login endpoint with rate limiting and validation
+ * Note: Actual authentication is handled by NextAuth.js
  */
 export async function POST(req: Request) {
   try {
-    // Check rate limit
-    const identifier = getRateLimitIdentifier(req);
-    const rateLimit = await checkRateLimit(identifier, 'auth');
+    // Apply rate limiting for login (5 attempts per 15 minutes)
+    const identifier = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(identifier, 'login');
 
-    if (!rateLimit.allowed) {
-      logger.warn('Rate limit exceeded for login', {
+    if (!rateLimitResult.success) {
+      logger.warn('Login rate limit exceeded', {
         identifier,
-        msBeforeNext: rateLimit.msBeforeNext,
+        retryAfter: rateLimitResult.retryAfter,
       });
 
       return NextResponse.json(
         {
           error: 'Too many login attempts. Please try again later.',
-          retryAfter: Math.ceil(rateLimit.msBeforeNext / 1000),
+          retryAfter: rateLimitResult.retryAfter,
         },
         {
           status: 429,
           headers: {
-            'Retry-After': Math.ceil(rateLimit.msBeforeNext / 1000).toString(),
+            'Retry-After': String(rateLimitResult.retryAfter),
+            'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
           },
         }
       );
     }
 
     const body = await req.json();
-    const { email, password } = body;
 
-    // Validate input
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      );
-    }
+    // Validate input with Zod
+    const validatedData = loginSchema.parse(body);
 
-    if (!isValidEmail(email)) {
-      return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
-    }
+    logger.info('Login attempt', {
+      email: validatedData.email,
+      identifier,
+    });
 
     // Login logic would go here
     // This is a placeholder - actual auth handled by NextAuth
 
-    return NextResponse.json({
-      message: 'Login endpoint - use NextAuth for authentication',
-    });
+    return NextResponse.json(
+      {
+        message: 'Login endpoint - use NextAuth for authentication',
+      },
+      {
+        headers: {
+          'X-RateLimit-Remaining': String(rateLimitResult.remaining || 0),
+          'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
+        },
+      }
+    );
   } catch (error) {
     logger.error('Login error', error as Error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const apiError = handleError(error);
+    return apiError.toResponse();
   }
 }

@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { BookService } from '@/lib/services/books';
+import { handleError } from '@/lib/api-error';
+import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
 
 const bookService = new BookService();
 
@@ -8,7 +11,7 @@ const bookService = new BookService();
  * GET /api/books/enrich
  * Check how many books need enrichment
  */
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await auth();
 
@@ -16,7 +19,32 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Apply rate limiting
+    const identifier = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(identifier, 'api');
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Too many requests. Please try again later.',
+          retryAfter: rateLimitResult.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimitResult.retryAfter),
+            'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
+          },
+        }
+      );
+    }
+
     const booksNeedingEnrichment = await bookService.getBooksNeedingEnrichment(100);
+
+    logger.info('Books needing enrichment checked', {
+      userId: session.user.id,
+      count: booksNeedingEnrichment.length,
+    });
 
     return NextResponse.json({
       count: booksNeedingEnrichment.length,
@@ -33,11 +61,9 @@ export async function GET() {
       })),
     });
   } catch (error) {
-    console.error('GET /api/books/enrich error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    logger.error('GET /api/books/enrich error:', error as Error);
+    const apiError = handleError(error);
+    return apiError.toResponse();
   }
 }
 
@@ -53,24 +79,51 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(req.url);
-    const batchSize = parseInt(searchParams.get('batchSize') || '10');
+    // Apply bulk operation rate limiting (5 per 10 minutes)
+    const identifier = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(identifier, 'bulk');
 
-    console.log(`[Enrichment] Starting batch enrichment (batch size: ${batchSize})`);
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Too many bulk enrichment requests. Please try again later.',
+          retryAfter: rateLimitResult.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimitResult.retryAfter),
+            'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
+          },
+        }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const batchSize = Math.min(
+      parseInt(searchParams.get('batchSize') || '10'),
+      50 // Max batch size
+    );
+
+    logger.info('Starting batch enrichment', {
+      userId: session.user.id,
+      batchSize,
+    });
 
     const result = await bookService.enrichBooksInBatch(batchSize);
 
-    console.log(`[Enrichment] Batch complete:`, result);
+    logger.info('Batch enrichment complete', {
+      userId: session.user.id,
+      ...result,
+    });
 
     return NextResponse.json({
       success: true,
       ...result,
     });
   } catch (error) {
-    console.error('POST /api/books/enrich error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    logger.error('POST /api/books/enrich error:', error as Error);
+    const apiError = handleError(error);
+    return apiError.toResponse();
   }
 }

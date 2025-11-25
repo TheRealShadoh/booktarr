@@ -96,14 +96,23 @@ covers/
 start-hotfix-*.sh
 
 # Local development scripts & files
-start.sh
+# start.sh - keep this file
 start.bat
 start-dev.sh
-stop.sh
+# stop.sh - keep this file
 stop.bat
 LOCAL_DEVELOPMENT.md
 LOCAL_SETUP_COMPLETE.md
 QUICKSTART.md
 
 # Docker development
-docker/
+# docker/ - keep this directory
+temp-import.csv
+check-*.js
+check-*.ts
+direct-import.ts
+import-csv.js
+upload-csv.mjs
+fix-*.py
+update-*.py
+scripts/maintenance/

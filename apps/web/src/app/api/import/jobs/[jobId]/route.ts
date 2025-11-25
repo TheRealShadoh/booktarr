@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { importJobManager } from '@/lib/services/import-job-manager';
+import { logger } from '@/lib/logger';
 
 export async function POST(
   req: Request,
@@ -58,7 +59,7 @@ export async function POST(
       return NextResponse.json({ error: message }, { status: 400 });
     }
   } catch (error) {
-    console.error('POST /api/import/jobs/[jobId] error:', error);
+    logger.error('POST /api/import/jobs/[jobId] error:', error as Error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -105,7 +106,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Could not delete job' }, { status: 400 });
     }
   } catch (error) {
-    console.error('DELETE /api/import/jobs/[jobId] error:', error);
+    logger.error('DELETE /api/import/jobs/[jobId] error:', error as Error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

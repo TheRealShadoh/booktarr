@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { BookService } from '@/lib/services/books';
+import { bookSearchParamsSchema, createBookSchema } from '@/lib/validators/book';
+import { handleError } from '@/lib/api-error';
+import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
 
 const bookService = new BookService();
 
@@ -12,51 +16,69 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(req.url);
-    const status = searchParams.get('status') || undefined;
-    const search = searchParams.get('search') || undefined;
-    const author = searchParams.get('author') || undefined;
-    const readingStatus = searchParams.get('readingStatus') || undefined;
-    const format = searchParams.get('format') || undefined;
-    const minRating = searchParams.get('minRating')
-      ? parseFloat(searchParams.get('minRating')!)
-      : undefined;
-    const yearMin = searchParams.get('yearMin')
-      ? parseInt(searchParams.get('yearMin')!, 10)
-      : undefined;
-    const yearMax = searchParams.get('yearMax')
-      ? parseInt(searchParams.get('yearMax')!, 10)
-      : undefined;
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    // Apply rate limiting
+    const identifier = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(identifier, 'api');
 
-    const result = await bookService.getUserBooks(session.user.id, {
-      status,
-      search,
-      author,
-      readingStatus,
-      format,
-      minRating,
-      yearMin,
-      yearMax,
-      limit,
-      offset,
-    });
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Too many requests. Please try again later.',
+          retryAfter: rateLimitResult.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimitResult.retryAfter),
+            'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
+          },
+        }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+
+    // Convert search params to object and validate
+    const rawParams = {
+      status: searchParams.get('status') || undefined,
+      search: searchParams.get('search') || undefined,
+      author: searchParams.get('author') || undefined,
+      readingStatus: searchParams.get('readingStatus') || undefined,
+      format: searchParams.get('format') || undefined,
+      minRating: searchParams.get('minRating')
+        ? parseFloat(searchParams.get('minRating')!)
+        : undefined,
+      yearMin: searchParams.get('yearMin')
+        ? parseInt(searchParams.get('yearMin')!, 10)
+        : undefined,
+      yearMax: searchParams.get('yearMax')
+        ? parseInt(searchParams.get('yearMax')!, 10)
+        : undefined,
+      limit: searchParams.get('limit')
+        ? parseInt(searchParams.get('limit')!)
+        : undefined,
+      offset: searchParams.get('offset')
+        ? parseInt(searchParams.get('offset')!)
+        : undefined,
+    };
+
+    // Validate with Zod (will use defaults)
+    const validatedParams = bookSearchParamsSchema.parse(rawParams);
+
+    const result = await bookService.getUserBooks(session.user.id, validatedParams);
 
     return NextResponse.json({
       books: result.books,
       pagination: {
-        limit,
-        offset,
+        limit: validatedParams.limit,
+        offset: validatedParams.offset,
         total: result.total,
       },
     });
   } catch (error) {
-    console.error('GET /api/books error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    logger.error('GET /api/books error:', error as Error);
+    const apiError = handleError(error);
+    return apiError.toResponse();
   }
 }
 
@@ -68,19 +90,49 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Apply rate limiting
+    const identifier = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(identifier, 'api');
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Too many requests. Please try again later.',
+          retryAfter: rateLimitResult.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimitResult.retryAfter),
+            'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
+          },
+        }
+      );
+    }
+
     const body = await req.json();
 
+    // Validate with Zod
+    const validatedData = createBookSchema.parse(body);
+
+    // Exclude edition field as it has a different structure in the service
+    const { edition, ...bookData } = validatedData;
+
     const result = await bookService.createBook({
-      ...body,
+      ...bookData,
       userId: session.user.id,
+    });
+
+    logger.info('Book created', {
+      userId: session.user.id,
+      bookId: result.book.id,
+      title: result.book.title,
     });
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    console.error('POST /api/books error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
-      { status: 500 }
-    );
+    logger.error('POST /api/books error:', error as Error);
+    const apiError = handleError(error);
+    return apiError.toResponse();
   }
 }

@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { MetadataService } from '@/lib/services/metadata';
+import { bookSearchSchema } from '@/lib/validators/book';
+import { handleError } from '@/lib/api-error';
+import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
 
 const metadataService = new MetadataService();
 
@@ -12,30 +16,56 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { isbn, title, author } = await req.json();
+    // Apply stricter rate limiting for search (20 per minute)
+    const identifier = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(identifier, 'search');
 
-    if (!isbn && !title) {
+    if (!rateLimitResult.success) {
       return NextResponse.json(
-        { error: 'Either ISBN or title is required' },
-        { status: 400 }
+        {
+          error: 'Too many search requests. Please try again later.',
+          retryAfter: rateLimitResult.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimitResult.retryAfter),
+            'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
+          },
+        }
       );
     }
 
-    let results;
+    const body = await req.json();
 
-    if (isbn) {
-      const metadata = await metadataService.enrichByISBN(isbn);
+    // Validate with Zod
+    const validatedData = bookSearchSchema.parse(body);
+
+    let results: any[] = [];
+
+    if (validatedData.isbn) {
+      const metadata = await metadataService.enrichByISBN(validatedData.isbn);
       results = metadata ? [metadata] : [];
+    } else if (validatedData.title) {
+      results = await metadataService.searchByTitle(
+        validatedData.title,
+        validatedData.author
+      );
     } else {
-      results = await metadataService.searchByTitle(title, author);
+      results = [];
     }
+
+    logger.info('Book search completed', {
+      userId: session.user.id,
+      isbn: validatedData.isbn,
+      title: validatedData.title,
+      resultsCount: results.length,
+    });
 
     return NextResponse.json({ results });
   } catch (error) {
-    console.error('POST /api/books/search error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    logger.error('POST /api/books/search error:', error as Error);
+    const apiError = handleError(error);
+    return apiError.toResponse();
   }
 }
