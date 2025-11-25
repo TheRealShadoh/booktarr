@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   // Vercel doesn't support standalone mode and needs default output
   ...(process.env.VERCEL ? {} : { output: 'standalone' }),
 
+  // Transpile workspace packages for proper bundling
+  transpilePackages: ['@booktarr/database'],
+
   // Enable compression
   compress: true,
 
