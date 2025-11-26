@@ -2,12 +2,9 @@ import { NextResponse } from 'next/server';
 import { hash } from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 
-// Check database configuration before importing database modules
-const hasDatabase = !!process.env.DATABASE_URL;
-
 export async function POST(req: Request) {
-  // Check if database is configured
-  if (!hasDatabase) {
+  // Check if database is configured at runtime
+  if (!process.env.DATABASE_URL) {
     return NextResponse.json(
       {
         error: 'Database not configured. Please set DATABASE_URL environment variable.',
