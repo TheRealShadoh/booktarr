@@ -48,8 +48,20 @@ export default function RegisterPage() {
       if (!response.ok) {
         if (data.setupRequired) {
           setError('Database not configured. Please contact the administrator to set up the application.');
+        } else if (data.error) {
+          // Handle structured error response { error: { code, message, details } }
+          if (typeof data.error === 'object' && data.error.message) {
+            // If there are validation details, show the first issue
+            if (data.error.details?.issues?.length > 0) {
+              setError(data.error.details.issues[0].message);
+            } else {
+              setError(data.error.message);
+            }
+          } else {
+            setError(String(data.error));
+          }
         } else {
-          setError(data.error || 'Registration failed');
+          setError('Registration failed');
         }
         setLoading(false);
         return;
