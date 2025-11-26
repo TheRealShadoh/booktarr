@@ -28,10 +28,12 @@ function initializeDb() {
   });
 
   // Create PostgreSQL connection with production-ready settings
+  // Neon requires SSL, and connection pooler has specific requirements
   clientInstance = postgres(process.env.DATABASE_URL, {
-    max: parseInt(process.env.DB_POOL_SIZE || '20', 10),
-    idle_timeout: 30,
-    connect_timeout: 15,
+    max: parseInt(process.env.DB_POOL_SIZE || '10', 10),
+    idle_timeout: 20,
+    connect_timeout: 30,
+    ssl: 'require',
     onnotice: (notice) => {
       if (process.env.NODE_ENV === 'development') {
         logger.debug('PostgreSQL notice', { notice: notice.message });
