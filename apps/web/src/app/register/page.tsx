@@ -46,7 +46,11 @@ export default function RegisterPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || 'Registration failed');
+        if (data.setupRequired) {
+          setError('Database not configured. Please contact the administrator to set up the application.');
+        } else {
+          setError(data.error || 'Registration failed');
+        }
         setLoading(false);
         return;
       }

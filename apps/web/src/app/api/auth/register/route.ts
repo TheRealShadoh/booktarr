@@ -1,15 +1,31 @@
 import { NextResponse } from 'next/server';
 import { hash } from 'bcryptjs';
-import { db } from '@/lib/db';
-import { users } from '@booktarr/database';
 import { eq } from 'drizzle-orm';
-import { registerSchema } from '@/lib/validators/auth';
-import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
-import { handleError } from '@/lib/api-error';
-import { logger } from '@/lib/logger';
+
+// Check database configuration before importing database modules
+const hasDatabase = !!process.env.DATABASE_URL;
 
 export async function POST(req: Request) {
+  // Check if database is configured
+  if (!hasDatabase) {
+    return NextResponse.json(
+      {
+        error: 'Database not configured. Please set DATABASE_URL environment variable.',
+        setupRequired: true,
+      },
+      { status: 503 }
+    );
+  }
+
   try {
+    // Dynamic imports to avoid errors when DATABASE_URL is not set
+    const { db } = await import('@/lib/db');
+    const { users } = await import('@booktarr/database');
+    const { registerSchema } = await import('@/lib/validators/auth');
+    const { rateLimit, getClientIdentifier } = await import('@/lib/rate-limit');
+    const { handleError } = await import('@/lib/api-error');
+    const { logger } = await import('@/lib/logger');
+
     // Apply rate limiting for registration (3 per hour)
     const identifier = getClientIdentifier(req);
     const rateLimitResult = await rateLimit(identifier, 'register');
@@ -98,6 +114,9 @@ export async function POST(req: Request) {
       }
     );
   } catch (error) {
+    // Dynamic import for error handling
+    const { handleError } = await import('@/lib/api-error');
+    const { logger } = await import('@/lib/logger');
     logger.error('Registration error:', error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();

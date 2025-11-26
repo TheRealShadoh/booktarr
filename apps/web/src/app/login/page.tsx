@@ -17,6 +17,7 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [setupRequired, setSetupRequired] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,10 +32,19 @@ function LoginForm() {
       });
 
       if (result?.error) {
-        setError('Invalid email or password');
-      } else {
+        if (result.error === 'CredentialsSignin') {
+          setError('Invalid email or password');
+        } else if (result.error.includes('Configuration')) {
+          setSetupRequired(true);
+          setError('Database not configured. Please contact administrator.');
+        } else {
+          setError(result.error);
+        }
+      } else if (result?.ok) {
         router.push(callbackUrl);
         router.refresh();
+      } else {
+        setError('Sign in failed. Please check your credentials.');
       }
     } catch (err) {
       setError('An error occurred. Please try again.');
