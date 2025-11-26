@@ -1,5 +1,17 @@
 import { NextResponse } from 'next/server';
 
+// Force dynamic to ensure runtime execution
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+// GET handler returns method info (for debugging)
+export async function GET() {
+  return NextResponse.json(
+    { message: 'Use POST to register', methods: ['POST'] },
+    { status: 200 }
+  );
+}
+
 export async function POST(req: Request) {
   // Check if database is configured at runtime
   if (!process.env.DATABASE_URL) {
