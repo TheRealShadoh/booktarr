@@ -2,21 +2,6 @@ import { NextAuthConfig } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import GitHubProvider from 'next-auth/providers/github';
-import { compare } from 'bcryptjs';
-import { eq } from 'drizzle-orm';
-
-// Lazy import database to avoid errors when DATABASE_URL is not set
-const getDb = async () => {
-  if (!process.env.DATABASE_URL) return null;
-  const { db } = await import('../db');
-  return db;
-};
-
-const getUsers = async () => {
-  if (!process.env.DATABASE_URL) return null;
-  const { users } = await import('@booktarr/database');
-  return users;
-};
 
 export const authConfig: NextAuthConfig = {
   providers: [
@@ -38,9 +23,11 @@ export const authConfig: NextAuthConfig = {
           return null;
         }
 
-        const db = await getDb();
-        const users = await getUsers();
-        if (!db || !users) return null;
+        // Dynamic imports to avoid build-time issues
+        const { compare } = await import('bcryptjs');
+        const { eq } = await import('drizzle-orm');
+        const { db } = await import('../db');
+        const { users } = await import('@booktarr/database');
 
         const user = await db.query.users.findFirst({
           where: eq(users.email, credentials.email as string),
