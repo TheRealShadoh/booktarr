@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-import { hash } from 'bcryptjs';
-import { eq } from 'drizzle-orm';
 
 export async function POST(req: Request) {
   // Check if database is configured at runtime
@@ -15,7 +13,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Dynamic imports to avoid errors when DATABASE_URL is not set
+    // Dynamic imports to avoid errors when DATABASE_URL is not set at build time
+    const { hash } = await import('bcryptjs');
+    const { eq } = await import('drizzle-orm');
     const { db } = await import('@/lib/db');
     const { users } = await import('@booktarr/database');
     const { registerSchema } = await import('@/lib/validators/auth');
