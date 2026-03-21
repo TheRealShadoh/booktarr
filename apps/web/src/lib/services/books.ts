@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { db } from '../db';
 import { books, editions, authors, bookAuthors, userBooks, readingProgress, seriesBooks, series } from '@booktarr/database';
 import { eq, and, or, like, ilike, desc, sql, isNull } from 'drizzle-orm';
@@ -184,7 +185,7 @@ export class BookService {
         }
       } catch (error) {
         // Log series detection error but don't fail book creation
-        console.error('Series detection error:', error);
+        logger.error('Series detection error:', error instanceof Error ? error : new Error(String(error)));
       }
     }
 
@@ -564,7 +565,7 @@ export class BookService {
       });
 
       if (!edition || (!edition.isbn13 && !edition.isbn10)) {
-        console.log(`[Enrichment] No ISBN found for book ${bookId}`);
+        logger.info(`[Enrichment] No ISBN found for book ${bookId}`);
         return false;
       }
 
@@ -574,7 +575,7 @@ export class BookService {
       const metadata = await this.metadataService.enrichByISBN(isbn);
 
       if (!metadata) {
-        console.log(`[Enrichment] No metadata found for ISBN ${isbn}`);
+        logger.info(`[Enrichment] No metadata found for ISBN ${isbn}`);
         return false;
       }
 
@@ -602,10 +603,10 @@ export class BookService {
           .where(eq(editions.id, edition.id));
       }
 
-      console.log(`[Enrichment] Successfully enriched book ${bookId} (${book.title})`);
+      logger.info(`[Enrichment] Successfully enriched book ${bookId} (${book.title})`);
       return true;
     } catch (error) {
-      console.error(`[Enrichment] Error enriching book ${bookId}:`, error);
+      logger.error(`[Enrichment] Error enriching book ${bookId}:`, error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }

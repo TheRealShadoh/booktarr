@@ -1,3 +1,5 @@
+import { logger } from '@/lib/logger';
+
 interface AniListMedia {
   id: number;
   title: {
@@ -100,7 +102,7 @@ export class AniListClient {
         this.parseMedia(media)
       );
     } catch (error) {
-      console.error('AniList search error:', error);
+      logger.error('AniList search error:', error instanceof Error ? error : new Error(String(error)));
       return [];
     }
   }
@@ -161,7 +163,7 @@ export class AniListClient {
 
       return this.parseMedia(data.data.Media);
     } catch (error) {
-      console.error('AniList get series error:', error);
+      logger.error('AniList get series error:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }

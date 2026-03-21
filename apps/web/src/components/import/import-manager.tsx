@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
@@ -41,7 +42,7 @@ export function ImportManager() {
         setJobs(data.jobs || []);
       }
     } catch (error) {
-      console.error('Error fetching jobs:', error);
+      logger.error('Error fetching jobs:', error instanceof Error ? error : new Error(String(error)));
     } finally {
       setLoading(false);
     }
@@ -79,7 +80,7 @@ export function ImportManager() {
         });
       }
     } catch (error) {
-      console.error('Error performing action:', error);
+      logger.error('Error performing action:', error instanceof Error ? error : new Error(String(error)));
       toast({
         title: 'Error',
         description: 'Failed to perform action',
@@ -109,7 +110,7 @@ export function ImportManager() {
         });
       }
     } catch (error) {
-      console.error('Error deleting job:', error);
+      logger.error('Error deleting job:', error instanceof Error ? error : new Error(String(error)));
       toast({
         title: 'Error',
         description: 'Failed to delete import',
@@ -120,12 +121,12 @@ export function ImportManager() {
 
   const getStatusBadge = (status: string) => {
     const statusColors = {
-      pending: 'bg-gray-100 text-gray-800',
-      running: 'bg-blue-100 text-blue-800',
-      paused: 'bg-yellow-100 text-yellow-800',
-      cancelled: 'bg-red-100 text-red-800',
-      completed: 'bg-green-100 text-green-800',
-      failed: 'bg-red-100 text-red-800',
+      pending: 'bg-muted text-muted-foreground',
+      running: 'bg-blue-500/10 text-blue-500',
+      paused: 'bg-yellow-500/10 text-yellow-500',
+      cancelled: 'bg-destructive/10 text-destructive',
+      completed: 'bg-green-500/10 text-green-500',
+      failed: 'bg-destructive/10 text-destructive',
     };
 
     return (

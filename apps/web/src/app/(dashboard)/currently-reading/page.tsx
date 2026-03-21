@@ -5,6 +5,7 @@ import { BookCard } from '@/components/books/book-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BookOpen, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import type { BookWithRelations, ReadingStats } from '@/types/api';
 
 export default function CurrentlyReadingPage() {
   const { data: booksData, isLoading: booksLoading } = useQuery({
@@ -12,7 +13,7 @@ export default function CurrentlyReadingPage() {
     queryFn: async () => {
       const response = await fetch('/api/reading/currently-reading');
       if (!response.ok) throw new Error('Failed to fetch currently reading books');
-      return response.json();
+      return response.json() as Promise<BookWithRelations[]>;
     },
   });
 
@@ -21,7 +22,7 @@ export default function CurrentlyReadingPage() {
     queryFn: async () => {
       const response = await fetch('/api/reading/stats');
       if (!response.ok) throw new Error('Failed to fetch reading stats');
-      return response.json();
+      return response.json() as Promise<ReadingStats>;
     },
   });
 
@@ -119,9 +120,9 @@ export default function CurrentlyReadingPage() {
 
         {!isLoading && booksData && booksData.length > 0 && (
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {booksData.map((book: any) => (
+            {booksData.map((book: BookWithRelations) => (
               <BookCard
-                key={book.readingProgress.id}
+                key={book.readingProgress?.id ?? book.userBook.id}
                 book={book}
               />
             ))}

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { NextAuthConfig } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
@@ -15,7 +16,7 @@ export const authConfig: NextAuthConfig = {
       async authorize(credentials) {
         // Check database availability at runtime
         if (!process.env.DATABASE_URL) {
-          console.error('DATABASE_URL not configured');
+          logger.error('DATABASE_URL not configured', new Error('Missing DATABASE_URL environment variable'));
           return null;
         }
 
@@ -52,15 +53,23 @@ export const authConfig: NextAuthConfig = {
         };
       },
     }),
-    // OAuth providers - configured if env vars exist at runtime
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || 'not-configured',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'not-configured',
-    }),
-    GitHubProvider({
-      clientId: process.env.GITHUB_CLIENT_ID || 'not-configured',
-      clientSecret: process.env.GITHUB_CLIENT_SECRET || 'not-configured',
-    }),
+    // OAuth providers - only included when env vars are present
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [
+          GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          }),
+        ]
+      : []),
+    ...(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
+      ? [
+          GitHubProvider({
+            clientId: process.env.GITHUB_CLIENT_ID,
+            clientSecret: process.env.GITHUB_CLIENT_SECRET,
+          }),
+        ]
+      : []),
   ],
   session: {
     strategy: 'jwt',

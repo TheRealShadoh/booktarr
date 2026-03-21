@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { logger } from '@/lib/logger';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
@@ -84,7 +85,7 @@ export function CSVImportDialog({ open, onOpenChange }: CSVImportDialogProps) {
           }
         }
       } catch (error) {
-        console.error('Error polling job status:', error);
+        logger.error('Error polling job status:', error instanceof Error ? error : new Error(String(error)));
       }
     }, 1000); // Poll every second
 

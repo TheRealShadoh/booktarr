@@ -6,6 +6,7 @@
  * and identification of missing volumes.
  */
 
+import { logger } from '@/lib/logger';
 import { db } from '../db';
 import { series, seriesVolumes, seriesBooks, books } from '@booktarr/database';
 import { eq, and, sql } from 'drizzle-orm';
@@ -22,13 +23,13 @@ export class VolumeReconciliationService {
     });
 
     if (!seriesData) {
-      console.log(`[Volume Reconciliation] Series ${seriesId} not found, skipping`);
+      logger.info(`[Volume Reconciliation] Series ${seriesId} not found, skipping`);
       return;
     }
 
     // If totalVolumes is set, create entries for all expected volumes
     if (seriesData.totalVolumes && seriesData.totalVolumes > 0) {
-      console.log(`[Volume Reconciliation] Populating ${seriesData.totalVolumes} expected volumes for "${seriesData.name}"`);
+      logger.info(`[Volume Reconciliation] Populating expected volumes for "${seriesData.name}"`, { totalVolumes: seriesData.totalVolumes });
 
       // Create volume entries for 1 to totalVolumes
       for (let volumeNum = 1; volumeNum <= seriesData.totalVolumes; volumeNum++) {
@@ -48,11 +49,11 @@ export class VolumeReconciliationService {
             released: true, // Assume released if within totalVolumes
             announced: false,
           });
-          console.log(`[Volume Reconciliation] Created volume entry ${volumeNum} for series ${seriesData.name}`);
+          logger.info(`[Volume Reconciliation] Created volume entry ${volumeNum} for series ${seriesData.name}`);
         }
       }
     } else {
-      console.log(`[Volume Reconciliation] Series "${seriesData.name}" has no totalVolumes set, will populate from owned books`);
+      logger.info(`[Volume Reconciliation] Series "${seriesData.name}" has no totalVolumes set, will populate from owned books`);
     }
 
     // Always link owned books to their volume entries (creates entries if they don't exist)
@@ -74,7 +75,7 @@ export class VolumeReconciliationService {
       .innerJoin(books, eq(seriesBooks.bookId, books.id))
       .where(eq(seriesBooks.seriesId, seriesId));
 
-    console.log(`[Volume Reconciliation] Linking ${ownedBooks.length} owned books to volume entries`);
+    logger.info(`[Volume Reconciliation] Linking owned books to volume entries`, { count: ownedBooks.length });
 
     for (const { seriesBook, book } of ownedBooks) {
       // Find or create the corresponding seriesVolumes entry
@@ -96,7 +97,7 @@ export class VolumeReconciliationService {
           })
           .where(eq(seriesVolumes.id, volumeEntry.id));
 
-        console.log(`[Volume Reconciliation] Linked book "${book.title}" to volume ${seriesBook.volumeNumber}`);
+        logger.info(`[Volume Reconciliation] Linked book "${book.title}" to volume ${seriesBook.volumeNumber}`);
       } else {
         // Create new volume entry if it doesn't exist (for series without totalVolumes set)
         await db.insert(seriesVolumes).values({
@@ -108,7 +109,7 @@ export class VolumeReconciliationService {
           announced: false,
         });
 
-        console.log(`[Volume Reconciliation] Created and linked volume ${seriesBook.volumeNumber} for "${book.title}"`);
+        logger.info(`[Volume Reconciliation] Created and linked volume ${seriesBook.volumeNumber} for "${book.title}"`);
       }
     }
   }
@@ -132,7 +133,7 @@ export class VolumeReconciliationService {
     });
 
     if (!book) {
-      console.error(`[Volume Reconciliation] Book ${bookId} not found`);
+      logger.error(`[Volume Reconciliation] Book ${bookId} not found`, new Error('Book not found'), { bookId });
       return;
     }
 
@@ -147,7 +148,7 @@ export class VolumeReconciliationService {
         })
         .where(eq(seriesVolumes.id, volumeEntry.id));
 
-      console.log(`[Volume Reconciliation] Updated volume ${volumeNumber} with book "${book.title}"`);
+      logger.info(`[Volume Reconciliation] Updated volume ${volumeNumber} with book "${book.title}"`);
     } else {
       // Create new entry
       await db.insert(seriesVolumes).values({
@@ -159,7 +160,7 @@ export class VolumeReconciliationService {
         announced: false,
       });
 
-      console.log(`[Volume Reconciliation] Created volume ${volumeNumber} with book "${book.title}"`);
+      logger.info(`[Volume Reconciliation] Created volume ${volumeNumber} with book "${book.title}"`);
     }
   }
 
@@ -178,12 +179,12 @@ export class VolumeReconciliationService {
         await this.populateExpectedVolumes(seriesData.id);
         processed++;
       } catch (error) {
-        console.error(`[Volume Reconciliation] Error reconciling series "${seriesData.name}":`, error);
+        logger.error(`[Volume Reconciliation] Error reconciling series "${seriesData.name}":`, error instanceof Error ? error : new Error(String(error)));
         errors++;
       }
     }
 
-    console.log(`[Volume Reconciliation] Reconciliation complete: ${processed} processed, ${errors} errors`);
+    logger.info('[Volume Reconciliation] Reconciliation complete', { processed, errors });
     return { processed, errors };
   }
 }

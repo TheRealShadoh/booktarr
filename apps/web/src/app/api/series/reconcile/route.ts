@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { auth } from '@/lib/auth';
 import { VolumeReconciliationService } from '@/lib/services/volume-reconciliation';
+import { handleError, Errors } from '@/lib/api-error';
+import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
 
 /**
  * POST /api/series/reconcile
@@ -10,17 +12,23 @@ import { VolumeReconciliationService } from '@/lib/services/volume-reconciliatio
  */
 export async function POST(req: Request) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const clientId = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(clientId, 'bulk');
+    if (!rateLimitResult.success) {
+      throw Errors.rateLimitExceeded(rateLimitResult.retryAfter);
     }
 
-    console.log('[Series Reconciliation] Starting reconciliation of all series volumes...');
+    const session = await auth();
+    if (!session?.user) {
+      throw Errors.unauthorized();
+    }
+
+    logger.info('[Series Reconciliation] Starting reconciliation of all series volumes');
 
     const reconciliationService = new VolumeReconciliationService();
     const result = await reconciliationService.reconcileAllSeries();
 
-    console.log(`[Series Reconciliation] Complete: ${result.processed} series processed, ${result.errors} errors`);
+    logger.info('[Series Reconciliation] Complete', { processed: result.processed, errors: result.errors });
 
     return NextResponse.json({
       success: true,
@@ -28,13 +36,6 @@ export async function POST(req: Request) {
       ...result,
     });
   } catch (error) {
-    logger.error('[Series Reconciliation] Error:', error as Error);
-    return NextResponse.json(
-      {
-        error: 'Failed to reconcile series volumes',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    return handleError(error).toResponse();
   }
 }

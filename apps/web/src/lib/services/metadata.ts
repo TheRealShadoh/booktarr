@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { db } from '../db';
 import { metadataCache } from '@booktarr/database';
 import { eq, and, gt } from 'drizzle-orm';
@@ -111,7 +112,7 @@ export class MetadataService {
 
       return cached.data as BookMetadata | BookMetadata[];
     } catch (error) {
-      console.error('Cache read error:', error);
+      logger.error('Cache read error:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -145,7 +146,7 @@ export class MetadataService {
           },
         });
     } catch (error) {
-      console.error('Cache write error:', error);
+      logger.error('Cache write error:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -40,7 +41,7 @@ export default function SettingsPage() {
         setEnrichmentStatus({ count: data.count });
       }
     } catch (error) {
-      console.error('Error checking enrichment status:', error);
+      logger.error('Error checking enrichment status:', error instanceof Error ? error : new Error(String(error)));
     }
   };
 
@@ -76,7 +77,7 @@ export default function SettingsPage() {
       // Invalidate book queries to refresh UI
       queryClient.invalidateQueries({ queryKey: ['books'] });
     } catch (error) {
-      console.error('Error enriching books:', error);
+      logger.error('Error enriching books:', error instanceof Error ? error : new Error(String(error)));
       toast({
         title: 'Error',
         description: 'Failed to enrich books. Please try again.',
@@ -120,7 +121,7 @@ export default function SettingsPage() {
       setDeleteConfirmText('');
       setShowDeleteDialog(false);
     } catch (error) {
-      console.error('Error clearing books:', error);
+      logger.error('Error clearing books:', error instanceof Error ? error : new Error(String(error)));
       toast({
         title: 'Error',
         description: 'Failed to clear books. Please try again.',

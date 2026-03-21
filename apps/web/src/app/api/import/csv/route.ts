@@ -3,38 +3,49 @@ import { logger } from '@/lib/logger';
 import { auth } from '@/lib/auth';
 import { CSVImportService } from '@/lib/services/csv-import';
 import { importJobManager } from '@/lib/services/import-job-manager';
+import { handleError, Errors } from '@/lib/api-error';
+import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
 
 const csvImportService = new CSVImportService();
 
+const ALLOWED_FORMATS = ['handylib', 'generic'] as const;
+
 export async function POST(req: Request) {
   try {
-    const session = await auth();
+    const clientId = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(clientId, 'bulk');
+    if (!rateLimitResult.success) {
+      throw Errors.rateLimitExceeded(rateLimitResult.retryAfter);
+    }
 
+    const session = await auth();
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      throw Errors.unauthorized();
     }
 
     const formData = await req.formData();
-    const file = formData.get('file') as File;
-    const format = formData.get('format') as string || 'handylib';
+    const file = formData.get('file');
+    const rawFormat = formData.get('format');
+    const format = (typeof rawFormat === 'string' && rawFormat.length > 0) ? rawFormat : 'handylib';
     const skipDuplicates = formData.get('skipDuplicates') === 'true';
     const enrichMetadata = formData.get('enrichMetadata') === 'true';
 
-    console.log('[CSV Import] Starting import:', { format, skipDuplicates, enrichMetadata, userId: session.user.id });
-
-    if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    if (!file || !(file instanceof File)) {
+      throw Errors.badRequest('No file provided');
     }
 
     if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
-      return NextResponse.json(
-        { error: 'File must be a CSV' },
-        { status: 400 }
-      );
+      throw Errors.badRequest('File must be a CSV');
     }
 
+    if (!ALLOWED_FORMATS.includes(format as typeof ALLOWED_FORMATS[number])) {
+      throw Errors.badRequest(`Invalid format. Must be one of: ${ALLOWED_FORMATS.join(', ')}`);
+    }
+
+    logger.info('[CSV Import] Starting import', { format, skipDuplicates, enrichMetadata, userId: session.user.id });
+
     const csvContent = await file.text();
-    console.log('[CSV Import] File read, size:', csvContent.length, 'bytes');
+    logger.info('[CSV Import] File read', { sizeBytes: csvContent.length });
 
     // Parse CSV to get row count
     const rows = csvImportService.parseCSV(csvContent);
@@ -43,7 +54,7 @@ export async function POST(req: Request) {
     // Create a job for tracking
     const job = importJobManager.createJob(session.user.id, totalRows);
 
-    console.log('[CSV Import] Created job:', job.id, 'with', totalRows, 'rows');
+    logger.info('[CSV Import] Created job', { jobId: job.id, totalRows });
 
     // Start import in background (don't await)
     const runImport = async () => {
@@ -67,8 +78,9 @@ export async function POST(req: Request) {
           );
         } else {
           // Generic CSV with field mapping
+          const fieldMappingRaw = formData.get('fieldMapping');
           const fieldMapping = JSON.parse(
-            (formData.get('fieldMapping') as string) || '{}'
+            (typeof fieldMappingRaw === 'string' ? fieldMappingRaw : null) ?? '{}'
           );
 
           result = await csvImportService.importGenericCSV(
@@ -90,11 +102,7 @@ export async function POST(req: Request) {
         // Mark job as complete
         importJobManager.completeJob(job.id);
 
-        console.log('[CSV Import] Job completed:', {
-          jobId: job.id,
-          success: result.success,
-          failed: result.failed,
-        });
+        logger.info('[CSV Import] Job completed', { jobId: job.id, success: result.success, failed: result.failed });
       } catch (error) {
         logger.error('[CSV Import] Job failed:', error as Error);
         importJobManager.failJob(
@@ -114,12 +122,6 @@ export async function POST(req: Request) {
       message: 'Import started in background',
     });
   } catch (error) {
-    logger.error('[CSV Import] Fatal error:', error as Error);
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Import failed',
-      },
-      { status: 500 }
-    );
+    return handleError(error).toResponse();
   }
 }

@@ -1,38 +1,38 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { BookService } from '@/lib/services/books';
-import { logger } from '@/lib/logger';
+import { handleError, Errors } from '@/lib/api-error';
+import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
 
 const bookService = new BookService();
+
+const editionStatusSchema = z.object({
+  editionId: z.string().min(1, 'Edition ID is required'),
+  status: z.enum(['owned', 'wanted', 'missing'], {
+    message: 'Invalid status. Must be: owned, wanted, or missing',
+  }),
+});
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const clientId = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(clientId, 'api');
+    if (!rateLimitResult.success) {
+      throw Errors.rateLimitExceeded(rateLimitResult.retryAfter);
+    }
+
     const session = await auth();
-
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      throw Errors.unauthorized();
     }
 
-    const { id: bookId } = await params;
+    await params; // ensure params are resolved (bookId available via route context)
     const body = await req.json();
-    const { editionId, status } = body;
-
-    if (!editionId) {
-      return NextResponse.json(
-        { error: 'Edition ID is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!['owned', 'wanted', 'missing'].includes(status)) {
-      return NextResponse.json(
-        { error: 'Invalid status. Must be: owned, wanted, or missing' },
-        { status: 400 }
-      );
-    }
+    const { editionId, status } = editionStatusSchema.parse(body);
 
     const userBook = await bookService.addEditionToCollection(
       session.user.id,
@@ -42,11 +42,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, userBook }, { status: 201 });
   } catch (error) {
-    logger.error('POST /api/books/[id]/editions error:', error as Error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
-      { status: 500 }
-    );
+    return handleError(error).toResponse();
   }
 }
 
@@ -55,29 +51,20 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const clientId = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(clientId, 'api');
+    if (!rateLimitResult.success) {
+      throw Errors.rateLimitExceeded(rateLimitResult.retryAfter);
+    }
+
     const session = await auth();
-
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      throw Errors.unauthorized();
     }
 
-    const { id: bookId } = await params;
+    await params; // ensure params are resolved (bookId available via route context)
     const body = await req.json();
-    const { editionId, status } = body;
-
-    if (!editionId) {
-      return NextResponse.json(
-        { error: 'Edition ID is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!['owned', 'wanted', 'missing'].includes(status)) {
-      return NextResponse.json(
-        { error: 'Invalid status. Must be: owned, wanted, or missing' },
-        { status: 400 }
-      );
-    }
+    const { editionId, status } = editionStatusSchema.parse(body);
 
     const userBook = await bookService.updateEditionStatus(
       session.user.id,
@@ -87,11 +74,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, userBook });
   } catch (error) {
-    logger.error('PATCH /api/books/[id]/editions error:', error as Error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
-      { status: 500 }
-    );
+    return handleError(error).toResponse();
   }
 }
 
@@ -100,31 +83,29 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const clientId = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(clientId, 'api');
+    if (!rateLimitResult.success) {
+      throw Errors.rateLimitExceeded(rateLimitResult.retryAfter);
     }
 
-    const { id: bookId } = await params;
+    const session = await auth();
+    if (!session?.user) {
+      throw Errors.unauthorized();
+    }
+
+    await params; // ensure params are resolved (bookId available via route context)
     const { searchParams } = new URL(req.url);
     const editionId = searchParams.get('editionId');
 
     if (!editionId) {
-      return NextResponse.json(
-        { error: 'Edition ID is required' },
-        { status: 400 }
-      );
+      throw Errors.badRequest('Edition ID is required');
     }
 
     await bookService.removeEditionFromCollection(session.user.id, editionId);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    logger.error('DELETE /api/books/[id]/editions error:', error as Error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
-      { status: 500 }
-    );
+    return handleError(error).toResponse();
   }
 }

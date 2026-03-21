@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { BookMetadata } from './google-books';
 
 interface OpenLibraryBook {
@@ -35,7 +36,7 @@ export class OpenLibraryClient {
       const data = await response.json();
       return this.parseBook(data, cleanISBN);
     } catch (error) {
-      console.error('OpenLibrary search error:', error);
+      logger.error('OpenLibrary search error:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -63,7 +64,7 @@ export class OpenLibraryClient {
 
       return data.docs.map((doc: OpenLibraryBook) => this.parseSearchResult(doc));
     } catch (error) {
-      console.error('OpenLibrary search error:', error);
+      logger.error('OpenLibrary search error:', error instanceof Error ? error : new Error(String(error)));
       return [];
     }
   }

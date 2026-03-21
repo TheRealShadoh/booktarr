@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { logger } from '@/lib/logger';
 import { Camera, CameraOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -72,7 +73,7 @@ export function BarcodeScanner({ onScan, onError }: BarcodeScannerProps) {
         // Real implementation would use ZXing or QuaggaJS
         return null;
       } catch (err) {
-        console.error('Barcode decode error:', err);
+        logger.error('Barcode decode error:', err instanceof Error ? err : new Error(String(err)));
         return null;
       }
     },

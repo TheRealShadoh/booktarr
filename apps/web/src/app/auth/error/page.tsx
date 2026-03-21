@@ -29,14 +29,14 @@ function ErrorContent() {
   const errorMessage = errorMessages[error] || errorMessages.Default;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-red-600">Authentication Error</CardTitle>
+          <CardTitle className="text-2xl font-bold text-destructive">Authentication Error</CardTitle>
           <CardDescription>There was a problem signing you in</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-md bg-red-50 p-4 text-sm text-red-800">
+          <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
             <p className="font-medium">Error: {error}</p>
             <p className="mt-2">{errorMessage}</p>
           </div>
@@ -62,7 +62,7 @@ function ErrorContent() {
 export default function AuthErrorPage() {
   return (
     <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold">Loading...</CardTitle>

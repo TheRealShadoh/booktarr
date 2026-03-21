@@ -1,3 +1,5 @@
+import { logger } from '@/lib/logger';
+
 interface GoogleBooksVolume {
   id: string;
   volumeInfo: {
@@ -76,7 +78,7 @@ export class GoogleBooksClient {
     // Handle rate limiting with exponential backoff
     if (response.status === 429 && retries < this.maxRetries) {
       const backoffDelay = Math.pow(2, retries) * 2000; // 2s, 4s, 8s
-      console.log(`[Google Books] Rate limited, retrying in ${backoffDelay}ms (attempt ${retries + 1}/${this.maxRetries})`);
+      logger.warn(`[Google Books] Rate limited, retrying`, { backoffDelayMs: backoffDelay, attempt: retries + 1, maxRetries: this.maxRetries });
       await new Promise(resolve => setTimeout(resolve, backoffDelay));
       return this.fetchWithRetry(url, retries + 1);
     }
@@ -107,7 +109,7 @@ export class GoogleBooksClient {
 
       return this.parseVolume(data.items[0]);
     } catch (error) {
-      console.error('Google Books search error:', error);
+      logger.error('Google Books search error:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -139,7 +141,7 @@ export class GoogleBooksClient {
 
       return data.items.map((item: GoogleBooksVolume) => this.parseVolume(item));
     } catch (error) {
-      console.error('Google Books search error:', error);
+      logger.error('Google Books search error:', error instanceof Error ? error : new Error(String(error)));
       return [];
     }
   }

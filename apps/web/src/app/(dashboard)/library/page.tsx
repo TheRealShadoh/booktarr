@@ -15,6 +15,7 @@ import {
 import { CSVImportDialog } from '@/components/import/csv-import-dialog';
 import { AddBookDialog } from '@/components/books/add-book-dialog';
 import { AdvancedSearch, SearchFilters } from '@/components/search/advanced-search';
+import type { BooksApiResponse, BookWithRelations } from '@/types/api';
 
 export default function LibraryPage() {
   const router = useRouter();
@@ -42,7 +43,7 @@ export default function LibraryPage() {
 
       const response = await fetch(`/api/books?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch books');
-      return response.json();
+      return response.json() as Promise<BooksApiResponse>;
     },
   });
 
@@ -89,7 +90,7 @@ export default function LibraryPage() {
       )}
 
       {error && (
-        <div className="rounded-md bg-red-50 p-4 text-red-800">
+        <div className="rounded-md bg-destructive/10 p-4 text-destructive">
           Failed to load books. Please try again.
         </div>
       )}
@@ -107,11 +108,11 @@ export default function LibraryPage() {
 
       {data?.books && data.books.length > 0 && (
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {data.books.map((book: unknown) => (
+          {data.books.map((book: BookWithRelations) => (
             <BookCard
-              key={(book as { userBook: { id: string } }).userBook.id}
-              book={book as Parameters<typeof BookCard>[0]['book']}
-              onClick={() => router.push(`/library/${(book as { book: { id: string } }).book.id}`)}
+              key={book.userBook.id}
+              book={book}
+              onClick={() => router.push(`/library/${book.book.id}`)}
             />
           ))}
         </div>

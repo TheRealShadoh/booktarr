@@ -1,37 +1,48 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { SeriesService } from '@/lib/services/series';
-import { logger } from '@/lib/logger';
+import { handleError, Errors } from '@/lib/api-error';
+import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
 
 const seriesService = new SeriesService();
+
+const addBookSchema = z.object({
+  bookId: z.string().uuid('bookId must be a valid UUID'),
+  volumeNumber: z.number({ message: 'volumeNumber is required' }),
+  volumeName: z.string().optional(),
+  partNumber: z.number().optional(),
+  arcName: z.string().optional(),
+});
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const clientId = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(clientId, 'api');
+    if (!rateLimitResult.success) {
+      throw Errors.rateLimitExceeded(rateLimitResult.retryAfter);
+    }
 
+    const session = await auth();
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      throw Errors.unauthorized();
     }
 
     const { id } = await params;
     const body = await req.json();
+    const validated = addBookSchema.parse(body);
 
     const seriesBook = await seriesService.addBookToSeries({
       seriesId: id,
-      ...body,
+      ...validated,
     });
 
     return NextResponse.json(seriesBook, { status: 201 });
   } catch (error) {
-    const { id } = await params;
-    logger.error(`POST /api/series/${id}/books error:`, error as Error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
-      { status: 500 }
-    );
+    return handleError(error).toResponse();
   }
 }
 
@@ -40,10 +51,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const clientId = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(clientId, 'api');
+    if (!rateLimitResult.success) {
+      throw Errors.rateLimitExceeded(rateLimitResult.retryAfter);
+    }
 
+    const session = await auth();
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      throw Errors.unauthorized();
     }
 
     const { id } = await params;
@@ -51,21 +67,13 @@ export async function DELETE(
     const bookId = searchParams.get('bookId');
 
     if (!bookId) {
-      return NextResponse.json(
-        { error: 'bookId is required' },
-        { status: 400 }
-      );
+      throw Errors.badRequest('bookId is required');
     }
 
     await seriesService.removeBookFromSeries(id, bookId);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    const { id } = await params;
-    logger.error(`DELETE /api/series/${id}/books error:`, error as Error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleError(error).toResponse();
   }
 }

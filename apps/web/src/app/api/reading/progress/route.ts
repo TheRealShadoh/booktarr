@@ -9,9 +9,11 @@ import { z } from 'zod';
 
 const readingProgressService = new ReadingProgressService();
 
+const readingStatusEnum = z.enum(['want_to_read', 'currently_reading', 'finished', 'dnf', 'on_hold']);
+
 const progressQuerySchema = z.object({
   bookId: z.string().uuid().optional(),
-  status: z.string().optional(),
+  status: readingStatusEnum.optional(),
 });
 
 /**
@@ -64,7 +66,7 @@ export async function GET(req: Request) {
     if (validatedParams.status) {
       const books = await readingProgressService.getBooksByStatus(
         session.user.id,
-        validatedParams.status as any
+        validatedParams.status
       );
       return NextResponse.json(books);
     }

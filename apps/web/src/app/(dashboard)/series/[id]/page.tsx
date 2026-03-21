@@ -213,7 +213,7 @@ export default function SeriesDetailsPage({
 
         {volumes.length > 0 && (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {volumes.map((volume: any) => (
+            {volumes.map((volume: Parameters<typeof VolumeCard>[0]['volume']) => (
               <VolumeCard
                 key={volume.volumeNumber}
                 volume={volume}

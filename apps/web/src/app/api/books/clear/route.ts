@@ -1,38 +1,35 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { BookService } from '@/lib/services/books';
-import { handleError } from '@/lib/api-error';
+import { handleError, Errors } from '@/lib/api-error';
 import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
+import { z } from 'zod';
 
 const bookService = new BookService();
+
+const clearBooksSchema = z.object({
+  confirm: z.literal('DELETE_ALL'),
+});
 
 export async function DELETE(req: Request) {
   try {
     const session = await auth();
 
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      throw Errors.unauthorized();
     }
+
+    // Require confirmation
+    const body = await req.json().catch(() => ({}));
+    clearBooksSchema.parse(body);
 
     // Apply bulk operation rate limiting (5 per 10 minutes)
     const identifier = getClientIdentifier(req);
     const rateLimitResult = await rateLimit(identifier, 'bulk');
 
     if (!rateLimitResult.success) {
-      return NextResponse.json(
-        {
-          error: 'Too many bulk operations. Please try again later.',
-          retryAfter: rateLimitResult.retryAfter,
-        },
-        {
-          status: 429,
-          headers: {
-            'Retry-After': String(rateLimitResult.retryAfter),
-            'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
-          },
-        }
-      );
+      throw Errors.rateLimitExceeded(rateLimitResult.retryAfter);
     }
 
     await bookService.clearAllBooks(session.user.id);

@@ -127,7 +127,7 @@ export default function SeriesPage() {
       )}
 
       {error && (
-        <div className="rounded-md bg-red-50 p-4 text-red-800">
+        <div className="rounded-md bg-destructive/10 p-4 text-destructive">
           Failed to load series. Please try again.
         </div>
       )}

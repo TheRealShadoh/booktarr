@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { BookService } from './books';
 import { SeriesService } from './series';
 import { SeriesParserService } from './series-parser';
@@ -33,8 +34,8 @@ export class CSVImportService {
     if (allRows.length === 0) return [];
 
     const headers = this.parseCSVLine(allRows[0]);
-    console.log('[CSV Parser] Found', allRows.length, 'rows');
-    console.log('[CSV Parser] Headers:', headers.length, 'columns', headers.slice(0, 5));
+    logger.info('[CSV Parser] Found rows', { rowCount: allRows.length });
+    logger.info('[CSV Parser] Headers found', { columnCount: headers.length, firstColumns: headers.slice(0, 5) });
     const rows: CSVRow[] = [];
 
     for (let i = 1; i < allRows.length; i++) {
@@ -47,7 +48,7 @@ export class CSVImportService {
 
       // Warn if too many columns (data issue)
       if (values.length > headers.length) {
-        console.log(`[CSV Parser] Row ${i} has extra columns: expected ${headers.length}, got ${values.length}`);
+        logger.warn(`[CSV Parser] Row ${i} has extra columns`, { expected: headers.length, got: values.length });
       }
 
       const row: CSVRow = {};
@@ -57,7 +58,7 @@ export class CSVImportService {
       rows.push(row);
     }
 
-    console.log('[CSV Parser] Parsed', rows.length, 'valid rows');
+    logger.info('[CSV Parser] Parsed valid rows', { rowCount: rows.length });
     return rows;
   }
 
@@ -157,7 +158,7 @@ export class CSVImportService {
     for (let i = 0; i < rows.length; i++) {
       // Check if job should stop (paused or cancelled)
       if (shouldStop && shouldStop()) {
-        console.log(`[CSV Import] Stopped at row ${i + 1} of ${rows.length}`);
+        logger.info(`[CSV Import] Stopped at row ${i + 1} of ${rows.length}`);
         break;
       }
 
@@ -244,23 +245,19 @@ export class CSVImportService {
               volumeName: parsedFromTitle?.volumeName || undefined,
             });
 
-            console.log(`[CSV Import] Linked "${title}" to series "${series}" as volume ${volumeNumber}`);
+            logger.info(`[CSV Import] Linked "${title}" to series "${series}" as volume ${volumeNumber}`);
           } catch (seriesError) {
             // Log series linking error but don't fail the import
-            console.error(`[CSV Import] Failed to link book to series "${series}":`, seriesError);
+            logger.error(`[CSV Import] Failed to link book to series "${series}":`, seriesError instanceof Error ? seriesError : new Error(String(seriesError)));
           }
         }
 
         result.success++;
-        console.log(`[CSV Import] Row ${i + 1}: Successfully imported "${title}" (ISBN: ${isbn || 'none'})`);
+        logger.info(`[CSV Import] Row ${i + 1}: Successfully imported "${title}"`, { isbn: isbn || 'none' });
       } catch (error) {
         result.failed++;
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        console.error(`[CSV Import] Row ${i + 1} FAILED: ${errorMessage}`, {
-          isbn,
-          title,
-          author,
-        });
+        logger.error(`[CSV Import] Row ${i + 1} FAILED: ${errorMessage}`, error instanceof Error ? error : new Error(errorMessage), { isbn, title, author });
         result.errors.push({
           row: i + 1,
           error: errorMessage,
@@ -274,7 +271,7 @@ export class CSVImportService {
       }
     }
 
-    console.log(`[CSV Import] Complete: ${result.success} successful, ${result.failed} failed`);
+    logger.info('[CSV Import] Complete', { success: result.success, failed: result.failed });
     return result;
   }
 

@@ -127,10 +127,10 @@ export default function BookDetailPage({
 
   // Find primary edition (first owned, or first overall)
   const primaryEdition =
-    editions.find((e: any) => e.userStatus === 'owned') || editions[0];
+    editions.find((e: { userStatus?: string }) => e.userStatus === 'owned') || editions[0];
 
   // Get user status from any edition
-  const userStatus = editions.find((e: any) => e.userStatus)?.userStatus;
+  const userStatus = editions.find((e: { userStatus?: string }) => e.userStatus)?.userStatus;
 
   // Get reading progress (this would come from the API in real implementation)
   const readingProgress = null; // TODO: Fetch from API

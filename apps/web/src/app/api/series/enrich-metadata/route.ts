@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { auth } from '@/lib/auth';
 import { SeriesMetadataEnrichmentService } from '@/lib/services/series-metadata-enrichment';
+import { handleError, Errors } from '@/lib/api-error';
+import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
 
 /**
  * POST /api/series/enrich-metadata
@@ -10,17 +12,23 @@ import { SeriesMetadataEnrichmentService } from '@/lib/services/series-metadata-
  */
 export async function POST(req: Request) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const clientId = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(clientId, 'bulk');
+    if (!rateLimitResult.success) {
+      throw Errors.rateLimitExceeded(rateLimitResult.retryAfter);
     }
 
-    console.log('[Series Enrichment] Starting metadata enrichment...');
+    const session = await auth();
+    if (!session?.user) {
+      throw Errors.unauthorized();
+    }
+
+    logger.info('[Series Enrichment] Starting metadata enrichment');
 
     const enrichmentService = new SeriesMetadataEnrichmentService();
     const result = await enrichmentService.enrichAllSeries();
 
-    console.log(`[Series Enrichment] Complete: ${result.updated}/${result.processed} series updated, ${result.errors} errors`);
+    logger.info('[Series Enrichment] Complete', { updated: result.updated, processed: result.processed, errors: result.errors });
 
     return NextResponse.json({
       success: true,
@@ -28,13 +36,6 @@ export async function POST(req: Request) {
       ...result,
     });
   } catch (error) {
-    logger.error('[Series Enrichment] Error:', error as Error);
-    return NextResponse.json(
-      {
-        error: 'Failed to enrich series metadata',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    return handleError(error).toResponse();
   }
 }

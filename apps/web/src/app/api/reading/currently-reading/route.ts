@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { ReadingProgressService } from '@/lib/services/reading-progress';
-import { logger } from '@/lib/logger';
+import { handleError, Errors } from '@/lib/api-error';
+import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
 
 const readingProgressService = new ReadingProgressService();
 
@@ -11,19 +12,21 @@ const readingProgressService = new ReadingProgressService();
  */
 export async function GET(req: Request) {
   try {
+    const clientId = getClientIdentifier(req);
+    const rateLimitResult = await rateLimit(clientId, 'api');
+    if (!rateLimitResult.success) {
+      throw Errors.rateLimitExceeded(rateLimitResult.retryAfter);
+    }
+
     const session = await auth();
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      throw Errors.unauthorized();
     }
 
     const books = await readingProgressService.getCurrentlyReading(session.user.id);
 
     return NextResponse.json(books);
   } catch (error) {
-    logger.error('Get currently reading error:', error as Error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to get currently reading books' },
-      { status: 500 }
-    );
+    return handleError(error).toResponse();
   }
 }

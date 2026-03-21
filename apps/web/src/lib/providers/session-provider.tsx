@@ -1,8 +1,8 @@
 'use client';
 
 import { SessionProvider as NextAuthSessionProvider } from 'next-auth/react';
-import { ReactNode } from 'react';
 
-export function SessionProvider({ children }: { children: ReactNode }) {
-  return <NextAuthSessionProvider>{children as any}</NextAuthSessionProvider>;
+export function SessionProvider({ children }: { children: React.ReactNode }) {
+  // Type assertion needed due to React type version mismatch between next-auth and app
+  return <NextAuthSessionProvider>{children as React.ReactNode}</NextAuthSessionProvider>;
 }

@@ -4,6 +4,7 @@
  * with proper rate limiting
  */
 
+import { logger } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { series } from '@booktarr/database';
 import { eq } from 'drizzle-orm';
@@ -80,7 +81,7 @@ export class SeriesMetadataEnrichmentService {
       });
 
       if (!response.ok) {
-        console.error(`[AniList] HTTP error: ${response.status}`);
+        logger.error(`[AniList] HTTP error`, new Error(`HTTP ${response.status}`), { status: response.status });
         return null;
       }
 
@@ -108,7 +109,7 @@ export class SeriesMetadataEnrichmentService {
         anilistId: media.id,
       };
     } catch (error) {
-      console.error('[AniList] Fetch error:', error);
+      logger.error('[AniList] Fetch error:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -126,7 +127,7 @@ export class SeriesMetadataEnrichmentService {
       );
 
       if (!response.ok) {
-        console.error(`[Google Books] HTTP error: ${response.status}`);
+        logger.error(`[Google Books] HTTP error`, new Error(`HTTP ${response.status}`), { status: response.status });
         return null;
       }
 
@@ -144,7 +145,7 @@ export class SeriesMetadataEnrichmentService {
         description: volumeInfo.description,
       };
     } catch (error) {
-      console.error('[Google Books] Fetch error:', error);
+      logger.error('[Google Books] Fetch error:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -158,11 +159,11 @@ export class SeriesMetadataEnrichmentService {
     });
 
     if (!seriesData) {
-      console.error(`[Enrichment] Series ${seriesId} not found`);
+      logger.error(`[Enrichment] Series ${seriesId} not found`, new Error('Series not found'), { seriesId });
       return;
     }
 
-    console.log(`[Enrichment] Fetching metadata for "${seriesData.name}"`);
+    logger.info(`[Enrichment] Fetching metadata for "${seriesData.name}"`);
 
     // Try AniList first (better for manga/light novels)
     let metadata = await this.fetchFromAniList(seriesData.name);
@@ -178,7 +179,7 @@ export class SeriesMetadataEnrichmentService {
     }
 
     if (!metadata) {
-      console.log(`[Enrichment] No metadata found for "${seriesData.name}"`);
+      logger.info(`[Enrichment] No metadata found for "${seriesData.name}"`);
       return;
     }
 
@@ -213,8 +214,8 @@ export class SeriesMetadataEnrichmentService {
       .set(updates)
       .where(eq(series.id, seriesId));
 
-    console.log(`[Enrichment] Updated "${seriesData.name}" with metadata:`, {
-      coverUrl: !!metadata.coverUrl,
+    logger.info(`[Enrichment] Updated "${seriesData.name}" with metadata`, {
+      hasCoverUrl: !!metadata.coverUrl,
       totalVolumes: metadata.totalVolumes,
       status: metadata.status,
     });
@@ -232,7 +233,7 @@ export class SeriesMetadataEnrichmentService {
       ),
     });
 
-    console.log(`[Enrichment] Found ${allSeries.length} series needing enrichment`);
+    logger.info(`[Enrichment] Found series needing enrichment`, { count: allSeries.length });
 
     let updated = 0;
     let errors = 0;
@@ -242,7 +243,7 @@ export class SeriesMetadataEnrichmentService {
         await this.enrichSeries(s.id);
         updated++;
       } catch (error) {
-        console.error(`[Enrichment] Error enriching ${s.name}:`, error);
+        logger.error(`[Enrichment] Error enriching ${s.name}:`, error instanceof Error ? error : new Error(String(error)));
         errors++;
       }
     }
