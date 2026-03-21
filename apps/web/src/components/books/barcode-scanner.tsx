@@ -11,28 +11,31 @@ interface BarcodeScannerProps {
   onError?: (error: string) => void;
 }
 
+const SCAN_TIMEOUT_MS = 30_000;
+const SCAN_INTERVAL_MS = 200; // ~5fps - enough for barcode detection
+
 /**
  * Barcode Scanner Component
  *
- * Uses device camera to scan barcodes and extract ISBN numbers.
+ * Uses device camera + @zxing/browser to scan ISBN barcodes.
  * Supports ISBN-10, ISBN-13, and EAN-13 formats.
  */
 export function BarcodeScanner({ onScan, onError }: BarcodeScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const animationFrameRef = useRef<number | undefined>(undefined);
+  const scanIntervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const [isScanning, setIsScanning] = useState(false);
+  const [isTimedOut, setIsTimedOut] = useState(false);
   const [error, setError] = useState<string>('');
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
 
   /**
    * Extract ISBN from barcode data
-   * Handles EAN-13 (which includes ISBN-13) and ISBN-10 formats
    */
   const extractISBN = (code: string): string | null => {
-    // Remove any spaces or hyphens
     const cleaned = code.replace(/[\s-]/g, '');
 
     // ISBN-13 (starts with 978 or 979)
@@ -54,91 +57,79 @@ export function BarcodeScanner({ onScan, onError }: BarcodeScannerProps) {
   };
 
   /**
-   * Decode barcode from canvas using ZXing-like pattern detection
-   * This is a simplified version - in production, use a library like @zxing/browser
-   */
-  const decodeBarcode = useCallback(
-    (canvas: HTMLCanvasElement): string | null => {
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
-
-      try {
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-        // For demo purposes, we'll use a simple pattern matching
-        // In production, integrate @zxing/browser or similar library
-        // This is where barcode decoding logic would go
-
-        // For now, return null to indicate no barcode found
-        // Real implementation would use ZXing or QuaggaJS
-        return null;
-      } catch (err) {
-        logger.error('Barcode decode error:', err instanceof Error ? err : new Error(String(err)));
-        return null;
-      }
-    },
-    []
-  );
-
-  /**
    * Stop scanning and release camera
    */
   const stopScanning = useCallback(() => {
-    // Cancel animation frame
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = undefined;
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = undefined;
     }
 
-    // Stop all video tracks
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = undefined;
+    }
+
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
 
-    // Clear video element
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
 
     setIsScanning(false);
+    setIsTimedOut(false);
   }, []);
 
   /**
-   * Scan loop - continuously capture frames and attempt to decode
+   * Start the scan loop using ZXing canvas decoding
    */
-  const scanFrame = useCallback(
-    function scan(): void {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
+  const startScanLoop = useCallback(
+    async (onFound: (isbn: string) => void) => {
+      // Dynamically import ZXing to keep initial bundle lean
+      const { BrowserMultiFormatReader } = await import('@zxing/browser');
+      const reader = new BrowserMultiFormatReader();
 
-      if (!video || !canvas || !video.readyState || video.readyState !== video.HAVE_ENOUGH_DATA) {
-        animationFrameRef.current = requestAnimationFrame(scan);
-        return;
-      }
+      scanIntervalRef.current = setInterval(() => {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        if (!video || !canvas || video.readyState < video.HAVE_ENOUGH_DATA) return;
 
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
 
-      // Draw video frame to canvas
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Draw current video frame to canvas
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
 
-      // Attempt to decode barcode
-      const code = decodeBarcode(canvas);
-
-      if (code) {
-        const isbn = extractISBN(code);
-        if (isbn) {
-          onScan(isbn);
-          stopScanning();
-          return;
+        try {
+          // Decode barcode from canvas (synchronous)
+          const result = reader.decodeFromCanvas(canvas);
+          if (result) {
+            const text = result.getText();
+            const isbn = extractISBN(text);
+            if (isbn) {
+              onFound(isbn);
+            }
+          }
+        } catch {
+          // NotFoundException is expected when no barcode is in frame
         }
-      }
+      }, SCAN_INTERVAL_MS);
 
-      // Continue scanning
-      animationFrameRef.current = requestAnimationFrame(scan);
+      // Timeout after 30 seconds
+      timeoutRef.current = setTimeout(() => {
+        setIsTimedOut(true);
+        if (scanIntervalRef.current) {
+          clearInterval(scanIntervalRef.current);
+          scanIntervalRef.current = undefined;
+        }
+      }, SCAN_TIMEOUT_MS);
     },
-    [decodeBarcode, onScan, stopScanning]
+    []
   );
 
   /**
@@ -148,11 +139,12 @@ export function BarcodeScanner({ onScan, onError }: BarcodeScannerProps) {
     try {
       setError('');
       setIsScanning(true);
+      setIsTimedOut(false);
 
-      // Request camera permission
+      // Request camera
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: 'environment', // Use back camera on mobile
+          facingMode: 'environment',
           width: { ideal: 1280 },
           height: { ideal: 720 },
         },
@@ -161,23 +153,16 @@ export function BarcodeScanner({ onScan, onError }: BarcodeScannerProps) {
       streamRef.current = stream;
       setHasPermission(true);
 
-      // Attach stream to video element
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
-
-        // Wait for video to be ready
-        videoRef.current.onloadedmetadata = () => {
-          // Set canvas size to match video
-          if (canvasRef.current && videoRef.current) {
-            canvasRef.current.width = videoRef.current.videoWidth;
-            canvasRef.current.height = videoRef.current.videoHeight;
-          }
-
-          // Start scanning loop
-          animationFrameRef.current = requestAnimationFrame(scanFrame);
-        };
+        await videoRef.current.play();
       }
+
+      // Start the scan loop
+      await startScanLoop((isbn: string) => {
+        onScan(isbn);
+        stopScanning();
+      });
     } catch (err) {
       const errorMessage =
         err instanceof Error
@@ -191,6 +176,24 @@ export function BarcodeScanner({ onScan, onError }: BarcodeScannerProps) {
       if (onError) {
         onError(errorMessage);
       }
+
+      logger.error('Barcode scanner error', err instanceof Error ? err : new Error(String(err)));
+    }
+  };
+
+  /**
+   * Retry scanning after timeout
+   */
+  const retryScan = async () => {
+    setIsTimedOut(false);
+
+    if (videoRef.current && streamRef.current) {
+      await startScanLoop((isbn: string) => {
+        onScan(isbn);
+        stopScanning();
+      });
+    } else {
+      await startScanning();
     }
   };
 
@@ -213,7 +216,7 @@ export function BarcodeScanner({ onScan, onError }: BarcodeScannerProps) {
         <Alert>
           <AlertDescription>
             Camera access is required to scan barcodes. Please grant camera permissions and try
-            again.
+            again. HTTPS is required for camera access.
           </AlertDescription>
         </Alert>
       )}
@@ -231,19 +234,28 @@ export function BarcodeScanner({ onScan, onError }: BarcodeScannerProps) {
 
             {/* Scanning overlay */}
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="relative h-48 w-48 border-2 border-primary">
+              <div className="relative h-48 w-64 border-2 border-primary">
                 <div className="absolute left-0 top-0 h-8 w-8 border-l-4 border-t-4 border-primary" />
                 <div className="absolute right-0 top-0 h-8 w-8 border-r-4 border-t-4 border-primary" />
                 <div className="absolute bottom-0 left-0 h-8 w-8 border-b-4 border-l-4 border-primary" />
                 <div className="absolute bottom-0 right-0 h-8 w-8 border-b-4 border-r-4 border-primary" />
 
-                <div className="absolute inset-x-0 top-1/2 h-0.5 bg-primary opacity-50 animate-pulse" />
+                {!isTimedOut && (
+                  <div className="absolute inset-x-0 top-1/2 h-0.5 bg-primary opacity-50 animate-pulse" />
+                )}
               </div>
             </div>
 
             <div className="absolute bottom-4 left-0 right-0 flex justify-center">
               <div className="rounded-lg bg-black/70 px-4 py-2 text-sm text-white">
-                Position barcode within the frame
+                {isTimedOut ? (
+                  <span className="text-yellow-300">No barcode detected. Try adjusting position.</span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Position barcode within the frame
+                  </span>
+                )}
               </div>
             </div>
           </>
@@ -260,6 +272,17 @@ export function BarcodeScanner({ onScan, onError }: BarcodeScannerProps) {
             <Camera className="mr-2 h-4 w-4" />
             Start Scanning
           </Button>
+        ) : isTimedOut ? (
+          <>
+            <Button onClick={retryScan} className="flex-1">
+              <Camera className="mr-2 h-4 w-4" />
+              Try Again
+            </Button>
+            <Button onClick={stopScanning} variant="outline" className="flex-1">
+              <CameraOff className="mr-2 h-4 w-4" />
+              Stop
+            </Button>
+          </>
         ) : (
           <Button onClick={stopScanning} variant="destructive" className="flex-1">
             <CameraOff className="mr-2 h-4 w-4" />
@@ -267,16 +290,6 @@ export function BarcodeScanner({ onScan, onError }: BarcodeScannerProps) {
           </Button>
         )}
       </div>
-
-      <Alert>
-        <AlertDescription className="text-xs">
-          <strong>Note:</strong> For full barcode scanning functionality, this requires the @zxing/browser library.
-          The current implementation shows the camera interface. To enable actual barcode decoding, run:
-          <code className="block mt-2 bg-muted px-2 py-1 rounded">
-            npm install @zxing/browser
-          </code>
-        </AlertDescription>
-      </Alert>
     </div>
   );
 }

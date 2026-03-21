@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import Image from 'next/image';
 import {
   Dialog,
   DialogContent,
@@ -20,7 +21,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Search, Camera } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Loader2, Search, Camera, ArrowLeft, Plus, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { BarcodeScanner } from './barcode-scanner';
 
@@ -29,16 +31,74 @@ interface AddBookDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+interface SearchResult {
+  title: string;
+  subtitle?: string;
+  authors: string[];
+  publisher?: string;
+  publishedDate?: string;
+  isbn10?: string;
+  isbn13?: string;
+  pageCount?: number;
+  coverUrl?: string;
+  thumbnailUrl?: string;
+  description?: string;
+}
+
 export function AddBookDialog({ open, onOpenChange }: AddBookDialogProps) {
   const [isbn, setIsbn] = useState('');
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [status, setStatus] = useState<'owned' | 'wanted' | 'missing'>('owned');
   const [format, setFormat] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [showResults, setShowResults] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // Search for books (returns results for preview)
+  const searchMutation = useMutation({
+    mutationFn: async (data: { isbn?: string; title?: string; author?: string }) => {
+      const response = await fetch('/api/books/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || 'Search failed');
+      }
+
+      return response.json() as Promise<{ results: SearchResult[] }>;
+    },
+    onSuccess: (data) => {
+      if (data.results.length === 0) {
+        toast({
+          title: 'No results',
+          description: 'No books found. Try a different search term.',
+          variant: 'destructive',
+        });
+      } else if (data.results.length === 1) {
+        // Single result - add directly
+        addFromResult(data.results[0]);
+      } else {
+        // Multiple results - show picker
+        setSearchResults(data.results);
+        setShowResults(true);
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Search Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Add book to library
   const addBookMutation = useMutation({
     mutationFn: async (data: {
       isbn?: string;
@@ -55,7 +115,7 @@ export function AddBookDialog({ open, onOpenChange }: AddBookDialogProps) {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to add book');
+        throw new Error(error.error?.message || error.error || 'Failed to add book');
       }
 
       return response.json();
@@ -83,65 +143,168 @@ export function AddBookDialog({ open, onOpenChange }: AddBookDialogProps) {
     setAuthor('');
     setStatus('owned');
     setFormat('');
+    setSearchResults([]);
+    setShowResults(false);
     onOpenChange(false);
   };
 
-  const handleAddByIsbn = () => {
-    if (!isbn.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Please enter an ISBN',
-        variant: 'destructive',
-      });
-      return;
-    }
-
+  const addFromResult = (result: SearchResult) => {
+    const bookIsbn = result.isbn13 || result.isbn10;
     addBookMutation.mutate({
-      isbn: isbn.trim(),
+      isbn: bookIsbn,
+      title: bookIsbn ? undefined : result.title,
+      author: bookIsbn ? undefined : result.authors?.[0],
       status,
       edition: format ? { format } : undefined,
     });
   };
 
-  const handleAddByTitle = () => {
-    if (!title.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a title',
-        variant: 'destructive',
-      });
+  const handleSearchByIsbn = () => {
+    if (!isbn.trim()) {
+      toast({ title: 'Error', description: 'Please enter an ISBN', variant: 'destructive' });
       return;
     }
+    searchMutation.mutate({ isbn: isbn.trim() });
+  };
 
-    addBookMutation.mutate({
-      title: title.trim(),
-      author: author.trim() || undefined,
-      status,
-      edition: format ? { format } : undefined,
-    });
+  const handleSearchByTitle = () => {
+    if (!title.trim()) {
+      toast({ title: 'Error', description: 'Please enter a title', variant: 'destructive' });
+      return;
+    }
+    searchMutation.mutate({ title: title.trim(), author: author.trim() || undefined });
   };
 
   const handleBarcodeScan = (scannedIsbn: string) => {
     setIsbn(scannedIsbn);
-    toast({
-      title: 'Barcode scanned!',
-      description: `ISBN: ${scannedIsbn}`,
-    });
-    // Automatically search for the book
-    addBookMutation.mutate({
-      isbn: scannedIsbn,
-      status,
-      edition: format ? { format } : undefined,
-    });
+    toast({ title: 'Barcode scanned!', description: `ISBN: ${scannedIsbn}` });
+    searchMutation.mutate({ isbn: scannedIsbn });
   };
 
   const handleScanError = (error: string) => {
-    toast({
-      title: 'Scanner Error',
-      description: error,
-      variant: 'destructive',
-    });
+    toast({ title: 'Scanner Error', description: error, variant: 'destructive' });
   };
+
+  const isPending = searchMutation.isPending || addBookMutation.isPending;
+
+  // Search results picker view
+  if (showResults && searchResults.length > 0) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setShowResults(false)}>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              Select a Book
+            </DialogTitle>
+            <DialogDescription>
+              {searchResults.length} results found. Select the correct book to add.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {searchResults.map((result, index) => (
+              <Card
+                key={`${result.isbn13 || result.isbn10 || result.title}-${index}`}
+                className="cursor-pointer transition-colors hover:bg-accent"
+                onClick={() => addFromResult(result)}
+              >
+                <CardContent className="flex gap-4 p-4">
+                  <div className="relative h-24 w-16 flex-shrink-0 overflow-hidden rounded bg-muted">
+                    {result.coverUrl || result.thumbnailUrl ? (
+                      <Image
+                        src={result.thumbnailUrl || result.coverUrl || ''}
+                        alt={result.title}
+                        fill
+                        className="object-cover"
+                        sizes="64px"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <BookOpen className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold leading-tight truncate">{result.title}</h3>
+                    {result.subtitle && (
+                      <p className="text-sm text-muted-foreground truncate">{result.subtitle}</p>
+                    )}
+                    {result.authors?.length > 0 && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {result.authors.join(', ')}
+                      </p>
+                    )}
+                    <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
+                      {result.publisher && <span>{result.publisher}</span>}
+                      {result.publishedDate && <span>{result.publishedDate}</span>}
+                      {result.pageCount && <span>{result.pageCount} pages</span>}
+                    </div>
+                    {(result.isbn13 || result.isbn10) && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        ISBN: {result.isbn13 || result.isbn10}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex-shrink-0 self-center">
+                    <Button size="sm" variant="outline" disabled={addBookMutation.isPending}>
+                      {addBookMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Format & status selectors (shared across tabs)
+  const FormatStatusFields = ({ idPrefix }: { idPrefix: string }) => (
+    <>
+      <div className="space-y-2">
+        <Label htmlFor={`format-${idPrefix}`}>Format (Optional)</Label>
+        <Select value={format} onValueChange={setFormat}>
+          <SelectTrigger id={`format-${idPrefix}`}>
+            <SelectValue placeholder="Select format" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="hardcover">Hardcover</SelectItem>
+            <SelectItem value="paperback">Paperback</SelectItem>
+            <SelectItem value="ebook">E-book</SelectItem>
+            <SelectItem value="audiobook">Audiobook</SelectItem>
+            <SelectItem value="manga">Manga</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor={`status-${idPrefix}`}>Ownership Status</Label>
+        <Select
+          value={status}
+          onValueChange={(v) => setStatus(v as 'owned' | 'wanted' | 'missing')}
+        >
+          <SelectTrigger id={`status-${idPrefix}`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="owned">Owned</SelectItem>
+            <SelectItem value="wanted">Wanted</SelectItem>
+            <SelectItem value="missing">Missing</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -171,51 +334,17 @@ export function AddBookDialog({ open, onOpenChange }: AddBookDialogProps) {
                 placeholder="Enter ISBN-10 or ISBN-13"
                 value={isbn}
                 onChange={(e) => setIsbn(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddByIsbn()}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchByIsbn()}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="format-isbn">Format (Optional)</Label>
-              <Select value={format} onValueChange={setFormat}>
-                <SelectTrigger id="format-isbn">
-                  <SelectValue placeholder="Select format" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hardcover">Hardcover</SelectItem>
-                  <SelectItem value="paperback">Paperback</SelectItem>
-                  <SelectItem value="ebook">E-book</SelectItem>
-                  <SelectItem value="audiobook">Audiobook</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <FormatStatusFields idPrefix="isbn" />
 
-            <div className="space-y-2">
-              <Label htmlFor="status-isbn">Ownership Status</Label>
-              <Select
-                value={status}
-                onValueChange={(v) => setStatus(v as 'owned' | 'wanted' | 'missing')}
-              >
-                <SelectTrigger id="status-isbn">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="owned">Owned</SelectItem>
-                  <SelectItem value="wanted">Wanted</SelectItem>
-                  <SelectItem value="missing">Missing</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button
-              onClick={handleAddByIsbn}
-              className="w-full"
-              disabled={addBookMutation.isPending}
-            >
-              {addBookMutation.isPending ? (
+            <Button onClick={handleSearchByIsbn} className="w-full" disabled={isPending}>
+              {isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding Book...
+                  Searching...
                 </>
               ) : (
                 <>
@@ -234,7 +363,7 @@ export function AddBookDialog({ open, onOpenChange }: AddBookDialogProps) {
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">Or enter manually</span>
+                <span className="bg-card px-2 text-muted-foreground">Or enter manually</span>
               </div>
             </div>
 
@@ -245,51 +374,21 @@ export function AddBookDialog({ open, onOpenChange }: AddBookDialogProps) {
                 placeholder="Enter ISBN-10 or ISBN-13"
                 value={isbn}
                 onChange={(e) => setIsbn(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddByIsbn()}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchByIsbn()}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="format-scan">Format (Optional)</Label>
-              <Select value={format} onValueChange={setFormat}>
-                <SelectTrigger id="format-scan">
-                  <SelectValue placeholder="Select format" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hardcover">Hardcover</SelectItem>
-                  <SelectItem value="paperback">Paperback</SelectItem>
-                  <SelectItem value="ebook">E-book</SelectItem>
-                  <SelectItem value="audiobook">Audiobook</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="status-scan">Ownership Status</Label>
-              <Select
-                value={status}
-                onValueChange={(v) => setStatus(v as 'owned' | 'wanted' | 'missing')}
-              >
-                <SelectTrigger id="status-scan">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="owned">Owned</SelectItem>
-                  <SelectItem value="wanted">Wanted</SelectItem>
-                  <SelectItem value="missing">Missing</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <FormatStatusFields idPrefix="scan" />
 
             <Button
-              onClick={handleAddByIsbn}
+              onClick={handleSearchByIsbn}
               className="w-full"
-              disabled={addBookMutation.isPending || !isbn.trim()}
+              disabled={isPending || !isbn.trim()}
             >
-              {addBookMutation.isPending ? (
+              {isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding Book...
+                  Searching...
                 </>
               ) : (
                 <>
@@ -308,7 +407,7 @@ export function AddBookDialog({ open, onOpenChange }: AddBookDialogProps) {
                 placeholder="Enter book title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAddByTitle()}
+                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSearchByTitle()}
               />
             </div>
 
@@ -319,56 +418,22 @@ export function AddBookDialog({ open, onOpenChange }: AddBookDialogProps) {
                 placeholder="Enter author name"
                 value={author}
                 onChange={(e) => setAuthor(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddByTitle()}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchByTitle()}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="format-title">Format (Optional)</Label>
-              <Select value={format} onValueChange={setFormat}>
-                <SelectTrigger id="format-title">
-                  <SelectValue placeholder="Select format" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hardcover">Hardcover</SelectItem>
-                  <SelectItem value="paperback">Paperback</SelectItem>
-                  <SelectItem value="ebook">E-book</SelectItem>
-                  <SelectItem value="audiobook">Audiobook</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <FormatStatusFields idPrefix="title" />
 
-            <div className="space-y-2">
-              <Label htmlFor="status-title">Ownership Status</Label>
-              <Select
-                value={status}
-                onValueChange={(v) => setStatus(v as 'owned' | 'wanted' | 'missing')}
-              >
-                <SelectTrigger id="status-title">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="owned">Owned</SelectItem>
-                  <SelectItem value="wanted">Wanted</SelectItem>
-                  <SelectItem value="missing">Missing</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button
-              onClick={handleAddByTitle}
-              className="w-full"
-              disabled={addBookMutation.isPending}
-            >
-              {addBookMutation.isPending ? (
+            <Button onClick={handleSearchByTitle} className="w-full" disabled={isPending}>
+              {isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding Book...
+                  Searching...
                 </>
               ) : (
                 <>
                   <Search className="mr-2 h-4 w-4" />
-                  Search and Add
+                  Search
                 </>
               )}
             </Button>
