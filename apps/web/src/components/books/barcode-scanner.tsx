@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 interface BarcodeScannerProps {
   onScan: (isbn: string) => void;
   onError?: (error: string) => void;
+  continuous?: boolean; // Keep scanning after a successful scan (bulk mode)
 }
 
 const SCAN_TIMEOUT_MS = 30_000;
@@ -20,7 +21,9 @@ const SCAN_INTERVAL_MS = 200; // ~5fps - enough for barcode detection
  * Uses device camera + @zxing/browser to scan ISBN barcodes.
  * Supports ISBN-10, ISBN-13, and EAN-13 formats.
  */
-export function BarcodeScanner({ onScan, onError }: BarcodeScannerProps) {
+export function BarcodeScanner({ onScan, onError, continuous = false }: BarcodeScannerProps) {
+  const lastScannedRef = useRef<string>('');
+  const lastScanTimeRef = useRef<number>(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -160,8 +163,30 @@ export function BarcodeScanner({ onScan, onError }: BarcodeScannerProps) {
 
       // Start the scan loop
       await startScanLoop((isbn: string) => {
-        onScan(isbn);
-        stopScanning();
+        if (continuous) {
+          // In bulk mode, prevent duplicate scans within 3 seconds
+          const now = Date.now();
+          if (isbn === lastScannedRef.current && now - lastScanTimeRef.current < 3000) {
+            return;
+          }
+          lastScannedRef.current = isbn;
+          lastScanTimeRef.current = now;
+          onScan(isbn);
+          // Reset timeout in continuous mode
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = setTimeout(() => {
+              setIsTimedOut(true);
+              if (scanIntervalRef.current) {
+                clearInterval(scanIntervalRef.current);
+                scanIntervalRef.current = undefined;
+              }
+            }, SCAN_TIMEOUT_MS);
+          }
+        } else {
+          onScan(isbn);
+          stopScanning();
+        }
       });
     } catch (err) {
       const errorMessage =
@@ -186,15 +211,7 @@ export function BarcodeScanner({ onScan, onError }: BarcodeScannerProps) {
    */
   const retryScan = async () => {
     setIsTimedOut(false);
-
-    if (videoRef.current && streamRef.current) {
-      await startScanLoop((isbn: string) => {
-        onScan(isbn);
-        stopScanning();
-      });
-    } else {
-      await startScanning();
-    }
+    await startScanning();
   };
 
   // Cleanup on unmount
