@@ -98,13 +98,22 @@ export class MetadataService {
     identifier: string
   ): Promise<BookMetadata | BookMetadata[] | null> {
     try {
-      const cached = await db.query.metadataCache.findFirst({
-        where: and(
-          eq(metadataCache.identifierType, identifierType),
-          eq(metadataCache.identifier, identifier),
-          gt(metadataCache.expiresAt, new Date())
-        ),
-      });
+      // Use db.select() instead of db.query to avoid lateral joins on neon-http.
+      // The cache is keyed on (source=identifierType, identifier) so the lookup
+      // must use metadataCache.source to match what saveToCache writes.
+      const rows = await db
+        .select()
+        .from(metadataCache)
+        .where(
+          and(
+            eq(metadataCache.source, identifierType),
+            eq(metadataCache.identifier, identifier),
+            gt(metadataCache.expiresAt, new Date())
+          )
+        )
+        .limit(1);
+
+      const cached = rows[0] || null;
 
       if (!cached) {
         return null;
@@ -121,16 +130,19 @@ export class MetadataService {
     identifierType: string,
     identifier: string,
     data: BookMetadata | BookMetadata[],
-    source: string,
+    _source: string,
     ttl: number = this.cacheTTL
   ): Promise<void> {
     try {
       const expiresAt = new Date(Date.now() + ttl);
 
+      // Use identifierType as the `source` column value so that the unique
+      // constraint on (source, identifier) aligns with the getFromCache lookup
+      // which queries by (source=identifierType, identifier).
       await db
         .insert(metadataCache)
         .values({
-          source,
+          source: identifierType,
           identifier,
           identifierType,
           data: data as unknown as Record<string, unknown>,

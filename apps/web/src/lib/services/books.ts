@@ -129,9 +129,13 @@ export class BookService {
           const authorName = metadata.authors[i];
 
           // Find or create author
-          let author = await db.query.authors.findFirst({
-            where: eq(authors.name, authorName),
-          });
+          // Use db.select() instead of db.query to avoid lateral joins on neon-http
+          const existingAuthors = await db
+            .select()
+            .from(authors)
+            .where(eq(authors.name, authorName))
+            .limit(1);
+          let author = existingAuthors[0] || null;
 
           if (!author) {
             const [newAuthor] = await db
