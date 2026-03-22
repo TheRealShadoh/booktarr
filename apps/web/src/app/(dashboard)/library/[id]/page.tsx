@@ -37,6 +37,17 @@ export default function BookDetailPage({
     },
   });
 
+  // Fetch reading progress
+  const { data: readingProgressData } = useQuery({
+    queryKey: ['reading-progress', bookId],
+    queryFn: async () => {
+      const response = await fetch(`/api/reading/progress?bookId=${bookId}`);
+      if (!response.ok) return null;
+      return response.json();
+    },
+    enabled: !!data,
+  });
+
   // Delete book mutation
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -132,8 +143,7 @@ export default function BookDetailPage({
   // Get user status from any edition
   const userStatus = editions.find((e: { userStatus?: string }) => e.userStatus)?.userStatus;
 
-  // Get reading progress (this would come from the API in real implementation)
-  const readingProgress = null; // TODO: Fetch from API
+  const readingProgress = readingProgressData || null;
 
   return (
     <div className="space-y-6">

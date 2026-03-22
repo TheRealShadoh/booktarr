@@ -192,7 +192,7 @@ export default function SeriesPage() {
           <p className="text-muted-foreground">
             No series found. Create your first series to get started!
           </p>
-          <Button className="mt-4">Create Series</Button>
+          <Button className="mt-4" onClick={() => setCreateOpen(true)}>Create Series</Button>
         </div>
       )}
 

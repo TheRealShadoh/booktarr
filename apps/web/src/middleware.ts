@@ -17,8 +17,8 @@ const securityHeaders = {
   // Control referrer information
   'Referrer-Policy': 'strict-origin-when-cross-origin',
 
-  // Restrict browser features
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  // Restrict browser features (allow camera for barcode scanner)
+  'Permissions-Policy': 'camera=(self), microphone=(), geolocation=()',
 
   // Content Security Policy
   'Content-Security-Policy': [
