@@ -1,4 +1,3 @@
-import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from '@booktarr/database';
 
@@ -13,19 +12,11 @@ function getDb(): DbInstance {
     throw new Error('DATABASE_URL environment variable is not set');
   }
 
-  const sql = neon(process.env.DATABASE_URL);
-  dbInstance = drizzle(sql, { schema });
+  // Pass connection string directly - drizzle internally calls neon()
+  dbInstance = drizzle(process.env.DATABASE_URL, { schema });
   return dbInstance;
 }
 
-/**
- * Database instance - uses Neon HTTP driver
- * IMPORTANT: Only use simple single-table queries or db.select() with
- * explicit column selection. Do NOT use:
- * - db.query.xxx.findMany({ with: ... }) - generates lateral joins
- * - db.select({ table1, table2 }).innerJoin() - column name conflicts
- * Instead: query each table separately and join in application code.
- */
 export const db = new Proxy({} as DbInstance, {
   get(_, prop) {
     const instance = getDb();
