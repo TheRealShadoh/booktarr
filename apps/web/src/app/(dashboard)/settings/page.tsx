@@ -19,10 +19,13 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { ShareManager } from '@/components/sharing/share-manager';
+import { AddBookDialog } from '@/components/books/add-book-dialog';
+import { ExternalLink } from 'lucide-react';
 
 export default function SettingsPage() {
   const { data: session } = useSession();
   const [changeName, setChangeName] = useState('');
+  const [showAddBook, setShowAddBook] = useState(false);
   const [bookCount, setBookCount] = useState<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -316,6 +319,89 @@ export default function SettingsPage() {
 
         <Card>
           <CardHeader>
+            <CardTitle>Connected Services</CardTitle>
+            <CardDescription>Connect your Amazon reading libraries to track eBooks and audiobooks</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Kindle &amp; Audible</p>
+              <p className="text-sm text-muted-foreground">
+                Add books from your Kindle or Audible library using any of the methods below.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {/* Method 1 */}
+              <div className="rounded-lg border p-3 space-y-2">
+                <div>
+                  <p className="text-sm font-medium">1. Manual ASIN Entry</p>
+                  <p className="text-xs text-muted-foreground">Add books one at a time using their Amazon ASIN identifier.</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddBook(true)}
+                >
+                  Open Add Book Dialog
+                </Button>
+              </div>
+
+              {/* Method 2 */}
+              <div className="rounded-lg border p-3 space-y-2">
+                <div>
+                  <p className="text-sm font-medium">2. Kindle CSV Export</p>
+                  <p className="text-xs text-muted-foreground">Export your entire Kindle library at once using a Chrome extension.</p>
+                </div>
+                <a
+                  href="https://chromewebstore.google.com/detail/cnmmnejiklbbkapmjegmldhaejjiejbo"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-primary underline underline-offset-2 hover:no-underline"
+                >
+                  Kindle Book List Downloader
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+
+              {/* Method 3 */}
+              <div className="rounded-lg border p-3 space-y-2">
+                <div>
+                  <p className="text-sm font-medium">3. Audible CSV Export</p>
+                  <p className="text-xs text-muted-foreground">Export your Audible library using a Chrome extension.</p>
+                </div>
+                <a
+                  href="https://github.com/joonaspaakko/audible-library-extractor"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-primary underline underline-offset-2 hover:no-underline"
+                >
+                  Audible Library Extractor
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+
+              {/* Method 4 */}
+              <div className="rounded-lg border p-3 space-y-2">
+                <div>
+                  <p className="text-sm font-medium">4. Amazon Order History</p>
+                  <p className="text-xs text-muted-foreground">Download your full Amazon purchase history from the Amazon Privacy Central page.</p>
+                </div>
+                <a
+                  href="https://www.amazon.com/gp/privacycentral"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-primary underline underline-offset-2 hover:no-underline"
+                >
+                  Amazon Privacy Central
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Import &amp; Export</CardTitle>
             <CardDescription>Manage your library data</CardDescription>
           </CardHeader>
@@ -421,6 +507,12 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <AddBookDialog
+        open={showAddBook}
+        onOpenChange={setShowAddBook}
+        defaultStatus="owned"
+      />
 
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
