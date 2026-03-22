@@ -88,12 +88,38 @@ export async function POST(req: Request) {
 
     logger.info('[CSV Import] Complete', { success: result.success, failed: result.failed, totalRows });
 
+    // Auto-enrich books and series metadata after import
+    let enrichResult = { enriched: 0, seriesEnriched: 0 };
+    if (result.success > 0 && enrichMetadata) {
+      try {
+        const { BookService } = await import('@/lib/services/books');
+        const bookService = new BookService();
+        const batchResult = await bookService.enrichBooksInBatch(20);
+        enrichResult.enriched = batchResult.enriched;
+        logger.info('[CSV Import] Auto-enriched books', { enriched: batchResult.enriched });
+      } catch (enrichError) {
+        logger.error('[CSV Import] Auto-enrichment failed', enrichError instanceof Error ? enrichError : new Error(String(enrichError)));
+      }
+
+      try {
+        const { SeriesMetadataEnrichmentService } = await import('@/lib/services/series-metadata-enrichment');
+        const seriesService = new SeriesMetadataEnrichmentService();
+        const seriesResult = await seriesService.enrichAllSeries();
+        enrichResult.seriesEnriched = seriesResult.updated;
+        logger.info('[CSV Import] Auto-enriched series', { updated: seriesResult.updated });
+      } catch (enrichError) {
+        logger.error('[CSV Import] Series enrichment failed', enrichError instanceof Error ? enrichError : new Error(String(enrichError)));
+      }
+    }
+
     return NextResponse.json({
       success: result.success,
       failed: result.failed,
       totalRows,
-      errors: result.errors.slice(0, 20), // Return at most 20 error details
-      message: `Import complete: ${result.success} books imported, ${result.failed} failed`,
+      enriched: enrichResult.enriched,
+      seriesEnriched: enrichResult.seriesEnriched,
+      errors: result.errors.slice(0, 20),
+      message: `Import complete: ${result.success} books imported, ${result.failed} failed. Enriched ${enrichResult.enriched} books, ${enrichResult.seriesEnriched} series.`,
     });
   } catch (error) {
     return handleError(error).toResponse();
