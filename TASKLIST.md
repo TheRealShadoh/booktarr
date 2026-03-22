@@ -1,52 +1,50 @@
 # BookTarr V2 - Development Tasks
 
 **Last Updated**: March 22, 2026
-**Project Status**: Feature Complete - Production Ready
+**Project Status**: Production Ready - All Features Implemented
 **Deployment**: Vercel (booktarr.vercel.app) + Neon PostgreSQL
 
 ---
 
-## Session Summary (March 21-22, 2026)
+## All Features Complete
 
-### Major Features Implemented
-- [x] Real barcode scanner with ZXing library
-- [x] Search results preview before adding books
-- [x] Library sharing system (view/edit permissions, acceptance flow, admin force-share)
-- [x] Create Series dialog with type selector
-- [x] Wishlist add-book with status=wanted
+### Core Features
+- [x] Login/Register (email + password)
+- [x] Library page (books with covers, authors, series badges, search, filters)
+- [x] Add book by ISBN (Google Books + OpenLibrary metadata)
+- [x] Add book by title search (with search results preview)
+- [x] Barcode scanner (ZXing library, camera permissions fixed)
+- [x] CSV import (HandyLib format, synchronous with progress, auto-enrichment)
+- [x] Book detail page (metadata, editions, reading progress)
+- [x] Series management (create, search, enrich from AniList, reconcile)
+- [x] Series auto-detection from book titles
+- [x] Currently Reading (stats cards, empty state)
+- [x] Wishlist (add books with wanted status)
+- [x] Reading progress tracking (want to read, currently reading, finished, DNF, on hold)
 
-### Infrastructure Fixes
-- [x] Switched to neon-http driver (Vercel serverless compatible)
-- [x] Rewrote ALL multi-table join queries for neon-http compatibility
-- [x] Ran database migrations on Neon (all 18 + library_shares = 19 tables)
-- [x] Fixed book creation: authors linked, covers saved, metadata cached
-- [x] Fixed CSV import for HandyLib format (semicolon authors, Volume column, cover URLs)
-- [x] Node.js version pinned to 20.x/22.x
-- [x] OAuth buttons hidden when providers not configured
-- [x] Dark mode fixes across all pages
-- [x] API hardening (rate limiting, Zod validation, standardized error handling)
-- [x] Replaced console.log with structured logger
+### Library Sharing
+- [x] Share library with other users (view/edit permissions)
+- [x] Acceptance flow (pending → accept/reject)
+- [x] Admin force share
+- [x] User picker dropdown (shows all registered users)
+- [x] "Show Shared" toggle on library page (purple "From [Name]" badges)
+- [x] Pending share notification dot on nav avatar
 
-### Working Features
-| Feature | Status |
-|---------|--------|
-| Register/Login | Working |
-| Library page | Working (books, covers, authors, search, filters) |
-| Add book by ISBN | Working (Google Books + OpenLibrary) |
-| Add book by title | Working (with search preview) |
-| Barcode scanner | Working (ZXing) |
-| CSV import (HandyLib) | Fixed (author splitting, volumes, covers) |
-| Series page | Working (create, search, enrich, reconcile) |
-| Currently Reading | Working (empty state, progress tracking) |
-| Wishlist | Working (add with wanted status) |
-| Settings | Working (enrichment, sharing, clear books) |
-| Library Sharing | Working (invite, accept/reject, revoke, admin force) |
-| Show Shared toggle | Working (merged view with owner badges) |
-| Health check | Stable (neon-http, 4ms latency) |
-| Dark mode | Working across all pages |
+### Settings
+- [x] Account info (name, email, role display)
+- [x] Metadata Sources (Google Books, OpenLibrary, AniList status)
+- [x] Import & Export (CSV and JSON export)
+- [x] Metadata Enrichment (batch enrichment with status)
+- [x] Library Sharing management
+- [x] Data Management (clear all books with confirmation)
 
-### Known Limitations
-- First request after cold start may be slow (~2-3s)
-- Foreign key constraints not applied on Neon (tables work but no cascade deletes)
-- Settings "Account", "Metadata Sources", "Import & Export" sections are placeholders
-- No pagination on library page (loads up to 100 books)
+### Infrastructure
+- [x] Neon PostgreSQL with 19 tables
+- [x] neon-http driver (all queries rewritten for compatibility)
+- [x] Dark mode across all pages
+- [x] Mobile hamburger menu
+- [x] Camera permissions (Permissions-Policy: camera=(self))
+- [x] Rate limiting on all API routes
+- [x] Zod validation on all inputs
+- [x] Structured logging (no console.log)
+- [x] Auto-enrichment after CSV import
