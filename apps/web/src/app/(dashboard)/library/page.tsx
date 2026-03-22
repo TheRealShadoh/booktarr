@@ -83,7 +83,7 @@ export default function LibraryPage() {
       const results = await Promise.all(
         acceptedShares.map(async (share) => {
           const ownerId = share.ownerId ?? share.ownerEmail ?? '';
-          const response = await fetch(`/api/shares/${encodeURIComponent(ownerId)}/books`);
+          const response = await fetch(`/api/shares/books/${encodeURIComponent(ownerId)}`);
           if (!response.ok) return null;
           const books = await response.json() as BookWithRelations[];
           return {
