@@ -107,12 +107,12 @@ export default function CurrentlyReadingPage() {
           </div>
         )}
 
-        {!isLoading && booksData && booksData.length === 0 && (
+        {!isLoading && (!booksData || booksData.length === 0) && (
           <Card>
             <CardHeader>
               <CardTitle>No books in progress</CardTitle>
               <CardDescription>
-                Start reading a book from your library to track your progress here!
+                No books in progress. Start reading a book from your library!
               </CardDescription>
             </CardHeader>
           </Card>

@@ -27,14 +27,17 @@ import { useToast } from '@/hooks/use-toast';
 type SharePermission = 'view' | 'full';
 type ShareStatus = 'pending' | 'accepted' | 'rejected';
 
+interface ShareUser {
+  id: string;
+  name: string | null;
+  email: string | null;
+}
+
 interface Share {
   id: string;
   permission: SharePermission;
   status: ShareStatus;
-  ownerEmail?: string;
-  ownerName?: string;
-  recipientEmail?: string;
-  recipientName?: string;
+  user?: ShareUser;
 }
 
 interface SharesResponse {
@@ -242,10 +245,10 @@ export function ShareManager() {
           >
             <div className="space-y-1">
               <p className="text-sm font-medium">
-                {share.recipientName ?? share.recipientEmail ?? 'Unknown user'}
+                {share.user?.name ?? share.user?.email ?? 'Unknown user'}
               </p>
-              {share.recipientName && share.recipientEmail && (
-                <p className="text-xs text-muted-foreground">{share.recipientEmail}</p>
+              {share.user?.name && share.user?.email && (
+                <p className="text-xs text-muted-foreground">{share.user.email}</p>
               )}
               <div className="flex items-center gap-2">
                 <PermissionBadge permission={share.permission} />
@@ -277,10 +280,10 @@ export function ShareManager() {
           >
             <div className="space-y-1">
               <p className="text-sm font-medium">
-                {share.ownerName ?? share.ownerEmail ?? 'Unknown user'}
+                {share.user?.name ?? share.user?.email ?? 'Unknown user'}
               </p>
-              {share.ownerName && share.ownerEmail && (
-                <p className="text-xs text-muted-foreground">{share.ownerEmail}</p>
+              {share.user?.name && share.user?.email && (
+                <p className="text-xs text-muted-foreground">{share.user.email}</p>
               )}
               <div className="flex items-center gap-2">
                 <PermissionBadge permission={share.permission} />

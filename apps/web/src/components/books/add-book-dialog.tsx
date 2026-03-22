@@ -29,6 +29,7 @@ import { BarcodeScanner } from './barcode-scanner';
 interface AddBookDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  defaultStatus?: 'owned' | 'wanted' | 'missing';
 }
 
 interface SearchResult {
@@ -45,11 +46,11 @@ interface SearchResult {
   description?: string;
 }
 
-export function AddBookDialog({ open, onOpenChange }: AddBookDialogProps) {
+export function AddBookDialog({ open, onOpenChange, defaultStatus = 'owned' }: AddBookDialogProps) {
   const [isbn, setIsbn] = useState('');
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
-  const [status, setStatus] = useState<'owned' | 'wanted' | 'missing'>('owned');
+  const [status, setStatus] = useState<'owned' | 'wanted' | 'missing'>(defaultStatus);
   const [format, setFormat] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showResults, setShowResults] = useState(false);

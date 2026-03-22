@@ -8,11 +8,33 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+type SeriesType = 'manga' | 'light_novel' | 'book' | 'comic' | 'other';
 
 export default function SeriesPage() {
   const [search, setSearch] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Create Series dialog state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newSeriesName, setNewSeriesName] = useState('');
+  const [newSeriesType, setNewSeriesType] = useState<SeriesType>('book');
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['series', { search }],
@@ -74,6 +96,39 @@ export default function SeriesPage() {
     },
   });
 
+  const createSeriesMutation = useMutation({
+    mutationFn: async ({ name, seriesType }: { name: string; seriesType: SeriesType }) => {
+      const response = await fetch('/api/series', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, seriesType }),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to create series' }));
+        throw new Error((err as { error?: string }).error ?? 'Failed to create series');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Series created', description: `"${newSeriesName}" has been created.` });
+      queryClient.invalidateQueries({ queryKey: ['series'] });
+      setNewSeriesName('');
+      setNewSeriesType('book');
+      setCreateOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const handleCreateSeries = () => {
+    if (!newSeriesName.trim()) {
+      toast({ title: 'Name required', description: 'Please enter a series name.', variant: 'destructive' });
+      return;
+    }
+    createSeriesMutation.mutate({ name: newSeriesName.trim(), seriesType: newSeriesType });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -105,7 +160,7 @@ export default function SeriesPage() {
             />
             {reconcileMutation.isPending ? 'Reconciling...' : 'Reconcile'}
           </Button>
-          <Button>Create Series</Button>
+          <Button onClick={() => setCreateOpen(true)}>Create Series</Button>
         </div>
       </div>
 
@@ -151,6 +206,55 @@ export default function SeriesPage() {
           ))}
         </div>
       )}
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Series</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="series-name">Series Name</Label>
+              <Input
+                id="series-name"
+                placeholder="e.g. The Stormlight Archive"
+                value={newSeriesName}
+                onChange={(e) => setNewSeriesName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleCreateSeries(); }}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="series-type">Type</Label>
+              <Select
+                value={newSeriesType}
+                onValueChange={(v) => setNewSeriesType(v as SeriesType)}
+              >
+                <SelectTrigger id="series-type" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="book">Book</SelectItem>
+                  <SelectItem value="manga">Manga</SelectItem>
+                  <SelectItem value="light_novel">Light Novel</SelectItem>
+                  <SelectItem value="comic">Comic</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateSeries}
+              disabled={createSeriesMutation.isPending}
+            >
+              {createSeriesMutation.isPending ? 'Creating...' : 'Create Series'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

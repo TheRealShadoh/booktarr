@@ -1,11 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { BookCard } from '@/components/books/book-card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AddBookDialog } from '@/components/books/add-book-dialog';
 
 export default function WishlistPage() {
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['books', { status: 'wanted' }],
     queryFn: async () => {
@@ -24,7 +28,7 @@ export default function WishlistPage() {
             {data?.books?.length || 0} books you want to read
           </p>
         </div>
-        <Button>Add to Wishlist</Button>
+        <Button onClick={() => setAddDialogOpen(true)}>Add to Wishlist</Button>
       </div>
 
       {isLoading && (
@@ -50,7 +54,7 @@ export default function WishlistPage() {
           <p className="text-muted-foreground">
             Your wishlist is empty. Add books you want to read!
           </p>
-          <Button className="mt-4">Add Book</Button>
+          <Button className="mt-4" onClick={() => setAddDialogOpen(true)}>Add Book</Button>
         </div>
       )}
 
@@ -64,6 +68,12 @@ export default function WishlistPage() {
           ))}
         </div>
       )}
+
+      <AddBookDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        defaultStatus="wanted"
+      />
     </div>
   );
 }

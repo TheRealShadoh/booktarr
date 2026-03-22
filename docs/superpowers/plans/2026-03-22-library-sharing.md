@@ -423,7 +423,7 @@ git commit -m "feat: Add ShareService for library sharing CRUD"
 - Create: `apps/web/src/app/api/shares/pending/route.ts`
 - Create: `apps/web/src/app/api/admin/shares/route.ts`
 
-- [ ] **Step 1: Create GET/POST /api/shares**
+- [x] **Step 1: Create GET/POST /api/shares**
 
 `apps/web/src/app/api/shares/route.ts`:
 
@@ -483,7 +483,7 @@ export async function POST(req: Request) {
 }
 ```
 
-- [ ] **Step 2: Create PATCH/DELETE /api/shares/[id]**
+- [x] **Step 2: Create PATCH/DELETE /api/shares/[id]**
 
 `apps/web/src/app/api/shares/[id]/route.ts`:
 
@@ -548,7 +548,7 @@ export async function DELETE(
 }
 ```
 
-- [ ] **Step 3: Create GET /api/shares/[userId]/books**
+- [x] **Step 3: Create GET /api/shares/books/[userId] (moved to avoid dynamic segment conflict)**
 
 `apps/web/src/app/api/shares/[userId]/books/route.ts`:
 
@@ -602,7 +602,7 @@ export async function GET(
 }
 ```
 
-- [ ] **Step 4: Create GET /api/shares/pending**
+- [x] **Step 4: Create GET /api/shares/pending**
 
 `apps/web/src/app/api/shares/pending/route.ts`:
 
@@ -629,7 +629,7 @@ export async function GET() {
 }
 ```
 
-- [ ] **Step 5: Create POST /api/admin/shares**
+- [x] **Step 5: Create POST /api/admin/shares**
 
 `apps/web/src/app/api/admin/shares/route.ts`:
 
@@ -670,7 +670,7 @@ export async function POST(req: Request) {
 }
 ```
 
-- [ ] **Step 6: Build to verify all routes compile**
+- [x] **Step 6: Build to verify all routes compile**
 
 Run: `npm run build`
 
