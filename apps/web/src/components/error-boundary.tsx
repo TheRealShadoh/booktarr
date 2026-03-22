@@ -67,11 +67,11 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-          <div className="w-full max-w-md rounded-lg border border-red-200 bg-white p-8 shadow-lg">
+        <div className="flex min-h-screen items-center justify-center bg-background px-4">
+          <div className="w-full max-w-md rounded-lg border bg-card p-8 shadow-lg">
             <div className="mb-4 flex items-center justify-center">
               <svg
-                className="h-12 w-12 text-red-500"
+                className="h-12 w-12 text-destructive"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -85,20 +85,20 @@ export class ErrorBoundary extends Component<Props, State> {
               </svg>
             </div>
 
-            <h1 className="mb-2 text-center text-2xl font-bold text-gray-900">
+            <h1 className="mb-2 text-center text-2xl font-bold">
               Something went wrong
             </h1>
 
-            <p className="mb-6 text-center text-gray-600">
+            <p className="mb-6 text-center text-muted-foreground">
               We&apos;re sorry for the inconvenience. The error has been logged and we&apos;ll look into it.
             </p>
 
             {process.env.NODE_ENV === 'development' && this.state.error && (
-              <div className="mb-4 rounded bg-gray-100 p-4">
-                <p className="mb-2 font-mono text-sm font-semibold text-red-600">
+              <div className="mb-4 rounded bg-muted p-4">
+                <p className="mb-2 font-mono text-sm font-semibold text-destructive">
                   {this.state.error.name}: {this.state.error.message}
                 </p>
-                <pre className="overflow-auto text-xs text-gray-700">
+                <pre className="overflow-auto text-xs text-muted-foreground">
                   {this.state.error.stack}
                 </pre>
               </div>
@@ -107,21 +107,21 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="flex gap-4">
               <button
                 onClick={this.handleReset}
-                className="flex-1 rounded bg-blue-500 px-4 py-2 font-medium text-white transition hover:bg-blue-600"
+                className="flex-1 rounded bg-primary px-4 py-2 font-medium text-primary-foreground transition hover:bg-primary/90"
               >
                 Try again
               </button>
 
               <button
                 onClick={() => (window.location.href = '/')}
-                className="flex-1 rounded border border-gray-300 bg-white px-4 py-2 font-medium text-gray-700 transition hover:bg-gray-50"
+                className="flex-1 rounded border bg-card px-4 py-2 font-medium transition hover:bg-accent"
               >
                 Go home
               </button>
             </div>
 
             {process.env.NODE_ENV === 'production' && (
-              <p className="mt-4 text-center text-xs text-gray-500">
+              <p className="mt-4 text-center text-xs text-muted-foreground">
                 Error ID: {Math.random().toString(36).substring(7)}
               </p>
             )}

@@ -38,9 +38,9 @@ export function VolumeCard({ volume, seriesId, onAddToCollection, onMarkAsWanted
       borderColor: 'border-blue-200',
     },
     missing: {
-      badge: <Badge variant="outline" className="text-gray-500">Missing</Badge>,
-      bgColor: 'bg-gray-50',
-      borderColor: 'border-gray-200',
+      badge: <Badge variant="outline" className="text-muted-foreground">Missing</Badge>,
+      bgColor: 'bg-muted/30',
+      borderColor: 'border-muted',
     },
   };
 
@@ -60,13 +60,13 @@ export function VolumeCard({ volume, seriesId, onAddToCollection, onMarkAsWanted
           {/* Volume Number Badge */}
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-gray-700">#{volume.volumeNumber}</span>
+              <span className="text-2xl font-bold text-foreground">#{volume.volumeNumber}</span>
             </div>
             {config.badge}
           </div>
 
           {/* Cover Image */}
-          <div className="relative aspect-[2/3] bg-gray-200 rounded-md overflow-hidden mb-3">
+          <div className="relative aspect-[2/3] bg-muted rounded-md overflow-hidden mb-3">
             <Image
               src={volume.coverUrl || "/placeholder-book.svg"}
               alt={`Volume ${volume.volumeNumber}`}

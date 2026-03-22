@@ -48,11 +48,13 @@ interface BookCardProps {
 
 export function BookCard({ book, onClick }: BookCardProps) {
   const [showProgressDialog, setShowProgressDialog] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
-  const coverUrl =
-    book.edition.coverUrl ||
-    book.edition.coverThumbnailUrl ||
-    '/placeholder-book.svg';
+  const coverUrl = imgError
+    ? '/placeholder-book.svg'
+    : book.edition.coverUrl ||
+      book.edition.coverThumbnailUrl ||
+      '/placeholder-book.svg';
 
   const statusColors: Record<string, string> = {
     owned: 'bg-green-500',
@@ -72,13 +74,15 @@ export function BookCard({ book, onClick }: BookCardProps) {
         onClick={onClick}
       >
         <CardContent className="p-0">
-          <div className="relative aspect-[2/3] bg-gray-100">
+          <div className="relative aspect-[2/3] bg-muted">
             <Image
               src={coverUrl}
               alt={book.book.title}
               fill
               className="object-cover transition-transform group-hover:scale-105"
               sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+              onError={() => setImgError(true)}
+              loading="lazy"
             />
             <div className="absolute right-2 top-2 flex gap-2">
               <Badge className={statusColors[book.userBook.status] || 'bg-gray-500'}>
