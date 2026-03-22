@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { logger } from '@/lib/logger';
+import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
@@ -10,32 +10,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { ImportManager } from './import-manager';
 
 interface CSVImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-interface ImportJob {
-  id: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  progress: {
-    total: number;
-    processed: number;
-    success: number;
-    failed: number;
-  };
-  error?: string;
+interface ImportResult {
+  success: number;
+  failed: number;
+  totalRows: number;
+  errors: Array<{ row: number; error: string }>;
+  message: string;
 }
 
 export function CSVImportDialog({ open, onOpenChange }: CSVImportDialogProps) {
@@ -43,59 +36,15 @@ export function CSVImportDialog({ open, onOpenChange }: CSVImportDialogProps) {
   const [format, setFormat] = useState<'handylib' | 'generic'>('handylib');
   const [skipDuplicates, setSkipDuplicates] = useState(true);
   const [enrichMetadata, setEnrichMetadata] = useState(true);
-  const [currentJob, setCurrentJob] = useState<ImportJob | null>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Poll for job status
-  useEffect(() => {
-    if (!currentJob || currentJob.status === 'completed' || currentJob.status === 'failed') {
-      return;
-    }
-
-    const pollInterval = setInterval(async () => {
-      try {
-        const response = await fetch(`/api/import/status/${currentJob.id}`);
-        if (response.ok) {
-          const job: ImportJob = await response.json();
-          setCurrentJob(job);
-
-          // If completed, show notification and refresh data
-          if (job.status === 'completed') {
-            queryClient.invalidateQueries({ queryKey: ['books'] });
-            queryClient.invalidateQueries({ queryKey: ['series'] });
-
-            toast({
-              title: 'Import Complete!',
-              description: `Successfully imported ${job.progress.success} books. ${job.progress.failed} failed.`,
-            });
-
-            // Clear job after a delay
-            setTimeout(() => {
-              setCurrentJob(null);
-              setFile(null);
-            }, 3000);
-          } else if (job.status === 'failed') {
-            toast({
-              title: 'Import Failed',
-              description: job.error || 'An error occurred during import',
-              variant: 'destructive',
-            });
-          }
-        }
-      } catch (error) {
-        logger.error('Error polling job status:', error instanceof Error ? error : new Error(String(error)));
-      }
-    }, 1000); // Poll every second
-
-    return () => clearInterval(pollInterval);
-  }, [currentJob, queryClient, toast]);
-
   const importMutation = useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async (selectedFile: File) => {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', selectedFile);
       formData.append('format', format);
       formData.append('skipDuplicates', skipDuplicates.toString());
       formData.append('enrichMetadata', enrichMetadata.toString());
@@ -110,28 +59,29 @@ export function CSVImportDialog({ open, onOpenChange }: CSVImportDialogProps) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Import failed');
+        const errorBody = await response.json().catch(() => ({ error: { message: 'Import failed' } }));
+        const msg = (errorBody as { error?: { message?: string } }).error?.message ?? 'Import failed';
+        throw new Error(msg);
       }
 
-      return response.json();
+      return response.json() as Promise<ImportResult>;
     },
-    onSuccess: (data: { jobId: string; totalRows: number }) => {
-      // Create initial job state
-      setCurrentJob({
-        id: data.jobId,
-        status: 'pending',
-        progress: {
-          total: data.totalRows,
-          processed: 0,
-          success: 0,
-          failed: 0,
-        },
-      });
+    onSuccess: (data) => {
+      setImportResult(data);
+
+      queryClient.invalidateQueries({ queryKey: ['books'] });
+      queryClient.invalidateQueries({ queryKey: ['series'] });
 
       toast({
-        title: 'Import Started',
-        description: `Processing ${data.totalRows} books in the background. You can close this dialog.`,
+        title: 'Import Complete',
+        description: `${data.success} books imported, ${data.failed} failed.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Import Failed',
+        description: error.message,
+        variant: 'destructive',
       });
     },
   });
@@ -139,38 +89,82 @@ export function CSVImportDialog({ open, onOpenChange }: CSVImportDialogProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
+      setImportResult(null);
     }
   };
 
   const handleImport = () => {
     if (file) {
+      setImportResult(null);
       importMutation.mutate(file);
     }
   };
 
+  const handleClose = () => {
+    if (!importMutation.isPending) {
+      onOpenChange(false);
+      setFile(null);
+      setImportResult(null);
+      importMutation.reset();
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) handleClose(); else onOpenChange(true); }}>
       <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Import Books</DialogTitle>
           <DialogDescription>
-            Import books from CSV or manage existing imports
+            Import books from a CSV file. Large files may take several minutes.
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="new-import" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="new-import">New Import</TabsTrigger>
-            <TabsTrigger value="import-history">Import History</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="new-import" className="space-y-6">
+        <div className="space-y-6">
           {importMutation.error && (
             <Alert variant="destructive">
               <AlertDescription>
                 {importMutation.error instanceof Error
                   ? importMutation.error.message
                   : 'Import failed'}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {importMutation.isPending && (
+            <Alert>
+              <AlertDescription>
+                <div className="flex items-center gap-3">
+                  <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                  <span className="text-sm">
+                    Importing... This may take a few minutes for large files. Please keep this dialog open.
+                  </span>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {importResult && (
+            <Alert variant={importResult.failed > 0 ? 'default' : 'default'}>
+              <AlertDescription>
+                <div className="space-y-2">
+                  <p className="font-medium text-sm">
+                    Import complete: {importResult.success} books imported, {importResult.failed} failed
+                  </p>
+                  {importResult.errors.length > 0 && (
+                    <details className="text-xs text-muted-foreground">
+                      <summary className="cursor-pointer select-none">
+                        Show {importResult.errors.length} error{importResult.errors.length !== 1 ? 's' : ''}
+                      </summary>
+                      <ul className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                        {importResult.errors.map((err) => (
+                          <li key={err.row}>
+                            Row {err.row}: {err.error}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                </div>
               </AlertDescription>
             </Alert>
           )}
@@ -193,15 +187,19 @@ export function CSVImportDialog({ open, onOpenChange }: CSVImportDialogProps) {
 
           <div className="space-y-3">
             <Label>CSV Format</Label>
-            <RadioGroup value={format} onValueChange={(v) => setFormat(v as typeof format)}>
+            <RadioGroup
+              value={format}
+              onValueChange={(v) => setFormat(v as typeof format)}
+              aria-disabled={importMutation.isPending}
+            >
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="handylib" id="handylib" />
+                <RadioGroupItem value="handylib" id="handylib" disabled={importMutation.isPending} />
                 <Label htmlFor="handylib" className="font-normal">
                   HandyLib Format (recommended)
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="generic" id="generic" />
+                <RadioGroupItem value="generic" id="generic" disabled={importMutation.isPending} />
                 <Label htmlFor="generic" className="font-normal">
                   Generic CSV (custom mapping)
                 </Label>
@@ -217,6 +215,7 @@ export function CSVImportDialog({ open, onOpenChange }: CSVImportDialogProps) {
                 id="skip-duplicates"
                 checked={skipDuplicates}
                 onCheckedChange={(checked) => setSkipDuplicates(checked as boolean)}
+                disabled={importMutation.isPending}
               />
               <Label htmlFor="skip-duplicates" className="font-normal">
                 Skip duplicate books (by ISBN)
@@ -228,6 +227,7 @@ export function CSVImportDialog({ open, onOpenChange }: CSVImportDialogProps) {
                 id="enrich-metadata"
                 checked={enrichMetadata}
                 onCheckedChange={(checked) => setEnrichMetadata(checked as boolean)}
+                disabled={importMutation.isPending}
               />
               <Label htmlFor="enrich-metadata" className="font-normal">
                 Enrich metadata from Google Books
@@ -235,7 +235,7 @@ export function CSVImportDialog({ open, onOpenChange }: CSVImportDialogProps) {
             </div>
           </div>
 
-          {enrichMetadata && !currentJob && (
+          {enrichMetadata && !importMutation.isPending && !importResult && (
             <Alert>
               <AlertDescription className="text-sm">
                 Metadata enrichment may take longer but provides better book information
@@ -244,70 +244,27 @@ export function CSVImportDialog({ open, onOpenChange }: CSVImportDialogProps) {
             </Alert>
           )}
 
-          {currentJob && (
-            <div className="space-y-3">
-              <Alert>
-                <AlertDescription>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>
-                        {currentJob.status === 'pending' && 'Starting import...'}
-                        {currentJob.status === 'running' && 'Import in progress...'}
-                        {currentJob.status === 'completed' && 'Import complete!'}
-                        {currentJob.status === 'failed' && 'Import failed'}
-                      </span>
-                      <span>
-                        {currentJob.progress.processed} / {currentJob.progress.total}
-                      </span>
-                    </div>
-                    <Progress
-                      value={(currentJob.progress.processed / currentJob.progress.total) * 100}
-                    />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Success: {currentJob.progress.success}</span>
-                      <span>Failed: {currentJob.progress.failed}</span>
-                    </div>
-                  </div>
-                </AlertDescription>
-              </Alert>
-              {currentJob.status === 'running' && (
-                <p className="text-sm text-muted-foreground text-center">
-                  You can close this dialog. Import will continue in the background.
-                </p>
-              )}
-            </div>
-          )}
-
           <div className="flex justify-end gap-3">
             <Button
               variant="outline"
-              onClick={() => {
-                onOpenChange(false);
-                if (!currentJob || currentJob.status === 'completed' || currentJob.status === 'failed') {
-                  setFile(null);
-                  setCurrentJob(null);
-                }
-              }}
+              onClick={handleClose}
+              disabled={importMutation.isPending}
             >
-              {currentJob && (currentJob.status === 'pending' || currentJob.status === 'running')
-                ? 'Close (Import continues)'
-                : 'Cancel'}
+              {importResult ? 'Close' : 'Cancel'}
             </Button>
-            {!currentJob && (
+            {!importResult && (
               <Button
                 onClick={handleImport}
                 disabled={!file || importMutation.isPending}
               >
-                {importMutation.isPending ? 'Starting...' : 'Import'}
+                {importMutation.isPending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {importMutation.isPending ? 'Importing...' : 'Import'}
               </Button>
             )}
           </div>
-          </TabsContent>
-
-          <TabsContent value="import-history">
-            <ImportManager />
-          </TabsContent>
-        </Tabs>
+        </div>
       </DialogContent>
     </Dialog>
   );

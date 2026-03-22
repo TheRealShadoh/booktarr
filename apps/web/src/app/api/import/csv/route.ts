@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { auth } from '@/lib/auth';
 import { CSVImportService } from '@/lib/services/csv-import';
-import { importJobManager } from '@/lib/services/import-job-manager';
 import { handleError, Errors } from '@/lib/api-error';
 import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
 
@@ -10,6 +9,8 @@ import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
 export const maxDuration = 300; // 5 minutes (Vercel Pro plan)
 
 const csvImportService = new CSVImportService();
+
+export const dynamic = 'force-dynamic';
 
 const ALLOWED_FORMATS = ['handylib', 'generic'] as const;
 
@@ -54,75 +55,45 @@ export async function POST(req: Request) {
     const rows = csvImportService.parseCSV(csvContent);
     const totalRows = rows.length;
 
-    // Create a job for tracking
-    const job = importJobManager.createJob(session.user.id, totalRows);
+    logger.info('[CSV Import] Processing synchronously', { totalRows });
 
-    logger.info('[CSV Import] Created job', { jobId: job.id, totalRows });
+    let result;
 
-    // Start import in background (don't await)
-    const runImport = async () => {
-      try {
-        let result;
-
-        if (format === 'handylib') {
-          result = await csvImportService.importHandyLibCSV(
-            csvContent,
-            session.user.id,
-            {
-              skipDuplicates,
-              enrichMetadata,
-              onProgress: (processed, success, failed) => {
-                importJobManager.updateProgress(job.id, processed, success, failed);
-              },
-              shouldStop: () => {
-                return importJobManager.isPaused(job.id) || importJobManager.isCancelled(job.id);
-              },
-            }
-          );
-        } else {
-          // Generic CSV with field mapping
-          const fieldMappingRaw = formData.get('fieldMapping');
-          const fieldMapping = JSON.parse(
-            (typeof fieldMappingRaw === 'string' ? fieldMappingRaw : null) ?? '{}'
-          );
-
-          result = await csvImportService.importGenericCSV(
-            csvContent,
-            session.user.id,
-            fieldMapping,
-            {
-              skipDuplicates,
-              enrichMetadata,
-            }
-          );
+    if (format === 'handylib') {
+      result = await csvImportService.importHandyLibCSV(
+        csvContent,
+        session.user.id,
+        {
+          skipDuplicates,
+          enrichMetadata,
         }
+      );
+    } else {
+      // Generic CSV with field mapping
+      const fieldMappingRaw = formData.get('fieldMapping');
+      const fieldMapping = JSON.parse(
+        (typeof fieldMappingRaw === 'string' ? fieldMappingRaw : null) ?? '{}'
+      );
 
-        // Add errors to job
-        for (const error of result.errors) {
-          importJobManager.addError(job.id, error.row, error.error);
+      result = await csvImportService.importGenericCSV(
+        csvContent,
+        session.user.id,
+        fieldMapping,
+        {
+          skipDuplicates,
+          enrichMetadata,
         }
+      );
+    }
 
-        // Mark job as complete
-        importJobManager.completeJob(job.id);
+    logger.info('[CSV Import] Complete', { success: result.success, failed: result.failed, totalRows });
 
-        logger.info('[CSV Import] Job completed', { jobId: job.id, success: result.success, failed: result.failed });
-      } catch (error) {
-        logger.error('[CSV Import] Job failed:', error as Error);
-        importJobManager.failJob(
-          job.id,
-          error instanceof Error ? error.message : 'Import failed'
-        );
-      }
-    };
-
-    // Run in background
-    runImport();
-
-    // Return job ID immediately
     return NextResponse.json({
-      jobId: job.id,
+      success: result.success,
+      failed: result.failed,
       totalRows,
-      message: 'Import started in background',
+      errors: result.errors.slice(0, 20), // Return at most 20 error details
+      message: `Import complete: ${result.success} books imported, ${result.failed} failed`,
     });
   } catch (error) {
     return handleError(error).toResponse();
