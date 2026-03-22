@@ -285,12 +285,32 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Metadata Sources</CardTitle>
-            <CardDescription>Configure where book metadata is fetched from</CardDescription>
+            <CardDescription>Where book and series metadata is fetched from</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Metadata source configuration coming soon.
-            </p>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <p className="font-medium text-sm">Google Books</p>
+                  <p className="text-xs text-muted-foreground">Primary source for book metadata, covers, and descriptions</p>
+                </div>
+                <span className="text-xs bg-green-500/10 text-green-500 px-2 py-1 rounded">Active</span>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <p className="font-medium text-sm">OpenLibrary</p>
+                  <p className="text-xs text-muted-foreground">Fallback source for ISBN lookups and cover images</p>
+                </div>
+                <span className="text-xs bg-green-500/10 text-green-500 px-2 py-1 rounded">Active</span>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <p className="font-medium text-sm">AniList</p>
+                  <p className="text-xs text-muted-foreground">Manga and light novel series metadata, volume counts</p>
+                </div>
+                <span className="text-xs bg-green-500/10 text-green-500 px-2 py-1 rounded">Active</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
