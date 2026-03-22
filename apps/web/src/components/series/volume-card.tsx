@@ -29,13 +29,13 @@ export function VolumeCard({ volume, seriesId, onAddToCollection, onMarkAsWanted
   const statusConfig = {
     owned: {
       badge: <Badge className="bg-green-500">Owned</Badge>,
-      bgColor: 'bg-green-50',
-      borderColor: 'border-green-200',
+      bgColor: 'bg-green-500/5',
+      borderColor: 'border-green-500/20',
     },
     wanted: {
       badge: <Badge className="bg-blue-500">Wanted</Badge>,
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200',
+      bgColor: 'bg-blue-500/5',
+      borderColor: 'border-blue-500/20',
     },
     missing: {
       badge: <Badge variant="outline" className="text-muted-foreground">Missing</Badge>,
