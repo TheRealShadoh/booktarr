@@ -33,7 +33,7 @@ interface ImportResult {
 
 export function CSVImportDialog({ open, onOpenChange }: CSVImportDialogProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [format, setFormat] = useState<'handylib' | 'generic'>('handylib');
+  const [format, setFormat] = useState<'handylib' | 'generic' | 'kindle' | 'audible'>('handylib');
   const [skipDuplicates, setSkipDuplicates] = useState(true);
   const [enrichMetadata, setEnrichMetadata] = useState(true);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -51,6 +51,12 @@ export function CSVImportDialog({ open, onOpenChange }: CSVImportDialogProps) {
 
       if (format === 'generic') {
         formData.append('fieldMapping', JSON.stringify({}));
+      }
+
+      // Kindle and Audible exports share the same column layout as HandyLib
+      // (title, author, ASIN), so map them to the handylib parser on the server.
+      if (format === 'kindle' || format === 'audible') {
+        formData.set('format', 'handylib');
       }
 
       const response = await fetch('/api/import/csv', {
@@ -204,7 +210,53 @@ export function CSVImportDialog({ open, onOpenChange }: CSVImportDialogProps) {
                   Generic CSV (custom mapping)
                 </Label>
               </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="kindle" id="kindle" disabled={importMutation.isPending} />
+                <Label htmlFor="kindle" className="font-normal">
+                  Kindle Export
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="audible" id="audible" disabled={importMutation.isPending} />
+                <Label htmlFor="audible" className="font-normal">
+                  Audible Export
+                </Label>
+              </div>
             </RadioGroup>
+
+            {format === 'kindle' && (
+              <Alert>
+                <AlertDescription className="text-sm">
+                  Export your Kindle library using the{' '}
+                  <a
+                    href="https://chromewebstore.google.com/detail/cnmmnejiklbbkapmjegmldhaejjiejbo"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-foreground"
+                  >
+                    Kindle Book List Downloader
+                  </a>{' '}
+                  Chrome extension, then upload the CSV here.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {format === 'audible' && (
+              <Alert>
+                <AlertDescription className="text-sm">
+                  Export your Audible library using the{' '}
+                  <a
+                    href="https://github.com/joonaspaakko/audible-library-extractor"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-foreground"
+                  >
+                    Audible Library Extractor
+                  </a>{' '}
+                  Chrome extension, then upload the CSV here.
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
 
           <div className="space-y-3">
