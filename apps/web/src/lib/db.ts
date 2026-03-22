@@ -19,6 +19,8 @@ function initializeDb() {
     idle_timeout: 20,
     connect_timeout: 10,
     ssl: 'require',
+    prepare: false,
+    fetch_types: false,
   });
 
   dbInstance = drizzle(clientInstance, { schema });
