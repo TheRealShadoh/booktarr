@@ -1,4 +1,3 @@
-import { logger } from '@/lib/logger';
 import { db } from '../db';
 import { books, editions, authors, bookAuthors, userBooks, readingProgress, seriesBooks, series } from '@booktarr/database';
 import { eq, and, or, like, ilike, desc, sql, isNull } from 'drizzle-orm';
@@ -185,7 +184,7 @@ export class BookService {
         }
       } catch (error) {
         // Log series detection error but don't fail book creation
-        logger.error('Series detection error:', error instanceof Error ? error : new Error(String(error)));
+        console.error('Series detection error:', error);
       }
     }
 
@@ -327,64 +326,62 @@ export class BookService {
       }
     }
 
-    // Use relational query API to avoid column name conflicts with neon-http driver
-    const results = await db.query.userBooks.findMany({
-      where: and(...conditions),
-      with: {
-        edition: {
-          with: {
-            book: true,
-          },
-        },
-      },
-      orderBy: [desc(userBooks.createdAt)],
-      limit,
-      offset,
-    });
+    const query = db
+      .select({
+        userBook: userBooks,
+        edition: editions,
+        book: books,
+      })
+      .from(userBooks)
+      .innerJoin(editions, eq(userBooks.editionId, editions.id))
+      .innerJoin(books, eq(editions.bookId, books.id))
+      .where(and(...conditions))
+      .orderBy(desc(userBooks.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const results = await query;
 
     // Get authors, reading progress, and series for each book
-    let booksWithDetails = await Promise.all(
+    let booksWithAuthors = await Promise.all(
       results.map(async (result) => {
-        const bookId = result.edition.book.id;
+        const bookAuthorsData = await db
+          .select({
+            author: authors,
+            role: bookAuthors.role,
+          })
+          .from(bookAuthors)
+          .innerJoin(authors, eq(bookAuthors.authorId, authors.id))
+          .where(eq(bookAuthors.bookId, result.book.id))
+          .orderBy(bookAuthors.displayOrder);
 
-        // Get authors
-        const bookAuthorsData = await db.query.bookAuthors.findMany({
-          where: eq(bookAuthors.bookId, bookId),
-          with: { author: true },
-          orderBy: [bookAuthors.displayOrder],
-        });
-
-        // Get reading progress
+        // Get reading progress for this book
         const progress = await db.query.readingProgress.findFirst({
           where: and(
             eq(readingProgress.userId, userId),
-            eq(readingProgress.bookId, bookId)
+            eq(readingProgress.bookId, result.book.id)
           ),
         });
 
-        // Get series information
-        const seriesBookData = await db.query.seriesBooks.findFirst({
-          where: eq(seriesBooks.bookId, bookId),
-        });
+        // Get series information for this book
+        const seriesData = await db
+          .select({
+            seriesBook: seriesBooks,
+            series: series,
+          })
+          .from(seriesBooks)
+          .innerJoin(series, eq(seriesBooks.seriesId, series.id))
+          .where(eq(seriesBooks.bookId, result.book.id))
+          .limit(1);
 
-        let seriesInfo = null;
-        if (seriesBookData) {
-          const seriesRecord = await db.query.series.findFirst({
-            where: eq(series.id, seriesBookData.seriesId),
-          });
-          if (seriesRecord) {
-            seriesInfo = {
-              id: seriesRecord.id,
-              name: seriesRecord.name,
-              volumeNumber: seriesBookData.volumeNumber,
-            };
-          }
-        }
+        const seriesInfo = seriesData.length > 0 ? {
+          id: seriesData[0].series.id,
+          name: seriesData[0].series.name,
+          volumeNumber: seriesData[0].seriesBook.volumeNumber,
+        } : null;
 
         return {
-          userBook: result,
-          edition: result.edition,
-          book: result.edition.book,
+          ...result,
           authors: bookAuthorsData.map((ba) => ba.author),
           readingProgress: progress || null,
           series: seriesInfo,
@@ -394,7 +391,7 @@ export class BookService {
 
     // Apply post-query filters
     if (filters?.author) {
-      booksWithDetails = booksWithDetails.filter((book) =>
+      booksWithAuthors = booksWithAuthors.filter((book) =>
         book.authors.some((a) =>
           a.name.toLowerCase().includes(filters.author!.toLowerCase())
         )
@@ -402,26 +399,29 @@ export class BookService {
     }
 
     if (filters?.readingStatus) {
-      booksWithDetails = booksWithDetails.filter(
+      booksWithAuthors = booksWithAuthors.filter(
         (book) => book.readingProgress?.status === filters.readingStatus
       );
     }
 
     if (filters?.minRating) {
-      booksWithDetails = booksWithDetails.filter(
+      booksWithAuthors = booksWithAuthors.filter(
         (book) => book.readingProgress?.rating && book.readingProgress.rating >= filters.minRating!
       );
     }
 
-    // Get total count
-    const countResult = await db.query.userBooks.findMany({
-      where: eq(userBooks.userId, userId),
-      columns: { id: true },
-    });
-    const totalCount = countResult.length;
+    // Get total count without pagination
+    const countQuery = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(userBooks)
+      .innerJoin(editions, eq(userBooks.editionId, editions.id))
+      .innerJoin(books, eq(editions.bookId, books.id))
+      .where(and(...conditions));
+
+    const totalCount = Number(countQuery[0]?.count || 0);
 
     return {
-      books: booksWithDetails,
+      books: booksWithAuthors,
       total: totalCount,
     };
   }
@@ -435,12 +435,16 @@ export class BookService {
       return null;
     }
 
-    // Get authors via relational query
-    const bookAuthorsData = await db.query.bookAuthors.findMany({
-      where: eq(bookAuthors.bookId, book.id),
-      with: { author: true },
-      orderBy: [bookAuthors.displayOrder],
-    });
+    // Get authors
+    const bookAuthorsData = await db
+      .select({
+        author: authors,
+        role: bookAuthors.role,
+      })
+      .from(bookAuthors)
+      .innerJoin(authors, eq(bookAuthors.authorId, authors.id))
+      .where(eq(bookAuthors.bookId, book.id))
+      .orderBy(bookAuthors.displayOrder);
 
     // Get editions
     const bookEditions = await db.query.editions.findMany({
@@ -560,7 +564,7 @@ export class BookService {
       });
 
       if (!edition || (!edition.isbn13 && !edition.isbn10)) {
-        logger.info(`[Enrichment] No ISBN found for book ${bookId}`);
+        console.log(`[Enrichment] No ISBN found for book ${bookId}`);
         return false;
       }
 
@@ -570,7 +574,7 @@ export class BookService {
       const metadata = await this.metadataService.enrichByISBN(isbn);
 
       if (!metadata) {
-        logger.info(`[Enrichment] No metadata found for ISBN ${isbn}`);
+        console.log(`[Enrichment] No metadata found for ISBN ${isbn}`);
         return false;
       }
 
@@ -598,10 +602,10 @@ export class BookService {
           .where(eq(editions.id, edition.id));
       }
 
-      logger.info(`[Enrichment] Successfully enriched book ${bookId} (${book.title})`);
+      console.log(`[Enrichment] Successfully enriched book ${bookId} (${book.title})`);
       return true;
     } catch (error) {
-      logger.error(`[Enrichment] Error enriching book ${bookId}:`, error instanceof Error ? error : new Error(String(error)));
+      console.error(`[Enrichment] Error enriching book ${bookId}:`, error);
       return false;
     }
   }
