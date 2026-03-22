@@ -65,19 +65,24 @@ export class VolumeReconciliationService {
    * Sets the bookId field on seriesVolumes records
    */
   async linkOwnedBooksToVolumes(seriesId: string): Promise<void> {
-    // Get all books linked to this series via seriesBooks
-    const ownedBooks = await db
-      .select({
-        seriesBook: seriesBooks,
-        book: books,
-      })
+    // Get all books linked to this series (separate queries to avoid joins)
+    const seriesBookEntries = await db
+      .select()
       .from(seriesBooks)
-      .innerJoin(books, eq(seriesBooks.bookId, books.id))
       .where(eq(seriesBooks.seriesId, seriesId));
 
-    logger.info(`[Volume Reconciliation] Linking owned books to volume entries`, { count: ownedBooks.length });
+    const ownedBooks = await Promise.all(
+      seriesBookEntries.map(async (sb) => {
+        const [book] = await db.select().from(books).where(eq(books.id, sb.bookId)).limit(1);
+        return book ? { seriesBook: sb, book } : null;
+      })
+    );
 
-    for (const { seriesBook, book } of ownedBooks) {
+    const validOwnedBooks = ownedBooks.filter(Boolean) as { seriesBook: typeof seriesBookEntries[0]; book: typeof books.$inferSelect }[];
+
+    logger.info(`[Volume Reconciliation] Linking owned books to volume entries`, { count: validOwnedBooks.length });
+
+    for (const { seriesBook, book } of validOwnedBooks) {
       // Find or create the corresponding seriesVolumes entry
       const volumeEntry = await db.query.seriesVolumes.findFirst({
         where: and(
