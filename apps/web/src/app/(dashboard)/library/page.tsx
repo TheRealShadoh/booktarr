@@ -38,8 +38,7 @@ export default function LibraryPage() {
       if (filters.year?.min) params.append('yearMin', filters.year.min.toString());
       if (filters.year?.max) params.append('yearMax', filters.year.max.toString());
 
-      // Load all books (remove pagination limit)
-      params.append('limit', '10000');
+      params.append('limit', '100');
 
       const response = await fetch(`/api/books?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch books');
