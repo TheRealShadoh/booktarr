@@ -1,10 +1,6 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from '@booktarr/database';
-import ws from 'ws';
-
-// Enable WebSocket support for Node.js environments (Vercel serverless)
-neonConfig.webSocketConstructor = ws;
 
 type DbInstance = ReturnType<typeof drizzle<typeof schema>>;
 
@@ -17,14 +13,13 @@ function getDb(): DbInstance {
     throw new Error('DATABASE_URL environment variable is not set');
   }
 
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  dbInstance = drizzle(pool, { schema });
+  const sql = neon(process.env.DATABASE_URL);
+  dbInstance = drizzle(sql, { schema });
   return dbInstance;
 }
 
 /**
- * Database instance - uses Neon serverless driver with WebSocket
- * Supports full Drizzle ORM query capabilities (joins, relational queries)
+ * Database instance - uses Neon HTTP driver
  * Lazy-initialized on first access to avoid build-time errors
  */
 export const db = new Proxy({} as DbInstance, {
