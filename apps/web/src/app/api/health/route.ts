@@ -39,26 +39,9 @@ async function checkDatabase(): Promise<HealthCheckResult> {
     // Simple query to check connection
     await db.execute(sql`SELECT 1 as healthy`);
 
-    // Get connection pool stats (if available)
-    const statsResult = await db.execute(sql`
-      SELECT
-        count(*) as total_connections,
-        count(*) FILTER (WHERE state = 'active') as active_connections,
-        count(*) FILTER (WHERE state = 'idle') as idle_connections
-      FROM pg_stat_activity
-      WHERE datname = current_database()
-    `);
-
-    const stats = statsResult[0] as any;
-
     return {
       status: 'healthy',
       latency: Date.now() - startTime,
-      details: {
-        totalConnections: parseInt(stats?.total_connections || '0'),
-        activeConnections: parseInt(stats?.active_connections || '0'),
-        idleConnections: parseInt(stats?.idle_connections || '0'),
-      },
     };
   } catch (error) {
     logger.error('Database health check failed', error as Error);

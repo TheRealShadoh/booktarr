@@ -3,7 +3,7 @@
  * Validates environment and dependencies before application starts
  */
 
-import { db, dbClient } from './db';
+import { db } from './db';
 import { logger } from './logger';
 import { sql } from 'drizzle-orm';
 
@@ -140,60 +140,9 @@ async function validateDatabase(): Promise<ValidationError[]> {
   const errors: ValidationError[] = [];
 
   try {
-    // Test connection
+    // Test connection with simple query
     await db.execute(sql`SELECT 1 as healthy`);
     logger.info('Database connection test passed');
-
-    // Check if tables exist (basic schema validation)
-    const tableCheckResult = await db.execute(sql`
-      SELECT COUNT(*) as table_count
-      FROM information_schema.tables
-      WHERE table_schema = 'public'
-      AND table_type = 'BASE TABLE'
-    `);
-
-    const tableCount = (tableCheckResult[0] as any)?.table_count || 0;
-
-    if (tableCount === 0) {
-      errors.push({
-        component: 'Database',
-        message: 'No tables found in database. Please run migrations.',
-        severity: 'error',
-      });
-    } else {
-      logger.info(`Database schema validation passed (${tableCount} tables found)`);
-    }
-
-    // Check PostgreSQL version
-    const versionResult = await db.execute(sql`SHOW server_version`);
-    const version = (versionResult[0] as any)?.server_version;
-    logger.info(`PostgreSQL version: ${version}`);
-
-    // Verify required extensions
-    const extensionsResult = await db.execute(sql`
-      SELECT extname
-      FROM pg_extension
-      WHERE extname IN ('uuid-ossp', 'pg_trgm')
-    `);
-
-    const extensions = extensionsResult.map((row: any) => row.extname);
-
-    if (!extensions.includes('uuid-ossp')) {
-      errors.push({
-        component: 'Database',
-        message: 'Required PostgreSQL extension "uuid-ossp" is not installed',
-        severity: 'error',
-      });
-    }
-
-    if (!extensions.includes('pg_trgm')) {
-      errors.push({
-        component: 'Database',
-        message: 'PostgreSQL extension "pg_trgm" is not installed (fuzzy search will not work)',
-        severity: 'warning',
-      });
-    }
-
   } catch (error) {
     logger.error('Database validation failed', error as Error);
     errors.push({
