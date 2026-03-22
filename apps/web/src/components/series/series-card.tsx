@@ -74,15 +74,13 @@ export function SeriesCard({ series }: SeriesCardProps) {
           </div>
 
           {series.completionPercentage === 100 && (
-            <div className="rounded-md bg-green-500/10 p-2 text-center text-xs text-green-500">
-              Collection complete! 🎉
-            </div>
+            <p className="mt-1 text-xs text-green-500">&#10003; Complete</p>
           )}
 
           {series.completionPercentage < 100 && series.totalVolumes - series.ownedVolumes > 0 && (
-            <div className="rounded-md bg-blue-500/10 p-2 text-center text-xs text-blue-500">
+            <p className="mt-1 text-xs text-blue-500">
               {series.totalVolumes - series.ownedVolumes} volumes missing
-            </div>
+            </p>
           )}
         </CardContent>
       </Card>

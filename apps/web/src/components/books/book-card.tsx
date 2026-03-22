@@ -154,17 +154,12 @@ export function BookCard({ book, onClick }: BookCardProps) {
                   onClick={(e) => e.stopPropagation()}
                   className="mt-2 inline-block"
                 >
-                  <Badge variant="secondary" className="text-xs hover:bg-secondary/80">
+                  <Badge variant="secondary" className="max-w-[150px] truncate text-xs hover:bg-secondary/80">
                     {book.series.name} #{book.series.volumeNumber}
                   </Badge>
                 </Link>
               )}
 
-              {book.edition.format && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {book.edition.format}
-                </p>
-              )}
             </div>
 
             {/* Reading progress display */}

@@ -13,6 +13,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { CSVImportDialog } from '@/components/import/csv-import-dialog';
 import { AddBookDialog } from '@/components/books/add-book-dialog';
 import { AdvancedSearch, SearchFilters } from '@/components/search/advanced-search';
@@ -33,9 +40,19 @@ interface SharedBooksEntry {
   books: BookWithRelations[];
 }
 
+type SortOption = 'recently-added' | 'title-az' | 'title-za' | 'author-az';
+
+const SORT_LABELS: Record<SortOption, string> = {
+  'recently-added': 'Recently Added',
+  'title-az': 'Title A-Z',
+  'title-za': 'Title Z-A',
+  'author-az': 'Author A-Z',
+};
+
 export default function LibraryPage() {
   const router = useRouter();
   const [filters, setFilters] = useState<SearchFilters>({});
+  const [sortBy, setSortBy] = useState<SortOption>('recently-added');
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showAddBookDialog, setShowAddBookDialog] = useState(false);
   const [showShared, setShowShared] = useState(false);
@@ -109,7 +126,25 @@ export default function LibraryPage() {
       )
     : [];
 
-  const allBooks: AnnotatedBook[] = [...ownBooks, ...sharedBooks];
+  const unsortedBooks: AnnotatedBook[] = [...ownBooks, ...sharedBooks];
+
+  const allBooks: AnnotatedBook[] = [...unsortedBooks].sort((a, b) => {
+    switch (sortBy) {
+      case 'title-az':
+        return a.book.title.localeCompare(b.book.title);
+      case 'title-za':
+        return b.book.title.localeCompare(a.book.title);
+      case 'author-az': {
+        const authorA = a.authors?.[0]?.name ?? '';
+        const authorB = b.authors?.[0]?.name ?? '';
+        return authorA.localeCompare(authorB);
+      }
+      case 'recently-added':
+      default:
+        return 0; // server already returns desc by createdAt
+    }
+  });
+
   const totalCount = (data?.pagination?.total ?? 0) + sharedBooks.length;
 
   return (
@@ -150,7 +185,21 @@ export default function LibraryPage() {
       <AddBookDialog open={showAddBookDialog} onOpenChange={setShowAddBookDialog} />
       <CSVImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} />
 
-      <AdvancedSearch onSearch={setFilters} initialFilters={filters} />
+      <div className="flex items-center gap-3">
+        <AdvancedSearch onSearch={setFilters} initialFilters={filters} />
+        <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+          <SelectTrigger className="w-[160px] shrink-0">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
+              <SelectItem key={key} value={key}>
+                {SORT_LABELS[key]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {isLoading && (
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">

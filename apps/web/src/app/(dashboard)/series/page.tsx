@@ -28,6 +28,7 @@ type SeriesType = 'manga' | 'light_novel' | 'book' | 'comic' | 'other';
 
 export default function SeriesPage() {
   const [search, setSearch] = useState('');
+  const [completionFilter, setCompletionFilter] = useState<'all' | 'in-progress' | 'complete'>('all');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -135,7 +136,7 @@ export default function SeriesPage() {
         <div>
           <h1 className="text-3xl font-bold">Series</h1>
           <p className="text-muted-foreground">
-            {data?.series.length || 0} series in your collection
+            {data?.series?.length ?? 0} series in your collection
           </p>
         </div>
 
@@ -164,12 +165,27 @@ export default function SeriesPage() {
         </div>
       </div>
 
-      <Input
-        placeholder="Search series..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="max-w-md"
-      />
+      <div className="flex items-center gap-3">
+        <Input
+          placeholder="Search series..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-md"
+        />
+        <Select
+          value={completionFilter}
+          onValueChange={(v) => setCompletionFilter(v as 'all' | 'in-progress' | 'complete')}
+        >
+          <SelectTrigger className="w-[150px] shrink-0">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="in-progress">In Progress</SelectItem>
+            <SelectItem value="complete">Complete</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       {isLoading && (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -187,25 +203,39 @@ export default function SeriesPage() {
         </div>
       )}
 
-      {data?.series.length === 0 && !isLoading && (
-        <div className="rounded-lg border-2 border-dashed py-12 text-center">
-          <p className="text-muted-foreground">
-            No series found. Create your first series to get started!
-          </p>
-          <Button className="mt-4" onClick={() => setCreateOpen(true)}>Create Series</Button>
-        </div>
-      )}
+      {(() => {
+        type RawSeries = Parameters<typeof SeriesCard>[0]['series'];
+        const filteredSeries: RawSeries[] = (data?.series ?? [])
+          .map((s: unknown) => s as RawSeries)
+          .filter((s: RawSeries) => {
+            if (completionFilter === 'complete') return s.completionPercentage === 100;
+            if (completionFilter === 'in-progress') return s.completionPercentage < 100;
+            return true;
+          });
 
-      {data?.series && data.series.length > 0 && (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {data.series.map((series: unknown) => (
-            <SeriesCard
-              key={(series as { id: string }).id}
-              series={series as Parameters<typeof SeriesCard>[0]['series']}
-            />
-          ))}
-        </div>
-      )}
+        if (filteredSeries.length === 0 && !isLoading) {
+          return (
+            <div className="rounded-lg border-2 border-dashed py-12 text-center">
+              <p className="text-muted-foreground">
+                {data?.series?.length === 0
+                  ? 'No series found. Create your first series to get started!'
+                  : 'No series match the selected filter.'}
+              </p>
+              {data?.series?.length === 0 && (
+                <Button className="mt-4" onClick={() => setCreateOpen(true)}>Create Series</Button>
+              )}
+            </div>
+          );
+        }
+
+        return (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredSeries.map((series) => (
+              <SeriesCard key={series.id} series={series} />
+            ))}
+          </div>
+        );
+      })()}
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
