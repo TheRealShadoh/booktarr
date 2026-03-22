@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import { ShareManager } from '@/components/sharing/share-manager';
 
 export default function SettingsPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -223,6 +224,16 @@ export default function SettingsPage() {
                 </Button>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Library Sharing</CardTitle>
+            <CardDescription>Share your library with other BookTarr users</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ShareManager />
           </CardContent>
         </Card>
 
