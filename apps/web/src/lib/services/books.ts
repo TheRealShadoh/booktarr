@@ -56,7 +56,19 @@ export class BookService {
     let metadata: BookMetadata | null = null;
 
     // 1. Get or fetch metadata
-    if (input.isbn) {
+    // If manualEntry is provided (e.g. CSV import), use it directly
+    // to avoid slow external API calls for every row
+    if (input.manualEntry) {
+      metadata = {
+        ...input.manualEntry,
+        isbn10: input.edition?.isbn10,
+        isbn13: input.edition?.isbn13,
+        coverUrl: input.edition?.coverUrl,
+      };
+    }
+
+    // Only call external APIs if no manual data provided
+    if (!metadata && input.isbn) {
       metadata = await this.metadataService.enrichByISBN(input.isbn);
     }
 
@@ -66,15 +78,6 @@ export class BookService {
         input.author
       );
       metadata = results[0] || null;
-    }
-
-    if (!metadata && input.manualEntry) {
-      // Create metadata from manual entry (fallback when API enrichment fails)
-      metadata = {
-        ...input.manualEntry,
-        isbn10: input.edition?.isbn10,
-        isbn13: input.edition?.isbn13,
-      };
     }
 
     if (!metadata) {

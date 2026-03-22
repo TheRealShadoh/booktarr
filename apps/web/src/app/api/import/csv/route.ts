@@ -6,6 +6,9 @@ import { importJobManager } from '@/lib/services/import-job-manager';
 import { handleError, Errors } from '@/lib/api-error';
 import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
 
+// Increase function timeout for large CSV imports
+export const maxDuration = 300; // 5 minutes (Vercel Pro plan)
+
 const csvImportService = new CSVImportService();
 
 const ALLOWED_FORMATS = ['handylib', 'generic'] as const;
