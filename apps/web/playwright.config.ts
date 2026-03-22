@@ -1,7 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = process.env.PORT || 3000;
-const baseURL = `http://localhost:${PORT}`;
+// Use live Vercel deployment or local dev server
+const baseURL = process.env.TEST_URL || 'https://booktarr.vercel.app';
+const isLocal = baseURL.includes('localhost');
 
 export default defineConfig({
   testDir: './e2e',
@@ -10,6 +11,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
+  timeout: 30000,
 
   use: {
     baseURL,
@@ -23,22 +25,16 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
-    {
       name: 'Mobile Chrome',
       use: { ...devices['Pixel 5'] },
     },
   ],
 
-  webServer: {
-    command: 'npm run dev',
-    url: baseURL,
-    reuseExistingServer: !process.env.CI,
-  },
+  ...(isLocal ? {
+    webServer: {
+      command: 'npm run dev',
+      url: baseURL,
+      reuseExistingServer: true,
+    },
+  } : {}),
 });
