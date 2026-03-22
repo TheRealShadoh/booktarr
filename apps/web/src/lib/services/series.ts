@@ -169,16 +169,24 @@ export class SeriesService {
       return null;
     }
 
-    // Get all expected volumes from seriesVolumes (includes missing volumes)
-    const volumesData = await db
-      .select({
-        volume: seriesVolumes,
-        book: books,
-      })
+    // Get all expected volumes (separate queries to avoid joins)
+    const volumeEntries = await db
+      .select()
       .from(seriesVolumes)
-      .leftJoin(books, eq(seriesVolumes.bookId, books.id))
       .where(eq(seriesVolumes.seriesId, seriesId))
       .orderBy(seriesVolumes.volumeNumber);
+
+    // Hydrate each volume with book data
+    const volumesData = await Promise.all(
+      volumeEntries.map(async (vol) => {
+        let book = null;
+        if (vol.bookId) {
+          const [b] = await db.select().from(books).where(eq(books.id, vol.bookId)).limit(1);
+          book = b || null;
+        }
+        return { volume: vol, book };
+      })
+    );
 
     // Get ownership status for each volume
     const volumesWithStatus = await Promise.all(
@@ -189,27 +197,21 @@ export class SeriesService {
 
         // If volume has a linked book, check ownership and get cover
         if (v.book) {
-          const editionsData = await db
-            .select({
-              edition: editions,
-              userBook: userBooks,
-            })
+          const editionList = await db
+            .select()
             .from(editions)
-            .leftJoin(
-              userBooks,
-              and(
-                eq(userBooks.editionId, editions.id),
-                eq(userBooks.userId, userId)
-              )
-            )
             .where(eq(editions.bookId, v.book.id));
 
-          owned = editionsData.some((e) => e.userBook?.status === 'owned');
-          wanted = editionsData.some((e) => e.userBook?.status === 'wanted');
+          for (const ed of editionList) {
+            const [ub] = await db.select().from(userBooks)
+              .where(and(eq(userBooks.editionId, ed.id), eq(userBooks.userId, userId)))
+              .limit(1);
+            if (ub?.status === 'owned') owned = true;
+            if (ub?.status === 'wanted') wanted = true;
+          }
 
-          // Get cover from book's edition (prefer owned edition)
-          const ownedEdition = editionsData.find((e) => e.userBook?.status === 'owned');
-          coverUrl = ownedEdition?.edition.coverUrl || editionsData[0]?.edition.coverUrl || null;
+          // Get cover from first edition with a cover
+          coverUrl = editionList.find(e => e.coverUrl)?.coverUrl || null;
         }
 
         // Fallback to volume-specific cover, then series cover
