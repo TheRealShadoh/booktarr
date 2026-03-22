@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { logger } from '@/lib/logger';
+import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
@@ -19,6 +21,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ShareManager } from '@/components/sharing/share-manager';
 
 export default function SettingsPage() {
+  const { data: session } = useSession();
+  const [changeName, setChangeName] = useState('');
+  const [bookCount, setBookCount] = useState<number | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -50,6 +56,87 @@ export default function SettingsPage() {
       // Enable button by default when the status check cannot be completed.
       setEnrichmentStatus({ count: 1 });
     }
+  };
+
+  const fetchBookCount = async () => {
+    try {
+      const response = await fetch('/api/books?limit=1');
+      if (response.ok) {
+        const data = await response.json();
+        setBookCount(data.total ?? data.books?.length ?? 0);
+      }
+    } catch (error) {
+      logger.error('Error fetching book count:', error instanceof Error ? error : new Error(String(error)));
+    }
+  };
+
+  const fetchAllBooks = async () => {
+    const response = await fetch('/api/books?limit=10000');
+    if (!response.ok) throw new Error('Failed to fetch books');
+    const data = await response.json();
+    return (data.books ?? data) as Record<string, unknown>[];
+  };
+
+  const handleExportCSV = async () => {
+    setIsExporting(true);
+    try {
+      const books = await fetchAllBooks();
+      const headers = ['Title', 'Author', 'ISBN', 'Publisher', 'Format', 'Pages', 'Series', 'Status'];
+      const rows = books.map((book) => [
+        book.title ?? '',
+        book.author ?? '',
+        book.isbn ?? '',
+        book.publisher ?? '',
+        book.format ?? '',
+        book.pageCount ?? '',
+        book.seriesName ?? '',
+        book.status ?? '',
+      ]);
+      const csvContent = [headers, ...rows]
+        .map((row) =>
+          row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+        )
+        .join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'booktarr-library.csv';
+      link.click();
+      URL.revokeObjectURL(url);
+      toast({ title: 'Success', description: `Exported ${books.length} books as CSV` });
+    } catch (error) {
+      logger.error('Error exporting CSV:', error instanceof Error ? error : new Error(String(error)));
+      toast({ title: 'Error', description: 'Failed to export library', variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportJSON = async () => {
+    setIsExporting(true);
+    try {
+      const books = await fetchAllBooks();
+      const jsonContent = JSON.stringify(books, null, 2);
+      const blob = new Blob([jsonContent], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'booktarr-library.json';
+      link.click();
+      URL.revokeObjectURL(url);
+      toast({ title: 'Success', description: `Exported ${books.length} books as JSON` });
+    } catch (error) {
+      logger.error('Error exporting JSON:', error instanceof Error ? error : new Error(String(error)));
+      toast({ title: 'Error', description: 'Failed to export library', variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleChangeName = (e: React.FormEvent) => {
+    e.preventDefault();
+    toast({ title: 'Coming soon', description: 'Profile updates coming soon' });
   };
 
   const handleEnrichBooks = async () => {
@@ -141,9 +228,10 @@ export default function SettingsPage() {
     }
   };
 
-  // Check enrichment status on mount
+  // Check enrichment status and book count on mount
   useEffect(() => {
     checkEnrichmentStatus();
+    fetchBookCount();
   }, []);
 
   return (
@@ -162,9 +250,35 @@ export default function SettingsPage() {
             <CardDescription>Manage your account settings</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Account management features will be available here.
-            </p>
+            <div className="space-y-1">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Name</Label>
+              <p className="text-sm font-medium">{session?.user?.name ?? 'Not set'}</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Email</Label>
+              <p className="text-sm font-medium">{session?.user?.email ?? 'Not set'}</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Role</Label>
+              <div>
+                <Badge variant="secondary">{(session?.user as { role?: string } | undefined)?.role ?? 'user'}</Badge>
+              </div>
+            </div>
+            <form onSubmit={handleChangeName} className="space-y-2 pt-2">
+              <Label htmlFor="change-name">Change Display Name</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="change-name"
+                  placeholder="New display name"
+                  value={changeName}
+                  onChange={(e) => setChangeName(e.target.value)}
+                  className="max-w-sm"
+                />
+                <Button type="submit" variant="outline" disabled={!changeName.trim()}>
+                  Save
+                </Button>
+              </div>
+            </form>
           </CardContent>
         </Card>
 
@@ -182,13 +296,34 @@ export default function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Import & Export</CardTitle>
+            <CardTitle>Import &amp; Export</CardTitle>
             <CardDescription>Manage your library data</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Data import and export features will be available here.
-            </p>
+            <div className="space-y-2">
+              <Label>Export Library</Label>
+              {bookCount !== null && (
+                <p className="text-sm text-muted-foreground">
+                  Your library contains <span className="font-medium text-foreground">{bookCount}</span> {bookCount === 1 ? 'book' : 'books'}.
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleExportCSV}
+                  disabled={isExporting}
+                >
+                  {isExporting ? 'Exporting...' : 'Export as CSV'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleExportJSON}
+                  disabled={isExporting}
+                >
+                  {isExporting ? 'Exporting...' : 'Export as JSON'}
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
