@@ -58,7 +58,8 @@ export async function GET(req: Request) {
     });
   } catch (error) {
     logger.error('GET /api/series error:', error as Error);
-    return NextResponse.json({ error: { message: error instanceof Error ? error.message : String(error) } }, { status: 500 });
+    const apiError = handleError(error);
+    return apiError.toResponse();
   }
 }
 
