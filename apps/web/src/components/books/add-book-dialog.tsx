@@ -268,8 +268,8 @@ export function AddBookDialog({ open, onOpenChange }: AddBookDialogProps) {
     );
   }
 
-  // Format & status selectors (shared across tabs)
-  const FormatStatusFields = ({ idPrefix }: { idPrefix: string }) => (
+  // Render format & status selectors for a given tab
+  const renderFormatStatusFields = (idPrefix: string) => (
     <>
       <div className="space-y-2">
         <Label htmlFor={`format-${idPrefix}`}>Format (Optional)</Label>
@@ -338,7 +338,7 @@ export function AddBookDialog({ open, onOpenChange }: AddBookDialogProps) {
               />
             </div>
 
-            <FormatStatusFields idPrefix="isbn" />
+            {renderFormatStatusFields("isbn")}
 
             <Button onClick={handleSearchByIsbn} className="w-full" disabled={isPending}>
               {isPending ? (
@@ -378,7 +378,7 @@ export function AddBookDialog({ open, onOpenChange }: AddBookDialogProps) {
               />
             </div>
 
-            <FormatStatusFields idPrefix="scan" />
+            {renderFormatStatusFields("scan")}
 
             <Button
               onClick={handleSearchByIsbn}
@@ -422,7 +422,7 @@ export function AddBookDialog({ open, onOpenChange }: AddBookDialogProps) {
               />
             </div>
 
-            <FormatStatusFields idPrefix="title" />
+            {renderFormatStatusFields("title")}
 
             <Button onClick={handleSearchByTitle} className="w-full" disabled={isPending}>
               {isPending ? (
