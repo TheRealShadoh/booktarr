@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Headphones } from 'lucide-react';
 import { ReadingProgressCard } from '@/components/reading/reading-progress-card';
 import { ReadingProgressDialog } from '@/components/reading/reading-progress-dialog';
 import type { ReadingStatus } from '@/components/reading/reading-status-badge';
@@ -114,6 +114,38 @@ export function BookCard({ book, onClick }: BookCardProps) {
                 <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
                   {book.authors.map((a) => a.name).join(', ')}
                 </p>
+              )}
+
+              {/* Kindle / Audible quick-access links */}
+              {(book.edition.format === 'ebook' || book.edition.format === 'audiobook') && (
+                <div className="mt-2 flex gap-2">
+                  {book.edition.format === 'ebook' && (
+                    <a
+                      href="https://read.amazon.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      title="Read on Kindle"
+                    >
+                      <BookOpen className="h-3 w-3" />
+                      Read
+                    </a>
+                  )}
+                  {book.edition.format === 'audiobook' && (
+                    <a
+                      href="https://www.audible.com/library"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      title="Listen on Audible"
+                    >
+                      <Headphones className="h-3 w-3" />
+                      Listen
+                    </a>
+                  )}
+                </div>
               )}
 
               {book.series && (
