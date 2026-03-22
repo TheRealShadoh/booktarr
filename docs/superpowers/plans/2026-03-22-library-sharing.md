@@ -18,7 +18,7 @@
 - Modify: `packages/database/src/schema/users.ts`
 - Modify: `packages/database/src/schema/index.ts`
 
-- [ ] **Step 1: Add libraryShares table to schema**
+- [x] **Step 1: Add libraryShares table to schema**
 
 In `packages/database/src/schema/users.ts`, add after the existing `sessions` table:
 
@@ -40,7 +40,7 @@ export const libraryShares = pgTable('library_shares', {
 }));
 ```
 
-- [ ] **Step 2: Verify export in index.ts**
+- [x] **Step 2: Verify export in index.ts**
 
 Check `packages/database/src/schema/index.ts` exports `users.ts`. It should already re-export everything via `export * from './users'`.
 
@@ -72,7 +72,7 @@ sql.query(\`CREATE TABLE IF NOT EXISTS library_shares (
 "
 ```
 
-- [ ] **Step 4: Build to verify schema compiles**
+- [x] **Step 4: Build to verify schema compiles**
 
 Run: `npm run build`
 Expected: Compiles successfully
@@ -91,7 +91,7 @@ git commit -m "feat: Add library_shares table schema"
 **Files:**
 - Create: `apps/web/src/lib/validators/shares.ts`
 
-- [ ] **Step 1: Create share validators**
+- [x] **Step 1: Create share validators**
 
 ```typescript
 import { z } from 'zod';
@@ -132,7 +132,7 @@ git commit -m "feat: Add Zod validators for library sharing"
 
 IMPORTANT: All queries must use `db.select().from().where()` pattern. No `db.query.xxx.findFirst()` or joins.
 
-- [ ] **Step 1: Create ShareService**
+- [x] **Step 1: Create ShareService**
 
 ```typescript
 import { db } from '../db';
@@ -401,7 +401,7 @@ export class ShareService {
 }
 ```
 
-- [ ] **Step 2: Build to verify**
+- [x] **Step 2: Build to verify**
 
 Run: `npm run build`
 

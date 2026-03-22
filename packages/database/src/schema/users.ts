@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { boolean, pgTable, text, timestamp, unique, uuid, varchar } from 'drizzle-orm/pg-core';
 
 /**
  * Users table - Multi-user support from day 1
@@ -56,3 +56,21 @@ export const verificationTokens = pgTable('verification_tokens', {
   token: varchar('token', { length: 255 }).notNull().unique(),
   expires: timestamp('expires', { mode: 'date' }).notNull(),
 });
+
+/**
+ * Library shares table - Tracks shared library access between users
+ * Supports view/edit permissions with an acceptance flow
+ */
+export const libraryShares = pgTable('library_shares', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  ownerId: uuid('owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  sharedWithId: uuid('shared_with_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  permission: varchar('permission', { length: 10 }).notNull().default('view'),
+  status: varchar('status', { length: 10 }).notNull().default('pending'),
+  forcedByAdmin: boolean('forced_by_admin').notNull().default(false),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  acceptedAt: timestamp('accepted_at', { mode: 'date' }),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+}, (table) => ({
+  uniqueShare: unique().on(table.ownerId, table.sharedWithId),
+}));
