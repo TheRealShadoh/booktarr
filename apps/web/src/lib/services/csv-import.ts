@@ -170,30 +170,36 @@ export class CSVImportService {
       let author: string | undefined;
 
       try {
-        // HandyLib CSV format has: Title, Author, Publisher, Published Date, Format, Pages, etc.
+        // HandyLib CSV format columns
         isbn = row.ISBN || row.isbn || row.ISBN13 || row.isbn13;
         title = row.Title || row.title;
         author = row.Author || row.Authors || row.author || row.authors;
         const series = row.Series || row.series;
+        const volume = row.Volume || row.volume;
         const publisher = row.Publisher || row.publisher;
         const publishedDate = row['Published Date'] || row.publishedDate;
         const pages = row.Pages || row.pages;
         const language = row.Language || row.language || 'en';
         const format = row.Format || row.format;
         const summary = row.Summary || row.summary;
+        const imageUrl = row['Image Url'] || row.imageUrl || row.image_url;
+        const rating = row.Rating || row.rating;
 
         if (!isbn && !title) {
           throw new Error('Missing both ISBN and title');
         }
 
-        // Build authors array from CSV data
-        const authors = author ? author.split(/[,;]/).map((a: string) => a.trim()) : [];
+        // Build authors array - HandyLib uses semicolons between authors
+        // and "Last, First" format within each author name
+        const authors = author
+          ? author.split(';').map((a: string) => a.trim()).filter(Boolean)
+          : [];
 
         // Add book to collection with CSV data as fallback for failed API enrichment
         const bookResult = await this.bookService.createBook({
           isbn: isbn || undefined,
           title: title || undefined,
-          author: author || undefined,
+          author: authors[0] || undefined,
           userId,
           status: 'owned',
           manualEntry: {
@@ -208,10 +214,11 @@ export class CSVImportService {
           edition: {
             isbn13: isbn?.length === 13 ? isbn : undefined,
             isbn10: isbn?.length === 10 ? isbn : undefined,
-            format,
+            format: format?.toLowerCase(),
             pages: pages ? parseInt(pages) : undefined,
             publisher,
             publishedDate,
+            coverUrl: imageUrl || undefined,
           },
         });
 
@@ -221,19 +228,21 @@ export class CSVImportService {
             // Find or create series using case-insensitive search
             const seriesRecord = await this.seriesService.findOrCreateSeries(series);
 
-            // Try to extract volume number from title or series field
-            let volumeNumber = 1; // Default to volume 1
+            // Use Volume column from CSV first (most reliable)
+            let volumeNumber = 1;
 
-            // First try to parse from the book title
-            const parsedFromTitle = this.seriesParser.parseTitle(title || '');
-            if (parsedFromTitle && parsedFromTitle.volumeNumber) {
-              volumeNumber = parsedFromTitle.volumeNumber;
+            if (volume && !isNaN(parseInt(volume))) {
+              volumeNumber = parseInt(volume);
             } else {
-              // Try to extract volume number from the series field itself
-              // Common patterns: "Series Name #3", "Series Name - Book 3", "Series Name Vol. 3"
-              const volumeMatch = series.match(/#(\d+)|(?:Book|Vol\.?|Volume)\s+(\d+)/i);
-              if (volumeMatch) {
-                volumeNumber = parseInt(volumeMatch[1] || volumeMatch[2], 10);
+              // Fallback: parse from title
+              const parsedFromTitle = this.seriesParser.parseTitle(title || '');
+              if (parsedFromTitle && parsedFromTitle.volumeNumber) {
+                volumeNumber = parsedFromTitle.volumeNumber;
+              } else {
+                const volumeMatch = series.match(/#(\d+)|(?:Book|Vol\.?|Volume)\s+(\d+)/i);
+                if (volumeMatch) {
+                  volumeNumber = parseInt(volumeMatch[1] || volumeMatch[2], 10);
+                }
               }
             }
 
@@ -242,7 +251,7 @@ export class CSVImportService {
               seriesId: seriesRecord.id,
               bookId: bookResult.book.id,
               volumeNumber,
-              volumeName: parsedFromTitle?.volumeName || undefined,
+              volumeName: undefined,
             });
 
             logger.info(`[CSV Import] Linked "${title}" to series "${series}" as volume ${volumeNumber}`);

@@ -33,6 +33,11 @@ const nextConfig: NextConfig = {
         hostname: 's4.anilist.co',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'm.media-amazon.com',
+        pathname: '/images/**',
+      },
     ],
     // Limit image sizes for security
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],

@@ -59,10 +59,12 @@ export class SeriesService {
    * Find series by name (case-insensitive) or create if doesn't exist
    */
   async findOrCreateSeries(name: string, type?: string): Promise<any> {
-    // Search for existing series (case-insensitive)
-    const existing = await db.query.series.findFirst({
-      where: sql`LOWER(${series.name}) = LOWER(${name})`,
-    });
+    // Search for existing series (case-insensitive, simple query for neon-http)
+    const [existing] = await db
+      .select()
+      .from(series)
+      .where(sql`LOWER(${series.name}) = LOWER(${name})`)
+      .limit(1);
 
     if (existing) {
       return existing;
@@ -138,9 +140,11 @@ export class SeriesService {
   }
 
   async getSeriesById(seriesId: string, userId: string) {
-    const seriesData = await db.query.series.findFirst({
-      where: eq(series.id, seriesId),
-    });
+    const [seriesData] = await db
+      .select()
+      .from(series)
+      .where(eq(series.id, seriesId))
+      .limit(1);
 
     if (!seriesData) {
       return null;
@@ -224,12 +228,14 @@ export class SeriesService {
 
   async addBookToSeries(input: AddBookToSeriesInput) {
     // Check if book already in series
-    const existing = await db.query.seriesBooks.findFirst({
-      where: and(
+    const [existing] = await db
+      .select()
+      .from(seriesBooks)
+      .where(and(
         eq(seriesBooks.seriesId, input.seriesId),
         eq(seriesBooks.bookId, input.bookId)
-      ),
-    });
+      ))
+      .limit(1);
 
     if (existing) {
       throw new Error('Book already in series');
