@@ -43,6 +43,7 @@
     "npm": ">=10.0.0"
   },
   "dependencies": {
-    "drizzle-orm": "^0.44.7"
+    "drizzle-orm": "^0.44.7",
+    "postgres": "^3.4.7"
   }
 }
