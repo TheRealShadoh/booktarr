@@ -15,7 +15,10 @@ const ISBN_13_PATTERN = /^\d{13}$/;
  * Create Book Schema
  */
 export const createBookSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(500, 'Title too long'),
+  // ISBN for search-based creation (alternative to title)
+  isbn: z.string().max(20).optional(),
+
+  title: z.string().min(1).max(500).optional(),
   subtitle: z.string().max(500, 'Subtitle too long').optional(),
   description: z.string().max(5000, 'Description too long').optional(),
 
@@ -58,13 +61,19 @@ export const createBookSchema = z.object({
   // Authors (array of author names or IDs)
   authors: z.array(z.string().max(255)).min(1, 'At least one author required').max(20).optional(),
 
+  // Search by author (for title-based search)
+  author: z.string().max(255).optional(),
+
   // Ownership status
   status: z.enum(['owned', 'wanted', 'missing', 'loaned']).default('owned'),
   acquisitionDate: z.string().max(50).optional(),
   location: z.string().max(255).optional(),
   condition: z.enum(['new', 'like_new', 'good', 'fair', 'poor']).optional(),
   notes: z.string().max(2000).optional(),
-});
+}).refine(
+  (data) => data.isbn || data.title,
+  { message: 'Either isbn or title is required' }
+);
 
 /**
  * Search/Query Parameters Schema
