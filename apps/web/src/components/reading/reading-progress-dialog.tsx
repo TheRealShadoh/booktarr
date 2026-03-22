@@ -88,6 +88,7 @@ export function ReadingProgressDialog({
       queryClient.invalidateQueries({ queryKey: ['books'] });
       queryClient.invalidateQueries({ queryKey: ['reading-stats'] });
       queryClient.invalidateQueries({ queryKey: ['currently-reading'] });
+      queryClient.invalidateQueries({ queryKey: ['reading-progress'] });
       onOpenChange(false);
     },
   });

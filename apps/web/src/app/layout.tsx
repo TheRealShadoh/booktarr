@@ -18,7 +18,10 @@ import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
   title: 'BookTarr - Book Collection Manager',
-  description: 'Manage your book collection with ease',
+  description: 'Track your manga, light novels, and book collections. Import from CSV, scan barcodes, share libraries with friends.',
+  keywords: ['book tracker', 'manga collection', 'library manager', 'ISBN scanner'],
+  themeColor: '#0a0a0a',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
 };
 
 export default function RootLayout({
