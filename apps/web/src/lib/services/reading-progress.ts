@@ -151,66 +151,69 @@ export class ReadingProgressService {
    */
   async getCurrentlyReading(userId: string): Promise<any[]> {
     const results = await db
-      .select({
-        readingProgress: readingProgress,
-        book: books,
-        edition: editions,
-        userBook: userBooks,
-      })
+      .select()
       .from(readingProgress)
-      .innerJoin(books, eq(readingProgress.bookId, books.id))
-      .innerJoin(editions, eq(books.id, editions.bookId))
-      .innerJoin(userBooks, and(
-        eq(userBooks.editionId, editions.id),
-        eq(userBooks.userId, userId)
-      ))
       .where(and(
         eq(readingProgress.userId, userId),
         eq(readingProgress.status, 'currently_reading')
       ))
       .orderBy(desc(readingProgress.lastReadAt));
 
-    // Get authors for each book
+    // Hydrate each entry with book, edition, userBook, authors
     const booksWithAuthors = await Promise.all(
       results.map(async (result) => {
-        const bookAuthorsData = await db
-          .select({
-            author: authors,
-            role: bookAuthors.role,
-          })
-          .from(bookAuthors)
-          .innerJoin(authors, eq(bookAuthors.authorId, authors.id))
-          .where(eq(bookAuthors.bookId, result.book.id))
+        const [book] = await db.select().from(books).where(eq(books.id, result.bookId)).limit(1);
+        if (!book) return null;
+
+        const [edition] = await db.select().from(editions).where(eq(editions.bookId, book.id)).limit(1);
+        if (!edition) return null;
+
+        const [userBook] = await db.select().from(userBooks)
+          .where(and(eq(userBooks.editionId, edition.id), eq(userBooks.userId, userId)))
+          .limit(1);
+
+        const authorLinks = await db.select().from(bookAuthors)
+          .where(eq(bookAuthors.bookId, book.id))
           .orderBy(bookAuthors.displayOrder);
 
+        const authorList = await Promise.all(
+          authorLinks.map(async (link) => {
+            const [a] = await db.select().from(authors).where(eq(authors.id, link.authorId)).limit(1);
+            return a;
+          })
+        );
+
         return {
-          userBook: result.userBook,
-          edition: result.edition,
-          book: result.book,
-          authors: bookAuthorsData.map((ba) => ba.author),
-          readingProgress: result.readingProgress,
+          userBook: userBook || { id: '', status: 'owned' },
+          edition,
+          book,
+          authors: authorList.filter(Boolean),
+          readingProgress: result,
         };
       })
     );
 
-    return booksWithAuthors;
+    return booksWithAuthors.filter(Boolean);
   }
 
   /**
    * Get books by status
    */
   async getBooksByStatus(userId: string, status: ReadingStatus): Promise<any[]> {
-    const results = await db
-      .select({
-        progress: readingProgress,
-        book: books,
-      })
+    const progressEntries = await db
+      .select()
       .from(readingProgress)
-      .innerJoin(books, eq(readingProgress.bookId, books.id))
       .where(and(eq(readingProgress.userId, userId), eq(readingProgress.status, status)))
       .orderBy(desc(readingProgress.updatedAt));
 
-    return results;
+    const results = await Promise.all(
+      progressEntries.map(async (p) => {
+        const [book] = await db.select().from(books).where(eq(books.id, p.bookId)).limit(1);
+        return book ? { progress: p, book } : null;
+      })
+    );
+
+    return results.filter(Boolean);
   }
 
   /**

@@ -108,19 +108,39 @@ export class SeriesService {
           .from(seriesBooks)
           .where(eq(seriesBooks.seriesId, s.series.id));
 
-        // Count owned volumes (books in user's collection)
-        const [ownedCount] = await db
-          .select({ count: sql<number>`count(distinct ${seriesBooks.volumeNumber})` })
+        // Count owned volumes - separate queries to avoid joins
+        const seriesBookEntries = await db
+          .select({ bookId: seriesBooks.bookId, volumeNumber: seriesBooks.volumeNumber })
           .from(seriesBooks)
-          .innerJoin(editions, eq(editions.bookId, seriesBooks.bookId))
-          .innerJoin(userBooks, eq(userBooks.editionId, editions.id))
-          .where(
-            and(
-              eq(seriesBooks.seriesId, s.series.id),
-              eq(userBooks.userId, userId),
-              eq(userBooks.status, 'owned')
-            )
-          );
+          .where(eq(seriesBooks.seriesId, s.series.id));
+
+        let ownedVolumeNumbers = new Set<number>();
+        for (const sb of seriesBookEntries) {
+          // Check if user owns any edition of this book
+          const editionList = await db
+            .select({ id: editions.id })
+            .from(editions)
+            .where(eq(editions.bookId, sb.bookId));
+
+          for (const ed of editionList) {
+            const [ub] = await db
+              .select({ id: userBooks.id })
+              .from(userBooks)
+              .where(and(
+                eq(userBooks.editionId, ed.id),
+                eq(userBooks.userId, userId),
+                eq(userBooks.status, 'owned')
+              ))
+              .limit(1);
+
+            if (ub) {
+              ownedVolumeNumbers.add(sb.volumeNumber);
+              break;
+            }
+          }
+        }
+
+        const ownedCount = { count: ownedVolumeNumbers.size };
 
         const totalVolumes = s.series.totalVolumes || Number(volumeCount.count);
         const owned = Number(ownedCount.count);
