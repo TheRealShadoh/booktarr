@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Search, Camera, ArrowLeft, Plus, BookOpen } from 'lucide-react';
+import { Loader2, Search, Camera, ArrowLeft, Plus, BookOpen, Headphones } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { BarcodeScanner } from './barcode-scanner';
 
@@ -52,6 +52,8 @@ export function AddBookDialog({ open, onOpenChange, defaultStatus = 'owned' }: A
   const [author, setAuthor] = useState('');
   const [status, setStatus] = useState<'owned' | 'wanted' | 'missing'>(defaultStatus);
   const [format, setFormat] = useState('');
+  const [asin, setAsin] = useState('');
+  const [asinFormat, setAsinFormat] = useState<'ebook' | 'audiobook'>('ebook');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showResults, setShowResults] = useState(false);
 
@@ -106,7 +108,7 @@ export function AddBookDialog({ open, onOpenChange, defaultStatus = 'owned' }: A
       title?: string;
       author?: string;
       status: string;
-      edition?: { format?: string };
+      edition?: { format?: string; asin?: string };
     }) => {
       const response = await fetch('/api/books', {
         method: 'POST',
@@ -144,6 +146,8 @@ export function AddBookDialog({ open, onOpenChange, defaultStatus = 'owned' }: A
     setAuthor('');
     setStatus('owned');
     setFormat('');
+    setAsin('');
+    setAsinFormat('ebook');
     setSearchResults([]);
     setShowResults(false);
     onOpenChange(false);
@@ -184,6 +188,26 @@ export function AddBookDialog({ open, onOpenChange, defaultStatus = 'owned' }: A
 
   const handleScanError = (error: string) => {
     toast({ title: 'Scanner Error', description: error, variant: 'destructive' });
+  };
+
+  const handleSearchByAsin = () => {
+    if (!asin.trim()) {
+      toast({ title: 'Error', description: 'Please enter an ASIN', variant: 'destructive' });
+      return;
+    }
+    // Try searching via the existing search endpoint using ASIN as an identifier
+    searchMutation.mutate({ isbn: asin.trim() });
+  };
+
+  // Called when the search-by-ASIN attempt returns no results: fall back to
+  // creating the book directly with the ASIN stored on the edition.
+  const handleAddByAsin = () => {
+    if (!asin.trim()) return;
+    addBookMutation.mutate({
+      isbn: asin.trim(),
+      status: 'owned',
+      edition: { format: asinFormat, asin: asin.trim() },
+    });
   };
 
   const isPending = searchMutation.isPending || addBookMutation.isPending;
@@ -318,13 +342,17 @@ export function AddBookDialog({ open, onOpenChange, defaultStatus = 'owned' }: A
         </DialogHeader>
 
         <Tabs defaultValue="isbn" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="isbn">ISBN Search</TabsTrigger>
             <TabsTrigger value="scan">
               <Camera className="mr-1 h-3 w-3" />
               Scan Barcode
             </TabsTrigger>
             <TabsTrigger value="title">Title Search</TabsTrigger>
+            <TabsTrigger value="asin">
+              <Headphones className="mr-1 h-3 w-3" />
+              Kindle/Audible
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="isbn" className="space-y-4">
@@ -438,6 +466,65 @@ export function AddBookDialog({ open, onOpenChange, defaultStatus = 'owned' }: A
                 </>
               )}
             </Button>
+          </TabsContent>
+
+          <TabsContent value="asin" className="space-y-4">
+            <div className="rounded-md bg-muted px-4 py-3 text-sm text-muted-foreground space-y-1">
+              <p>Enter an ASIN from your Kindle or Audible library.</p>
+              <p>Find your ASIN on the book&apos;s Amazon product page — it appears in the URL after <code className="font-mono text-xs">/dp/</code>.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="asin">ASIN</Label>
+              <Input
+                id="asin"
+                placeholder="Enter ASIN e.g. B08N5WRWNW"
+                value={asin}
+                onChange={(e) => setAsin(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchByAsin()}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="asin-format">Format</Label>
+              <Select
+                value={asinFormat}
+                onValueChange={(v) => setAsinFormat(v as 'ebook' | 'audiobook')}
+              >
+                <SelectTrigger id="asin-format">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ebook">Kindle eBook</SelectItem>
+                  <SelectItem value="audiobook">Audible Audiobook</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex gap-2">
+              <Button onClick={handleSearchByAsin} className="flex-1" disabled={isPending}>
+                {isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Searching...
+                  </>
+                ) : (
+                  <>
+                    <Search className="mr-2 h-4 w-4" />
+                    Search and Add
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleAddByAsin}
+                disabled={isPending || !asin.trim()}
+                title="Add directly without metadata lookup"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Directly
+              </Button>
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>
