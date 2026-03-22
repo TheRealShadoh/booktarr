@@ -49,6 +49,7 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "tailwind-merge": "^3.4.0",
+    "ws": "^8.20.0",
     "zod": "^4.1.12",
     "zustand": "^5.0.8"
   },
@@ -64,6 +65,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
     "@vitest/ui": "^4.0.9",
     "eslint": "^9",
     "eslint-config-next": "16.0.3",
