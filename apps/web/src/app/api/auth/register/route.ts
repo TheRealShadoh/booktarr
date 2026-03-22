@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server';
+import { hash } from 'bcryptjs';
+import { eq } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { users } from '@booktarr/database';
+import { registerSchema } from '@/lib/validators/auth';
+import { rateLimit, getClientIdentifier } from '@/lib/rate-limit';
+import { handleError, Errors } from '@/lib/api-error';
+import { logger } from '@/lib/logger';
 
-// Force dynamic to ensure runtime execution
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// GET handler returns method info (for debugging)
 export async function GET() {
   return NextResponse.json(
     { message: 'Use POST to register', methods: ['POST'] },
@@ -13,56 +19,26 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  // Check if database is configured at runtime
-  if (!process.env.DATABASE_URL) {
-    return NextResponse.json(
-      {
-        error: 'Database not configured. Please set DATABASE_URL environment variable.',
-        setupRequired: true,
-      },
-      { status: 503 }
-    );
-  }
-
   try {
-    // Dynamic imports to avoid errors when DATABASE_URL is not set at build time
-    const { hash } = await import('bcryptjs');
-    const { eq } = await import('drizzle-orm');
-    const { db } = await import('@/lib/db');
-    const { users } = await import('@booktarr/database');
-    const { registerSchema } = await import('@/lib/validators/auth');
-    const { rateLimit, getClientIdentifier } = await import('@/lib/rate-limit');
-    const { handleError } = await import('@/lib/api-error');
-    const { logger } = await import('@/lib/logger');
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json(
+        {
+          error: 'Database not configured. Please set DATABASE_URL environment variable.',
+          setupRequired: true,
+        },
+        { status: 503 }
+      );
+    }
 
-    // Apply rate limiting for registration (3 per hour)
+    // Rate limiting (3 per hour)
     const identifier = getClientIdentifier(req);
     const rateLimitResult = await rateLimit(identifier, 'register');
 
     if (!rateLimitResult.success) {
-      logger.warn('Registration rate limit exceeded', {
-        identifier,
-        retryAfter: rateLimitResult.retryAfter,
-      });
-
-      return NextResponse.json(
-        {
-          error: 'Too many registration attempts. Please try again later.',
-          retryAfter: rateLimitResult.retryAfter,
-        },
-        {
-          status: 429,
-          headers: {
-            'Retry-After': String(rateLimitResult.retryAfter),
-            'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
-          },
-        }
-      );
+      throw Errors.rateLimitExceeded(rateLimitResult.retryAfter);
     }
 
     const body = await req.json();
-
-    // Validate input with Zod
     const validatedData = registerSchema.parse(body);
 
     // Check if user already exists
@@ -71,19 +47,15 @@ export async function POST(req: Request) {
     });
 
     if (existingUser) {
-      logger.warn('Registration attempt with existing email', {
-        email: validatedData.email,
-      });
       return NextResponse.json(
         { error: 'User already exists with this email' },
         { status: 409 }
       );
     }
 
-    // Hash password
+    // Hash password and create user
     const passwordHash = await hash(validatedData.password, 12);
 
-    // Create user
     const [newUser] = await db
       .insert(users)
       .values({
@@ -114,18 +86,9 @@ export async function POST(req: Request) {
           role: newUser.role,
         },
       },
-      {
-        status: 201,
-        headers: {
-          'X-RateLimit-Remaining': String(rateLimitResult.remaining || 0),
-          'X-RateLimit-Reset': rateLimitResult.resetAt?.toISOString() || '',
-        },
-      }
+      { status: 201 }
     );
   } catch (error) {
-    // Dynamic import for error handling
-    const { handleError } = await import('@/lib/api-error');
-    const { logger } = await import('@/lib/logger');
     logger.error('Registration error:', error as Error);
     const apiError = handleError(error);
     return apiError.toResponse();
