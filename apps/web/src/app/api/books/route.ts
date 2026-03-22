@@ -77,8 +77,14 @@ export async function GET(req: Request) {
     });
   } catch (error) {
     logger.error('GET /api/books error:', error as Error);
-    const apiError = handleError(error);
-    return apiError.toResponse();
+    // Include error details for debugging
+    return NextResponse.json({
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
+      },
+    }, { status: 500 });
   }
 }
 
