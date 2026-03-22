@@ -352,12 +352,19 @@ export class BookService {
 
         if (!book) return null;
 
-        // Get authors
-        const bookAuthorsData = await db.query.bookAuthors.findMany({
-          where: eq(bookAuthors.bookId, book.id),
-          with: { author: true },
-          orderBy: [bookAuthors.displayOrder],
-        });
+        // Get authors (separate queries to avoid lateral joins on neon-http)
+        const bookAuthorLinks = await db
+          .select()
+          .from(bookAuthors)
+          .where(eq(bookAuthors.bookId, book.id))
+          .orderBy(bookAuthors.displayOrder);
+
+        const bookAuthorsData = await Promise.all(
+          bookAuthorLinks.map(async (link) => {
+            const author = await db.select().from(authors).where(eq(authors.id, link.authorId)).limit(1);
+            return { author: author[0] || null, role: link.role };
+          })
+        );
 
         // Get reading progress
         const progress = await db.query.readingProgress.findFirst({
@@ -444,12 +451,19 @@ export class BookService {
       return null;
     }
 
-    // Get authors via relational query (avoids join column conflicts)
-    const bookAuthorsData = await db.query.bookAuthors.findMany({
-      where: eq(bookAuthors.bookId, book.id),
-      with: { author: true },
-      orderBy: [bookAuthors.displayOrder],
-    });
+    // Get authors (separate queries to avoid lateral joins on neon-http)
+    const bookAuthorLinks = await db
+      .select()
+      .from(bookAuthors)
+      .where(eq(bookAuthors.bookId, book.id))
+      .orderBy(bookAuthors.displayOrder);
+
+    const bookAuthorsData = await Promise.all(
+      bookAuthorLinks.map(async (link) => {
+        const author = await db.select().from(authors).where(eq(authors.id, link.authorId)).limit(1);
+        return { author: author[0] || null, role: link.role };
+      })
+    );
 
     // Get editions
     const bookEditions = await db.query.editions.findMany({

@@ -1,10 +1,6 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from '@booktarr/database';
-import ws from 'ws';
-
-// Set WebSocket constructor for Node.js environments
-neonConfig.webSocketConstructor = ws;
 
 type DbInstance = ReturnType<typeof drizzle<typeof schema>>;
 
@@ -17,11 +13,19 @@ function getDb(): DbInstance {
     throw new Error('DATABASE_URL environment variable is not set');
   }
 
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  dbInstance = drizzle({ client: pool, schema });
+  const sql = neon(process.env.DATABASE_URL);
+  dbInstance = drizzle(sql, { schema });
   return dbInstance;
 }
 
+/**
+ * Database instance - uses Neon HTTP driver
+ * IMPORTANT: Only use simple single-table queries or db.select() with
+ * explicit column selection. Do NOT use:
+ * - db.query.xxx.findMany({ with: ... }) - generates lateral joins
+ * - db.select({ table1, table2 }).innerJoin() - column name conflicts
+ * Instead: query each table separately and join in application code.
+ */
 export const db = new Proxy({} as DbInstance, {
   get(_, prop) {
     const instance = getDb();
