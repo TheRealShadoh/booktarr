@@ -82,14 +82,15 @@ export default function LibraryPage() {
     queryFn: async () => {
       const results = await Promise.all(
         acceptedShares.map(async (share) => {
-          const ownerId = share.ownerId ?? share.ownerEmail ?? '';
+          const ownerId = (share as unknown as { user?: { id: string } }).user?.id ?? share.ownerId ?? '';
+          if (!ownerId) return null;
           const response = await fetch(`/api/shares/books/${encodeURIComponent(ownerId)}`);
           if (!response.ok) return null;
-          const books = await response.json() as BookWithRelations[];
+          const data = await response.json() as { books: BookWithRelations[]; sharedFrom?: { name?: string; email?: string } };
           return {
             ownerId,
-            ownerName: share.ownerName ?? share.ownerEmail ?? 'Unknown',
-            books,
+            ownerName: data.sharedFrom?.name ?? data.sharedFrom?.email ?? 'Unknown',
+            books: data.books,
           };
         })
       );
