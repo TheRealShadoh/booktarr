@@ -77,8 +77,12 @@ export async function GET(req: Request) {
     });
   } catch (error) {
     logger.error('GET /api/books error:', error as Error);
-    const apiError = handleError(error);
-    return apiError.toResponse();
+    return NextResponse.json({
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: error instanceof Error ? error.message : String(error),
+      },
+    }, { status: 500 });
   }
 }
 
