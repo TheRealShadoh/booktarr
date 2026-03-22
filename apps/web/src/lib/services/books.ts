@@ -524,13 +524,11 @@ export class BookService {
 
   async clearAllBooks(userId: string) {
     // Delete all user's books and their reading progress
-    await db.transaction(async (tx) => {
-      // First, delete all reading progress for this user
-      await tx.delete(readingProgress).where(eq(readingProgress.userId, userId));
+    // Delete reading progress first (no FK constraint but logical order)
+    await db.delete(readingProgress).where(eq(readingProgress.userId, userId));
 
-      // Then, delete all user's book ownerships
-      await tx.delete(userBooks).where(eq(userBooks.userId, userId));
-    });
+    // Delete all user's book ownerships
+    await db.delete(userBooks).where(eq(userBooks.userId, userId));
 
     // Note: We don't delete the book/edition/author metadata
     // This keeps the data in the system for future use or other users
