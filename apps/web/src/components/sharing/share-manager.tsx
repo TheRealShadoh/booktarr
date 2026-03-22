@@ -80,6 +80,7 @@ export function ShareManager() {
   // Invite dialog state
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState('');
   const [invitePermission, setInvitePermission] = useState<SharePermission>('view');
 
   // Admin force-share state
@@ -88,6 +89,17 @@ export function ShareManager() {
   const [adminPermission, setAdminPermission] = useState<SharePermission>('view');
 
   const isAdmin = session?.user?.role === 'admin';
+
+  // Fetch all registered users for the picker
+  const { data: usersData } = useQuery<{ users: ShareUser[] }>({
+    queryKey: ['users'],
+    queryFn: async () => {
+      const response = await fetch('/api/users');
+      if (!response.ok) throw new Error('Failed to fetch users');
+      return response.json() as Promise<{ users: ShareUser[] }>;
+    },
+    enabled: inviteOpen,
+  });
 
   // Fetch all shares
   const { data: sharesData, isLoading } = useQuery<SharesResponse>({
@@ -114,9 +126,12 @@ export function ShareManager() {
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: 'Invitation sent', description: `An invitation has been sent to ${inviteEmail}.` });
+      const pickedUser = usersData?.users.find((u) => u.id === selectedUserId);
+      const displayEmail = pickedUser?.email ?? inviteEmail;
+      toast({ title: 'Invitation sent', description: `An invitation has been sent to ${displayEmail}.` });
       queryClient.invalidateQueries({ queryKey: ['shares'] });
       setInviteEmail('');
+      setSelectedUserId('');
       setInvitePermission('view');
       setInviteOpen(false);
     },
@@ -198,11 +213,15 @@ export function ShareManager() {
   const received = sharesData?.received ?? [];
 
   const handleSendInvite = () => {
-    if (!inviteEmail.trim()) {
-      toast({ title: 'Email required', description: 'Please enter an email address.', variant: 'destructive' });
+    // Prefer the user selected from the picker; fall back to manual email entry
+    const pickedUser = usersData?.users.find((u) => u.id === selectedUserId);
+    const emailToUse = pickedUser?.email ?? inviteEmail.trim();
+
+    if (!emailToUse) {
+      toast({ title: 'User required', description: 'Please select a user or enter an email address.', variant: 'destructive' });
       return;
     }
-    sendInviteMutation.mutate({ email: inviteEmail.trim(), permission: invitePermission });
+    sendInviteMutation.mutate({ email: emailToUse, permission: invitePermission });
   };
 
   const handleAdminForceShare = () => {
@@ -392,14 +411,46 @@ export function ShareManager() {
             <DialogTitle>Share My Library</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {usersData && usersData.users.length > 0 && (
+              <div className="space-y-1">
+                <Label htmlFor="invite-user-picker">Select User</Label>
+                <Select
+                  value={selectedUserId}
+                  onValueChange={(v) => {
+                    setSelectedUserId(v);
+                    // Clear manual email when a user is picked from the list
+                    setInviteEmail('');
+                  }}
+                >
+                  <SelectTrigger id="invite-user-picker" className="w-full">
+                    <SelectValue placeholder="Choose a registered user..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {usersData.users.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name ? `${u.name} (${u.email ?? ''})` : (u.email ?? u.id)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1">
-              <Label htmlFor="invite-email">User Email</Label>
+              <Label htmlFor="invite-email">
+                {usersData && usersData.users.length > 0
+                  ? 'Or enter email manually'
+                  : 'User Email'}
+              </Label>
               <Input
                 id="invite-email"
                 type="email"
                 placeholder="friend@example.com"
                 value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
+                onChange={(e) => {
+                  setInviteEmail(e.target.value);
+                  // Clear picker selection when typing manually
+                  if (e.target.value) setSelectedUserId('');
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleSendInvite();
                 }}
