@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Trash2 } from 'lucide-react';
+import { BookOpen, Trash2, Headphones, ExternalLink } from 'lucide-react';
 import { useState } from 'react';
 import { ReadingProgressDialog } from '@/components/reading/reading-progress-dialog';
 import type { ReadingStatus } from '@/lib/services/reading-progress';
@@ -128,6 +128,32 @@ export function BookDetailHeader({
               <BookOpen className="mr-2 h-4 w-4" />
               Update Reading Progress
             </Button>
+            {primaryEdition?.format === 'ebook' && (
+              <Button variant="outline" asChild>
+                <a
+                  href="https://read.amazon.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <BookOpen className="mr-2 h-4 w-4" />
+                  Read on Kindle
+                  <ExternalLink className="ml-2 h-3 w-3" />
+                </a>
+              </Button>
+            )}
+            {primaryEdition?.format === 'audiobook' && (
+              <Button variant="outline" asChild>
+                <a
+                  href="https://www.audible.com/library"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Headphones className="mr-2 h-4 w-4" />
+                  Listen on Audible
+                  <ExternalLink className="ml-2 h-3 w-3" />
+                </a>
+              </Button>
+            )}
             {onDelete && (
               <Button variant="destructive" onClick={onDelete}>
                 <Trash2 className="mr-2 h-4 w-4" />
