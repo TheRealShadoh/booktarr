@@ -87,17 +87,16 @@ export class SeriesService {
     const limit = filters?.limit || 50;
     const offset = filters?.offset || 0;
 
-    // Get all series
-    let query = db
-      .select({
-        series: series,
-      })
+    // Get all series (simple select, no nested wrapper)
+    const allSeriesRaw = await db
+      .select()
       .from(series)
       .orderBy(series.name)
       .limit(limit)
       .offset(offset);
 
-    const allSeries = await query;
+    // Wrap in { series: ... } format for compatibility with downstream code
+    const allSeries = allSeriesRaw.map(s => ({ series: s }));
 
     // For each series, get completion stats
     const seriesWithStats = await Promise.all(
