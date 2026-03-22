@@ -25,7 +25,7 @@ const securityHeaders = {
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js requires unsafe-inline/eval
     "style-src 'self' 'unsafe-inline'", // Tailwind requires unsafe-inline
-    "img-src 'self' data: https://books.google.com https://covers.openlibrary.org https://s4.anilist.co",
+    "img-src 'self' data: https://books.google.com http://books.google.com https://covers.openlibrary.org https://s4.anilist.co https://m.media-amazon.com https://i.gr-assets.com",
     "font-src 'self' data:",
     "connect-src 'self'",
     "frame-ancestors 'none'",
