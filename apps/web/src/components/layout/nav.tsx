@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -12,6 +13,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/theme-toggle';
+
+interface PendingSharesResponse {
+  count: number;
+}
 
 const navItems = [
   { href: '/library', label: 'Library' },
@@ -23,6 +28,19 @@ const navItems = [
 export function Nav() {
   const pathname = usePathname();
   const { data: session } = useSession();
+
+  const { data: pendingData } = useQuery<PendingSharesResponse>({
+    queryKey: ['shares', 'pending'],
+    queryFn: async () => {
+      const response = await fetch('/api/shares/pending');
+      if (!response.ok) throw new Error('Failed to fetch pending shares');
+      return response.json() as Promise<PendingSharesResponse>;
+    },
+    refetchInterval: 60_000,
+    enabled: !!session,
+  });
+
+  const pendingCount = pendingData?.count ?? 0;
 
   const handleSignOut = () => {
     signOut({ callbackUrl: '/login' });
@@ -64,6 +82,9 @@ export function Nav() {
                     {session?.user?.name?.[0] || session?.user?.email?.[0] || 'U'}
                   </AvatarFallback>
                 </Avatar>
+                {pendingCount > 0 && (
+                  <span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" />
+                )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
