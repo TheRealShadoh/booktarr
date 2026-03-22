@@ -76,9 +76,9 @@ export async function GET(req: Request) {
       },
     });
   } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
     logger.error('GET /api/books error:', error as Error);
-    const apiError = handleError(error);
-    return apiError.toResponse();
+    return NextResponse.json({ error: { message: msg } }, { status: 500 });
   }
 }
 
