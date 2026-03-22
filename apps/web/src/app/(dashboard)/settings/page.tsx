@@ -40,9 +40,15 @@ export default function SettingsPage() {
       if (response.ok) {
         const data = await response.json();
         setEnrichmentStatus({ count: data.count });
+      } else {
+        // If the status check fails (e.g. rate limit, transient error), assume
+        // there may be books needing enrichment so the button stays enabled.
+        setEnrichmentStatus({ count: 1 });
       }
     } catch (error) {
       logger.error('Error checking enrichment status:', error instanceof Error ? error : new Error(String(error)));
+      // Enable button by default when the status check cannot be completed.
+      setEnrichmentStatus({ count: 1 });
     }
   };
 
@@ -104,6 +110,8 @@ export default function SettingsPage() {
     try {
       const response = await fetch('/api/books/clear', {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: 'DELETE_ALL' }),
       });
 
       if (!response.ok) {
