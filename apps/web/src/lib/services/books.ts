@@ -99,17 +99,13 @@ export class BookService {
         .where(or(...conditions))
         .limit(1);
 
-      let existingEdition = existingEditionRow ? { ...existingEditionRow, book: null as typeof existingBook } : null;
-
-      if (existingEdition) {
+      if (existingEditionRow) {
         // Get the linked book
-        const [linkedBook] = await db.select().from(books).where(eq(books.id, existingEdition.bookId)).limit(1);
-        existingEdition.book = linkedBook || null;
+        const [linkedBook] = await db.select().from(books).where(eq(books.id, existingEditionRow.bookId)).limit(1);
+        existingBook = linkedBook || null;
       }
 
-      if (existingEdition) {
-        existingBook = existingEdition.book;
-      }
+      // existingBook was already set above from linkedBook
     }
 
     // 3. Create or get book
