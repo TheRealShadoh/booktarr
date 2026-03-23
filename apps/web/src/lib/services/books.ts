@@ -6,6 +6,14 @@ import { BookMetadata } from './google-books';
 import { SeriesParserService } from './series-parser';
 import { SeriesService } from './series';
 
+/** Normalize partial dates (e.g. "2018" -> "2018-01-01") for PostgreSQL date column */
+function normalizeDate(dateStr?: string | null): string | undefined {
+  if (!dateStr) return undefined;
+  if (/^\d{4}$/.test(dateStr)) return `${dateStr}-01-01`;
+  if (/^\d{4}-\d{2}$/.test(dateStr)) return `${dateStr}-01`;
+  return dateStr;
+}
+
 export interface CreateBookInput {
   // Search-based creation
   isbn?: string;
@@ -121,7 +129,7 @@ export class BookService {
           description: metadata.description,
           language: metadata.language || 'en',
           publisher: metadata.publisher,
-          publishedDate: metadata.publishedDate,
+          publishedDate: normalizeDate(metadata.publishedDate),
           pageCount: metadata.pageCount,
           categories: metadata.categories,
           googleBooksId: metadata.googleBooksId,
@@ -231,7 +239,7 @@ export class BookService {
           format: input.edition?.format,
           pages: input.edition?.pages || metadata.pageCount,
           publisher: input.edition?.publisher || metadata.publisher,
-          publishedDate: input.edition?.publishedDate || metadata.publishedDate,
+          publishedDate: normalizeDate(input.edition?.publishedDate || metadata.publishedDate),
           coverUrl: input.edition?.coverUrl || metadata.coverUrl,
           coverThumbnailUrl: metadata.thumbnailUrl,
         })
@@ -631,7 +639,7 @@ export class BookService {
           description: metadata.description || book.description,
           pageCount: metadata.pageCount || book.pageCount,
           publisher: metadata.publisher || book.publisher,
-          publishedDate: metadata.publishedDate || book.publishedDate,
+          publishedDate: normalizeDate(metadata.publishedDate) || book.publishedDate,
           categories: metadata.categories || book.categories,
           metadataLastUpdated: new Date(),
         })
