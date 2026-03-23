@@ -22,6 +22,28 @@ import { ShareManager } from '@/components/sharing/share-manager';
 import { AddBookDialog } from '@/components/books/add-book-dialog';
 import { ExternalLink } from 'lucide-react';
 
+interface DuplicateBook {
+  userBookId: string;
+  bookId: string;
+  title: string;
+  isbn: string | null;
+  coverUrl: string | null;
+  createdAt: string;
+}
+
+interface DuplicateGroup {
+  normalizedTitle: string;
+  volume: string;
+  books: DuplicateBook[];
+  /** userBookId selected to keep; all others will be deleted */
+  keepId?: string;
+}
+
+interface DuplicatesResult {
+  duplicateGroups: DuplicateGroup[];
+  totalDuplicates: number;
+}
+
 export default function SettingsPage() {
   const { data: session } = useSession();
   const [changeName, setChangeName] = useState('');
@@ -40,6 +62,10 @@ export default function SettingsPage() {
       failed: number;
     };
   } | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [isCleaningDuplicates, setIsCleaningDuplicates] = useState(false);
+  const [duplicatesResult, setDuplicatesResult] = useState<DuplicatesResult | null>(null);
+  const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -228,6 +254,78 @@ export default function SettingsPage() {
       });
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleScanDuplicates = async () => {
+    setIsScanning(true);
+    setDuplicatesResult(null);
+    setDuplicateGroups([]);
+    try {
+      const response = await fetch('/api/books/duplicates');
+      if (!response.ok) throw new Error('Failed to scan for duplicates');
+      const data: DuplicatesResult = await response.json();
+      setDuplicatesResult(data);
+      // Initialise each group with the newest book pre-selected to keep
+      setDuplicateGroups(
+        data.duplicateGroups.map((group) => {
+          const sorted = [...group.books].sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          return { ...group, keepId: sorted[0]?.userBookId };
+        })
+      );
+    } catch (error) {
+      logger.error('Error scanning duplicates:', error instanceof Error ? error : new Error(String(error)));
+      toast({ title: 'Error', description: 'Failed to scan for duplicates', variant: 'destructive' });
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const handleKeepNewest = (groupIndex: number) => {
+    setDuplicateGroups((prev) =>
+      prev.map((group, i) => {
+        if (i !== groupIndex) return group;
+        const sorted = [...group.books].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        return { ...group, keepId: sorted[0]?.userBookId };
+      })
+    );
+  };
+
+  const getIdsToDelete = (groups: DuplicateGroup[]): string[] =>
+    groups.flatMap((group) =>
+      group.books
+        .filter((b) => b.userBookId !== group.keepId)
+        .map((b) => b.userBookId)
+    );
+
+  const handleRemoveAllDuplicates = async () => {
+    const idsToDelete = getIdsToDelete(duplicateGroups);
+    if (idsToDelete.length === 0) {
+      toast({ title: 'Nothing to remove', description: 'No duplicates are marked for deletion.' });
+      return;
+    }
+    setIsCleaningDuplicates(true);
+    try {
+      const response = await fetch('/api/books/duplicates/clean', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userBookIds: idsToDelete }),
+      });
+      if (!response.ok) throw new Error('Failed to remove duplicates');
+      const result = await response.json() as { deleted: number };
+      toast({ title: 'Success', description: `Removed ${result.deleted} duplicate ${result.deleted === 1 ? 'entry' : 'entries'}` });
+      queryClient.invalidateQueries({ queryKey: ['books'] });
+      setDuplicatesResult(null);
+      setDuplicateGroups([]);
+    } catch (error) {
+      logger.error('Error removing duplicates:', error instanceof Error ? error : new Error(String(error)));
+      toast({ title: 'Error', description: 'Failed to remove duplicates', variant: 'destructive' });
+    } finally {
+      setIsCleaningDuplicates(false);
     }
   };
 
@@ -473,6 +571,106 @@ export default function SettingsPage() {
                 </Button>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Duplicate Detection</CardTitle>
+            <CardDescription>Find and remove duplicate books in your library</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Scan Library</Label>
+              <p className="text-sm text-muted-foreground">
+                Detects duplicate entries by matching normalized titles and volume numbers.
+              </p>
+              <Button
+                variant="outline"
+                onClick={handleScanDuplicates}
+                disabled={isScanning}
+              >
+                {isScanning ? 'Scanning...' : 'Scan for Duplicates'}
+              </Button>
+            </div>
+
+            {duplicatesResult && (
+              <div className="space-y-4">
+                <p className="text-sm font-medium">
+                  {duplicatesResult.duplicateGroups.length === 0
+                    ? 'No duplicates found.'
+                    : `Found ${duplicatesResult.duplicateGroups.length} duplicate ${duplicatesResult.duplicateGroups.length === 1 ? 'group' : 'groups'} (${duplicatesResult.totalDuplicates} extra ${duplicatesResult.totalDuplicates === 1 ? 'copy' : 'copies'})`}
+                </p>
+
+                {duplicateGroups.map((group, groupIndex) => (
+                  <div key={`${group.normalizedTitle}-${group.volume}`} className="rounded-lg border p-3 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium truncate">
+                        {group.books[0]?.title ?? group.normalizedTitle}
+                        {group.volume !== 'none' && (
+                          <span className="ml-1 text-muted-foreground">Vol. {group.volume}</span>
+                        )}
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleKeepNewest(groupIndex)}
+                      >
+                        Keep Newest
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {group.books.map((book) => {
+                        const isKept = book.userBookId === group.keepId;
+                        return (
+                          <div
+                            key={book.userBookId}
+                            className={`flex items-center gap-3 rounded p-2 text-sm ${isKept ? 'bg-muted/50' : 'opacity-60'}`}
+                          >
+                            {book.coverUrl && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={book.coverUrl}
+                                alt={book.title}
+                                className="h-10 w-7 rounded object-cover flex-shrink-0"
+                              />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium">{book.title}</p>
+                              {book.isbn && (
+                                <p className="text-xs text-muted-foreground">ISBN: {book.isbn}</p>
+                              )}
+                              <p className="text-xs text-muted-foreground">
+                                Added: {new Date(book.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <Badge variant={isKept ? 'default' : 'secondary'}>
+                              {isKept ? 'Keep' : 'Remove'}
+                            </Badge>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+
+                {duplicatesResult.duplicateGroups.length > 0 && (
+                  <Button
+                    variant="destructive"
+                    onClick={handleRemoveAllDuplicates}
+                    disabled={isCleaningDuplicates}
+                  >
+                    {isCleaningDuplicates
+                      ? 'Removing...'
+                      : (() => {
+                          const count = getIdsToDelete(duplicateGroups).length;
+                          return `Remove All Duplicates (${count} extra ${count === 1 ? 'copy' : 'copies'})`;
+                        })()}
+                  </Button>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 

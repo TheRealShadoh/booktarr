@@ -116,6 +116,19 @@ export class BookService {
       // existingBook was already set above from linkedBook
     }
 
+    // Title-based duplicate check: if no ISBN match was found, look for a book
+    // with the same title (case-insensitive) to avoid creating near-duplicates.
+    if (!existingBook && metadata.title) {
+      const [titleMatch] = await db
+        .select()
+        .from(books)
+        .where(sql`LOWER(${books.title}) = LOWER(${metadata.title})`)
+        .limit(1);
+      if (titleMatch) {
+        existingBook = titleMatch;
+      }
+    }
+
     // 3. Create or get book
     let book;
     if (existingBook) {
