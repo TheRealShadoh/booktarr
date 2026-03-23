@@ -22,6 +22,7 @@ interface PendingSharesResponse {
 
 const navItems = [
   { href: '/library', label: 'Library' },
+  { href: '/series', label: 'Series' },
   { href: '/scan', label: 'Scan' },
   { href: '/calendar', label: 'Calendar' },
   { href: '/currently-reading', label: 'Reading' },

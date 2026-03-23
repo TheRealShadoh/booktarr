@@ -10,5 +10,11 @@
     "env": {
       "NEXT_TELEMETRY_DISABLED": "1"
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/enrich",
+      "schedule": "0 * * * *"
+    }
+  ]
 }
