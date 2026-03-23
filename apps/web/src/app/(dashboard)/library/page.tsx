@@ -55,6 +55,8 @@ const SORT_LABELS: Record<SortOption, string> = {
 
 const GROUP_BY_SERIES_KEY = 'booktarr:library:groupBySeries';
 
+type AnnotatedBook = BookWithRelations & { _sharedFrom?: string };
+
 interface SeriesGroup {
   seriesId: string;
   seriesName: string;
@@ -63,36 +65,128 @@ interface SeriesGroup {
   totalVolumes: number;
 }
 
-function SeriesGroupCard({ group, onClick }: { group: SeriesGroup; onClick: () => void }) {
+interface SeriesGroupWithBooks extends SeriesGroup {
+  books: AnnotatedBook[];
+}
+
+function SeriesGroupCard({ group, onBookClick }: { group: SeriesGroupWithBooks; onBookClick: (bookId: string) => void }) {
+  const [expanded, setExpanded] = useState(false);
   const [imgError, setImgError] = useState(false);
   const cover = imgError || !group.coverUrl ? '/placeholder-book.svg' : group.coverUrl;
 
-  return (
-    <Card
-      className="group cursor-pointer overflow-hidden transition-shadow hover:shadow-lg"
-      onClick={onClick}
-    >
-      <CardContent className="p-0">
-        <div className="relative aspect-[2/3] bg-muted">
-          <Image
-            src={cover}
-            alt={group.seriesName}
-            fill
-            className="object-cover transition-transform group-hover:scale-105"
-            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-            onError={() => setImgError(true)}
-            loading="lazy"
-          />
-          <div className="absolute right-2 top-2">
-            <Badge className="bg-indigo-600 text-white text-xs">Series</Badge>
+  // Sort books by volume number
+  const sortedBooks = [...group.books].sort(
+    (a, b) => (a.series?.volumeNumber ?? 0) - (b.series?.volumeNumber ?? 0)
+  );
+
+  // Figure out missing volumes (gaps in the sequence)
+  const ownedVolNums = new Set(sortedBooks.map(b => b.series?.volumeNumber ?? 0));
+  const maxVol = group.totalVolumes > 0 ? group.totalVolumes : Math.max(...ownedVolNums, 0);
+  const missingVols: number[] = [];
+  for (let i = 1; i <= maxVol; i++) {
+    if (!ownedVolNums.has(i)) missingVols.push(i);
+  }
+
+  if (!expanded) {
+    return (
+      <Card
+        className="group cursor-pointer overflow-hidden transition-shadow hover:shadow-lg"
+        onClick={() => setExpanded(true)}
+      >
+        <CardContent className="p-0">
+          <div className="relative aspect-[2/3] bg-muted">
+            <Image
+              src={cover}
+              alt={group.seriesName}
+              fill
+              className="object-cover transition-transform group-hover:scale-105"
+              sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+              onError={() => setImgError(true)}
+              loading="lazy"
+            />
+            <div className="absolute right-2 top-2">
+              <Badge className="bg-indigo-600 text-white text-xs">Series</Badge>
+            </div>
           </div>
+          <div className="p-4 space-y-1">
+            <h3 className="line-clamp-2 font-semibold text-sm">{group.seriesName}</h3>
+            <p className="text-xs text-muted-foreground">
+              {group.ownedVolumes} of {maxVol > 0 ? maxVol : '?'} volumes
+            </p>
+            {missingVols.length > 0 && (
+              <p className="text-xs text-blue-500">
+                {missingVols.length} missing
+              </p>
+            )}
+            {missingVols.length === 0 && maxVol > 0 && (
+              <p className="text-xs text-green-500">Complete</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Expanded view - shows all volumes
+  return (
+    <Card className="col-span-full overflow-hidden">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-semibold text-lg">{group.seriesName}</h3>
+            <p className="text-sm text-muted-foreground">
+              {group.ownedVolumes} of {maxVol > 0 ? maxVol : '?'} volumes
+              {missingVols.length > 0 && ` · ${missingVols.length} missing`}
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setExpanded(false)}>
+            Collapse
+          </Button>
         </div>
-        <div className="p-4 space-y-1">
-          <h3 className="line-clamp-2 font-semibold text-sm">{group.seriesName}</h3>
-          <p className="text-xs text-muted-foreground">
-            {group.ownedVolumes} of {group.totalVolumes > 0 ? group.totalVolumes : '?'} volumes
+
+        {/* Owned volumes */}
+        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
+          {Array.from({ length: maxVol }, (_, i) => i + 1).map((volNum) => {
+            const book = sortedBooks.find(b => b.series?.volumeNumber === volNum);
+            const isOwned = !!book;
+
+            return (
+              <div
+                key={volNum}
+                className={`relative aspect-[2/3] rounded overflow-hidden cursor-pointer transition-all ${
+                  isOwned
+                    ? 'bg-muted hover:ring-2 hover:ring-primary'
+                    : 'bg-muted/30 border-2 border-dashed border-muted-foreground/20'
+                }`}
+                onClick={() => book && onBookClick(book.book.id)}
+              >
+                {isOwned && book ? (
+                  <Image
+                    src={book.edition.coverUrl || book.edition.coverThumbnailUrl || '/placeholder-book.svg'}
+                    alt={`Vol. ${volNum}`}
+                    fill
+                    className="object-cover"
+                    sizes="80px"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+                    <span className="text-xs text-muted-foreground/50 font-bold">#{volNum}</span>
+                  </div>
+                )}
+                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-center py-0.5">
+                  <span className="text-[10px] text-white font-medium">Vol. {volNum}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {missingVols.length > 0 && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Missing: {missingVols.map(v => `#${v}`).join(', ')}
           </p>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -175,8 +269,6 @@ export default function LibraryPage() {
   });
 
   // Build merged book list with owner annotation
-  type AnnotatedBook = BookWithRelations & { _sharedFrom?: string };
-
   const ownBooks: AnnotatedBook[] = data?.books ?? [];
   const sharedBooks: AnnotatedBook[] = showShared
     ? (sharedBooksData ?? []).flatMap((entry) =>
@@ -359,11 +451,11 @@ export default function LibraryPage() {
 
         return (
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {seriesGroups.map(({ group }) => (
+            {seriesGroups.map(({ group, books: groupBooks }) => (
               <SeriesGroupCard
                 key={group.seriesId}
-                group={group}
-                onClick={() => router.push(`/series/${group.seriesId}`)}
+                group={{ ...group, books: groupBooks }}
+                onBookClick={(bookId) => router.push(`/library/${bookId}`)}
               />
             ))}
             {ungroupedBooks.map((book: AnnotatedBook) => (
