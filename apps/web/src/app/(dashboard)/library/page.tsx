@@ -69,7 +69,7 @@ interface SeriesGroupWithBooks extends SeriesGroup {
   books: AnnotatedBook[];
 }
 
-function SeriesGroupCard({ group, onBookClick }: { group: SeriesGroupWithBooks; onBookClick: (bookId: string) => void }) {
+function SeriesGroupCard({ group, onBookClick, onSeriesClick }: { group: SeriesGroupWithBooks; onBookClick: (bookId: string) => void; onSeriesClick: (seriesId: string) => void }) {
   const [expanded, setExpanded] = useState(false);
   const [imgError, setImgError] = useState(false);
   const cover = imgError || !group.coverUrl ? '/placeholder-book.svg' : group.coverUrl;
@@ -91,7 +91,7 @@ function SeriesGroupCard({ group, onBookClick }: { group: SeriesGroupWithBooks; 
     return (
       <Card
         className="group cursor-pointer overflow-hidden transition-shadow hover:shadow-lg"
-        onClick={() => setExpanded(true)}
+        onClick={() => onSeriesClick(group.seriesId)}
       >
         <CardContent className="p-0">
           <div className="relative aspect-[2/3] bg-muted">
@@ -456,6 +456,7 @@ export default function LibraryPage() {
                 key={group.seriesId}
                 group={{ ...group, books: groupBooks }}
                 onBookClick={(bookId) => router.push(`/library/${bookId}`)}
+                onSeriesClick={(seriesId) => router.push(`/series/${seriesId}`)}
               />
             ))}
             {ungroupedBooks.map((book: AnnotatedBook) => (
