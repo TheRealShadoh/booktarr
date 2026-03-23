@@ -231,6 +231,7 @@ export default function LibraryPage() {
       if (!response.ok) throw new Error('Failed to fetch books');
       return response.json() as Promise<BooksApiResponse>;
     },
+    staleTime: 2 * 60 * 1000, // 2 minutes - avoids refetch on dialog open/close
   });
 
   // Fetch accepted incoming shares when toggle is on

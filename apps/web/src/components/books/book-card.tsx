@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -46,7 +46,7 @@ interface BookCardProps {
   onClick?: () => void;
 }
 
-export function BookCard({ book, onClick }: BookCardProps) {
+export const BookCard = memo(function BookCard({ book, onClick }: BookCardProps) {
   const [showProgressDialog, setShowProgressDialog] = useState(false);
   const [imgError, setImgError] = useState(false);
 
@@ -188,4 +188,4 @@ export function BookCard({ book, onClick }: BookCardProps) {
       />
     </>
   );
-}
+});

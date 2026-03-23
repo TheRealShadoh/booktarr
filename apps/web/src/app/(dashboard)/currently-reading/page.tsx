@@ -15,6 +15,7 @@ export default function CurrentlyReadingPage() {
       if (!response.ok) throw new Error('Failed to fetch currently reading books');
       return response.json() as Promise<BookWithRelations[]>;
     },
+    staleTime: 2 * 60 * 1000,
   });
 
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -24,6 +25,7 @@ export default function CurrentlyReadingPage() {
       if (!response.ok) throw new Error('Failed to fetch reading stats');
       return response.json() as Promise<ReadingStats>;
     },
+    staleTime: 2 * 60 * 1000,
   });
 
   const isLoading = booksLoading || statsLoading;

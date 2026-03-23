@@ -47,6 +47,7 @@ export default function SeriesPage() {
       if (!response.ok) throw new Error('Failed to fetch series');
       return response.json();
     },
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
   const reconcileMutation = useMutation({
@@ -251,6 +252,7 @@ export default function SeriesPage() {
                 value={newSeriesName}
                 onChange={(e) => setNewSeriesName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleCreateSeries(); }}
+                autoFocus
               />
             </div>
             <div className="space-y-1">

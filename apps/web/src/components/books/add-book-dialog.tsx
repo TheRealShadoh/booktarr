@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Image from 'next/image';
 import {
@@ -22,9 +22,13 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2, Search, Camera, ArrowLeft, Plus, BookOpen, Headphones } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { BarcodeScanner } from './barcode-scanner';
+
+const BarcodeScanner = lazy(() =>
+  import('./barcode-scanner').then((mod) => ({ default: mod.BarcodeScanner }))
+);
 
 interface AddBookDialogProps {
   open: boolean;
@@ -125,6 +129,7 @@ export function AddBookDialog({ open, onOpenChange, defaultStatus = 'owned' }: A
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['books'] });
+      queryClient.invalidateQueries({ queryKey: ['series'] });
       toast({
         title: 'Book added!',
         description: `${data.book.title} has been added to your library.`,
@@ -333,7 +338,7 @@ export function AddBookDialog({ open, onOpenChange, defaultStatus = 'owned' }: A
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add a Book</DialogTitle>
           <DialogDescription>
@@ -364,6 +369,7 @@ export function AddBookDialog({ open, onOpenChange, defaultStatus = 'owned' }: A
                 value={isbn}
                 onChange={(e) => setIsbn(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearchByIsbn()}
+                autoFocus
               />
             </div>
 
@@ -385,7 +391,9 @@ export function AddBookDialog({ open, onOpenChange, defaultStatus = 'owned' }: A
           </TabsContent>
 
           <TabsContent value="scan" className="space-y-4">
-            <BarcodeScanner onScan={handleBarcodeScan} onError={handleScanError} />
+            <Suspense fallback={<Skeleton className="h-48 w-full rounded-lg" />}>
+              <BarcodeScanner onScan={handleBarcodeScan} onError={handleScanError} />
+            </Suspense>
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">

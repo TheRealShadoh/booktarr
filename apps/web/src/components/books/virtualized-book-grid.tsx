@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useCallback, useMemo } from 'react';
+import { useRef, useCallback, useState, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { BookCard } from './book-card';
 import type { BookWithRelations } from '@/types/api';
@@ -33,14 +33,29 @@ export function VirtualizedBookGrid({
   renderOverlay,
 }: VirtualizedBookGridProps) {
   const parentRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(1200);
 
-  // Compute columns and row count based on container width
-  const parentWidth = parentRef.current?.offsetWidth ?? 1200;
-  const columns = getColumnCount(parentWidth);
+  // Track container width with ResizeObserver for responsive column recalculation
+  useEffect(() => {
+    const el = parentRef.current;
+    if (!el) return;
+
+    setContainerWidth(el.offsetWidth);
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const columns = getColumnCount(containerWidth);
   const rowCount = Math.ceil(books.length / columns);
 
   // Estimate row height from column width
-  const columnWidth = (parentWidth - GAP * (columns - 1)) / columns;
+  const columnWidth = (containerWidth - GAP * (columns - 1)) / columns;
   const estimatedRowHeight = columnWidth * ASPECT_RATIO + GAP;
 
   const virtualizer = useVirtualizer({
