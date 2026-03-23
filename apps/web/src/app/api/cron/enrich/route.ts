@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { BookService } from '@/lib/services/books';
 import { SeriesMetadataEnrichmentService } from '@/lib/services/series-metadata-enrichment';
+import { db } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -25,19 +26,28 @@ export async function GET(req: Request) {
     const bookService = new BookService();
     const seriesService = new SeriesMetadataEnrichmentService();
 
-    // Enrich up to 10 books
+    // Enrich up to 3 books per cron run (Hobby plan has 10s timeout)
     let bookResult = { enriched: 0, failed: 0, processed: 0 };
     try {
-      bookResult = await bookService.enrichBooksInBatch(10);
+      bookResult = await bookService.enrichBooksInBatch(3);
       logger.info('[Cron] Book enrichment complete', bookResult);
     } catch (err) {
       logger.error('[Cron] Book enrichment failed', err instanceof Error ? err : new Error(String(err)));
     }
 
-    // Enrich series metadata
+    // Enrich only 1 series per cron run to stay within timeout
     let seriesResult = { processed: 0, updated: 0, errors: 0 };
     try {
-      seriesResult = await seriesService.enrichAllSeries();
+      // Get one unenriched series and enrich it
+      const { sql: sqlFn } = await import('drizzle-orm');
+      const { series } = await import('@booktarr/database');
+      const [unenriched] = await db.select({ id: series.id }).from(series)
+        .where(sqlFn`${series.metadataLastUpdated} IS NULL OR ${series.totalVolumes} IS NULL`)
+        .limit(1);
+      if (unenriched) {
+        await seriesService.enrichSeries(unenriched.id);
+        seriesResult = { processed: 1, updated: 1, errors: 0 };
+      }
       logger.info('[Cron] Series enrichment complete', seriesResult);
     } catch (err) {
       logger.error('[Cron] Series enrichment failed', err instanceof Error ? err : new Error(String(err)));
