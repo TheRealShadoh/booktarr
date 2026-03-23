@@ -133,7 +133,8 @@ export async function POST(req: Request) {
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     logger.error('POST /api/books error:', error as Error);
-    const apiError = handleError(error);
-    return apiError.toResponse();
+    return NextResponse.json({
+      error: { message: error instanceof Error ? error.message : String(error) }
+    }, { status: 500 });
   }
 }
