@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { BookDetailHeader } from '@/components/books/book-detail-header';
 import { BookMetadataCard } from '@/components/books/book-metadata-card';
 import { BookEditionsManager } from '@/components/books/book-editions-manager';
+import { BookRecommendations } from '@/components/books/book-recommendations';
 import { ArrowLeft, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -188,6 +189,13 @@ export default function BookDetailPage({
 
       {/* Editions */}
       <BookEditionsManager bookId={book.id} editions={editions} />
+
+      {/* Recommendations */}
+      <BookRecommendations
+        bookId={book.id}
+        categories={book.categories}
+        authorName={authors?.[0]?.name}
+      />
     </div>
   );
 }
