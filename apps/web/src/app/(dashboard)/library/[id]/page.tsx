@@ -2,10 +2,20 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { use } from 'react';
+import { use, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { BookDetailHeader } from '@/components/books/book-detail-header';
 import { BookMetadataCard } from '@/components/books/book-metadata-card';
 import { BookEditionsManager } from '@/components/books/book-editions-manager';
@@ -22,6 +32,7 @@ export default function BookDetailPage({
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { id: bookId } = use(params);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Fetch book details
   const { data, isLoading, error } = useQuery({
@@ -162,12 +173,30 @@ export default function BookDetailPage({
         primaryEdition={primaryEdition}
         userStatus={userStatus}
         readingProgress={readingProgress}
-        onDelete={() => {
-          if (confirm('Are you sure you want to remove this book from your library?')) {
-            deleteMutation.mutate();
-          }
-        }}
+        onDelete={() => setShowDeleteDialog(true)}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove from Library</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove &ldquo;{book.title}&rdquo; from your library?
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteMutation.mutate()}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Description */}
       {book.description && (

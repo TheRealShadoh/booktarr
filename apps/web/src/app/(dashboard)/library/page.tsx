@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { BookCard } from '@/components/books/book-card';
+import { VirtualizedBookGrid } from '@/components/books/virtualized-book-grid';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -390,7 +391,23 @@ export default function LibraryPage() {
         </div>
       )}
 
-      {allBooks.length > 0 && !groupBySeries && (
+      {allBooks.length > 0 && !groupBySeries && allBooks.length > 50 && (
+        <VirtualizedBookGrid
+          books={allBooks}
+          onBookClick={(bookId) => router.push(`/library/${bookId}`)}
+          renderOverlay={(book: AnnotatedBook) =>
+            book._sharedFrom ? (
+              <div className="absolute right-2 top-2 z-10">
+                <Badge className="bg-purple-600 text-white text-xs">
+                  From {book._sharedFrom}
+                </Badge>
+              </div>
+            ) : null
+          }
+        />
+      )}
+
+      {allBooks.length > 0 && !groupBySeries && allBooks.length <= 50 && (
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {allBooks.map((book: AnnotatedBook) => (
             <div key={`${book._sharedFrom ?? 'own'}-${book.userBook.id}`} className="relative">
