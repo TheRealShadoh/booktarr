@@ -1,11 +1,14 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import Link from 'next/link';
 import { BookCard } from '@/components/books/book-card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
@@ -20,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Layers } from 'lucide-react';
 import { CSVImportDialog } from '@/components/import/csv-import-dialog';
 import { AddBookDialog } from '@/components/books/add-book-dialog';
 import { AdvancedSearch, SearchFilters } from '@/components/search/advanced-search';
@@ -49,6 +53,51 @@ const SORT_LABELS: Record<SortOption, string> = {
   'author-az': 'Author A-Z',
 };
 
+const GROUP_BY_SERIES_KEY = 'booktarr:library:groupBySeries';
+
+interface SeriesGroup {
+  seriesId: string;
+  seriesName: string;
+  coverUrl: string | null;
+  ownedVolumes: number;
+  totalVolumes: number;
+}
+
+function SeriesGroupCard({ group, onClick }: { group: SeriesGroup; onClick: () => void }) {
+  const [imgError, setImgError] = useState(false);
+  const cover = imgError || !group.coverUrl ? '/placeholder-book.svg' : group.coverUrl;
+
+  return (
+    <Card
+      className="group cursor-pointer overflow-hidden transition-shadow hover:shadow-lg"
+      onClick={onClick}
+    >
+      <CardContent className="p-0">
+        <div className="relative aspect-[2/3] bg-muted">
+          <Image
+            src={cover}
+            alt={group.seriesName}
+            fill
+            className="object-cover transition-transform group-hover:scale-105"
+            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+            onError={() => setImgError(true)}
+            loading="lazy"
+          />
+          <div className="absolute right-2 top-2">
+            <Badge className="bg-indigo-600 text-white text-xs">Series</Badge>
+          </div>
+        </div>
+        <div className="p-4 space-y-1">
+          <h3 className="line-clamp-2 font-semibold text-sm">{group.seriesName}</h3>
+          <p className="text-xs text-muted-foreground">
+            {group.ownedVolumes} of {group.totalVolumes > 0 ? group.totalVolumes : '?'} volumes
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function LibraryPage() {
   const router = useRouter();
   const [filters, setFilters] = useState<SearchFilters>({});
@@ -56,6 +105,14 @@ export default function LibraryPage() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showAddBookDialog, setShowAddBookDialog] = useState(false);
   const [showShared, setShowShared] = useState(false);
+  const [groupBySeries, setGroupBySeries] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(GROUP_BY_SERIES_KEY) === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem(GROUP_BY_SERIES_KEY, String(groupBySeries));
+  }, [groupBySeries]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['books', filters],
@@ -71,6 +128,7 @@ export default function LibraryPage() {
       if (filters.rating?.min) params.append('minRating', filters.rating.min.toString());
       if (filters.year?.min) params.append('yearMin', filters.year.min.toString());
       if (filters.year?.max) params.append('yearMax', filters.year.max.toString());
+      if (filters.genres && filters.genres.length > 0) params.append('genre', filters.genres[0]);
 
       params.append('limit', '100');
 
@@ -199,6 +257,16 @@ export default function LibraryPage() {
             ))}
           </SelectContent>
         </Select>
+        <Button
+          variant={groupBySeries ? 'default' : 'outline'}
+          size="sm"
+          className="shrink-0 gap-1"
+          onClick={() => setGroupBySeries((prev) => !prev)}
+          title="Group by Series"
+        >
+          <Layers className="h-4 w-4" />
+          <span className="hidden sm:inline">Group by Series</span>
+        </Button>
       </div>
 
       {isLoading && (
@@ -230,7 +298,7 @@ export default function LibraryPage() {
         </div>
       )}
 
-      {allBooks.length > 0 && (
+      {allBooks.length > 0 && !groupBySeries && (
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {allBooks.map((book: AnnotatedBook) => (
             <div key={`${book._sharedFrom ?? 'own'}-${book.userBook.id}`} className="relative">
@@ -249,6 +317,73 @@ export default function LibraryPage() {
           ))}
         </div>
       )}
+
+      {allBooks.length > 0 && groupBySeries && (() => {
+        // Group books with a series together; ungrouped books render individually
+        const seriesMap = new Map<string, { group: SeriesGroup; books: AnnotatedBook[] }>();
+        const ungroupedBooks: AnnotatedBook[] = [];
+
+        for (const book of allBooks) {
+          if (book.series?.id) {
+            const sid = book.series.id;
+            if (!seriesMap.has(sid)) {
+              seriesMap.set(sid, {
+                group: {
+                  seriesId: sid,
+                  seriesName: book.series.name,
+                  coverUrl: book.edition.coverUrl ?? null,
+                  ownedVolumes: 0,
+                  totalVolumes: 0,
+                },
+                books: [],
+              });
+            }
+            const entry = seriesMap.get(sid)!;
+            entry.books.push(book);
+            entry.group.ownedVolumes = entry.books.length;
+            // Use first book's cover if not yet set
+            if (!entry.group.coverUrl) {
+              entry.group.coverUrl = book.edition.coverUrl ?? null;
+            }
+          } else {
+            ungroupedBooks.push(book);
+          }
+        }
+
+        // Set totalVolumes to ownedVolumes as a floor (we don't have total from this query)
+        seriesMap.forEach((entry) => {
+          entry.group.totalVolumes = entry.group.ownedVolumes;
+        });
+
+        const seriesGroups = Array.from(seriesMap.values());
+
+        return (
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            {seriesGroups.map(({ group }) => (
+              <SeriesGroupCard
+                key={group.seriesId}
+                group={group}
+                onClick={() => router.push(`/series/${group.seriesId}`)}
+              />
+            ))}
+            {ungroupedBooks.map((book: AnnotatedBook) => (
+              <div key={`${book._sharedFrom ?? 'own'}-${book.userBook.id}`} className="relative">
+                {book._sharedFrom && (
+                  <div className="absolute right-2 top-2 z-10">
+                    <Badge className="bg-purple-600 text-white text-xs">
+                      From {book._sharedFrom}
+                    </Badge>
+                  </div>
+                )}
+                <BookCard
+                  book={book}
+                  onClick={() => router.push(`/library/${book.book.id}`)}
+                />
+              </div>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
