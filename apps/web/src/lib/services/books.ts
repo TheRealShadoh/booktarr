@@ -291,6 +291,7 @@ export class BookService {
     minRating?: number;
     yearMin?: number;
     yearMax?: number;
+    genre?: string;
     limit?: number;
     offset?: number;
   }) {
@@ -439,6 +440,13 @@ export class BookService {
     if (filters?.minRating) {
       booksWithAuthors = booksWithAuthors.filter(
         (book) => book?.readingProgress?.rating && book.readingProgress.rating >= filters.minRating!
+      );
+    }
+
+    if (filters?.genre) {
+      const genreLower = filters.genre.toLowerCase();
+      booksWithAuthors = booksWithAuthors.filter((book) =>
+        book?.book.categories?.some((cat: string) => cat.toLowerCase().includes(genreLower))
       );
     }
 

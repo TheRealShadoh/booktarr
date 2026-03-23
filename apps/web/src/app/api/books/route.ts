@@ -54,6 +54,7 @@ export async function GET(req: Request) {
       yearMax: searchParams.get('yearMax')
         ? parseInt(searchParams.get('yearMax')!, 10)
         : undefined,
+      genre: searchParams.get('genre') || undefined,
       limit: searchParams.get('limit')
         ? parseInt(searchParams.get('limit')!)
         : undefined,

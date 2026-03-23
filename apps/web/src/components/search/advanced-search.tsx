@@ -232,6 +232,30 @@ export function AdvancedSearch({ onSearch, initialFilters = {} }: AdvancedSearch
                 </Select>
               </div>
 
+              {/* Genre filter */}
+              <div className="space-y-2">
+                <Label>Genre</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="e.g. Fantasy, Mystery..."
+                    value={filters.genres?.[0] || ''}
+                    onChange={(e) =>
+                      updateFilter('genres', e.target.value ? [e.target.value] : undefined)
+                    }
+                  />
+                  {filters.genres && filters.genres.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => clearFilter('genres')}
+                      className="px-2"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+
               <Button onClick={handleSearch} className="w-full">
                 Apply Filters
               </Button>
@@ -319,6 +343,19 @@ export function AdvancedSearch({ onSearch, initialFilters = {} }: AdvancedSearch
                 variant="ghost"
                 size="sm"
                 onClick={() => clearFilter('format')}
+                className="h-auto p-0 px-1"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </Badge>
+          )}
+          {filters.genres && filters.genres.length > 0 && (
+            <Badge variant="secondary" className="gap-1">
+              Genre: {filters.genres[0]}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => clearFilter('genres')}
                 className="h-auto p-0 px-1"
               >
                 <X className="h-3 w-3" />

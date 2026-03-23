@@ -87,6 +87,7 @@ export const bookSearchParamsSchema = z.object({
   minRating: z.number().min(0).max(5).optional(),
   yearMin: z.number().int().min(1000).max(new Date().getFullYear() + 10).optional(),
   yearMax: z.number().int().min(1000).max(new Date().getFullYear() + 10).optional(),
+  genre: z.string().max(100).optional(),
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).default(0),
 });
