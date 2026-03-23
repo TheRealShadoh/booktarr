@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, Filter, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -38,16 +38,40 @@ interface AdvancedSearchProps {
 export function AdvancedSearch({ onSearch, initialFilters = {} }: AdvancedSearchProps) {
   const [filters, setFilters] = useState<SearchFilters>(initialFilters);
   const [showFilters, setShowFilters] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onSearchRef = useRef(onSearch);
 
-  const updateFilter = (key: keyof SearchFilters, value: any) => {
+  useEffect(() => {
+    onSearchRef.current = onSearch;
+  }, [onSearch]);
+
+  // Debounced search: auto-apply filters after 300ms of inactivity
+  const debouncedSearch = useCallback((newFilters: SearchFilters) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      onSearchRef.current(newFilters);
+    }, 300);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  const updateFilter = (key: keyof SearchFilters, value: SearchFilters[keyof SearchFilters]) => {
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
+    if (key === 'query') {
+      debouncedSearch(newFilters);
+    }
   };
 
   const clearFilter = (key: keyof SearchFilters) => {
     const newFilters = { ...filters };
     delete newFilters[key];
     setFilters(newFilters);
+    onSearch(newFilters);
   };
 
   const clearAllFilters = () => {
@@ -56,6 +80,7 @@ export function AdvancedSearch({ onSearch, initialFilters = {} }: AdvancedSearch
   };
 
   const handleSearch = () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     onSearch(filters);
   };
 
@@ -285,7 +310,7 @@ export function AdvancedSearch({ onSearch, initialFilters = {} }: AdvancedSearch
             </Badge>
           )}
           {filters.status && filters.status !== 'all' && (
-            <Badge variant="secondary" className="gap-1">
+            <Badge variant="secondary" className="gap-1 capitalize">
               Status: {filters.status}
               <Button
                 variant="ghost"
@@ -298,8 +323,8 @@ export function AdvancedSearch({ onSearch, initialFilters = {} }: AdvancedSearch
             </Badge>
           )}
           {filters.readingStatus && filters.readingStatus !== 'all' && (
-            <Badge variant="secondary" className="gap-1">
-              Reading: {filters.readingStatus.replace('_', ' ')}
+            <Badge variant="secondary" className="gap-1 capitalize">
+              Reading: {filters.readingStatus.replaceAll('_', ' ')}
               <Button
                 variant="ghost"
                 size="sm"
@@ -337,7 +362,7 @@ export function AdvancedSearch({ onSearch, initialFilters = {} }: AdvancedSearch
             </Badge>
           )}
           {filters.format && filters.format !== 'all' && (
-            <Badge variant="secondary" className="gap-1">
+            <Badge variant="secondary" className="gap-1 capitalize">
               Format: {filters.format}
               <Button
                 variant="ghost"
