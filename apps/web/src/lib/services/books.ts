@@ -88,13 +88,24 @@ export class BookService {
     let existingBook = null;
 
     if (metadata.isbn13 || metadata.isbn10) {
-      const existingEdition = await db.query.editions.findFirst({
-        where: or(
-          metadata.isbn13 ? eq(editions.isbn13, metadata.isbn13) : undefined,
-          metadata.isbn10 ? eq(editions.isbn10, metadata.isbn10) : undefined
-        ),
-        with: { book: true },
-      });
+      // Find existing edition by ISBN (simple query, no joins)
+      const conditions = [];
+      if (metadata.isbn13) conditions.push(eq(editions.isbn13, metadata.isbn13));
+      if (metadata.isbn10) conditions.push(eq(editions.isbn10, metadata.isbn10));
+
+      const [existingEditionRow] = await db
+        .select()
+        .from(editions)
+        .where(or(...conditions))
+        .limit(1);
+
+      let existingEdition = existingEditionRow ? { ...existingEditionRow, book: null as typeof existingBook } : null;
+
+      if (existingEdition) {
+        // Get the linked book
+        const [linkedBook] = await db.select().from(books).where(eq(books.id, existingEdition.bookId)).limit(1);
+        existingEdition.book = linkedBook || null;
+      }
 
       if (existingEdition) {
         existingBook = existingEdition.book;
