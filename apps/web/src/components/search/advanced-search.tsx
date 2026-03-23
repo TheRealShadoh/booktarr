@@ -288,7 +288,7 @@ export function AdvancedSearch({ onSearch, initialFilters = {} }: AdvancedSearch
           </PopoverContent>
         </Popover>
 
-        <Button onClick={handleSearch}>
+        <Button variant="outline" onClick={handleSearch} aria-label="Search">
           <Search className="h-4 w-4" />
         </Button>
       </div>

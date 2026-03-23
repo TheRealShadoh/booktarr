@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { BookCard } from '@/components/books/book-card';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BookOpen, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -114,9 +115,14 @@ export default function CurrentlyReadingPage() {
             <CardHeader>
               <CardTitle>No books in progress</CardTitle>
               <CardDescription>
-                No books in progress. Start reading a book from your library!
+                Start reading a book from your library to track your progress here.
               </CardDescription>
             </CardHeader>
+            <CardContent>
+              <a href="/library">
+                <Button variant="outline">Browse Library</Button>
+              </a>
+            </CardContent>
           </Card>
         )}
 
