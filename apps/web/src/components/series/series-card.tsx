@@ -16,6 +16,7 @@ interface SeriesCardProps {
     coverUrl?: string | null;
     type?: string | null;
     description?: string | null;
+    missingVolumeNumbers?: number[];
   };
 }
 
@@ -92,9 +93,17 @@ export function SeriesCard({ series }: SeriesCardProps) {
           )}
 
           {series.completionPercentage < 100 && series.totalVolumes - series.ownedVolumes > 0 && (
-            <p className="mt-1 text-xs text-blue-500">
-              {series.totalVolumes - series.ownedVolumes} volumes missing
-            </p>
+            <div className="mt-1 space-y-0.5">
+              <p className="text-xs text-blue-500">
+                {series.totalVolumes - series.ownedVolumes} volumes missing
+              </p>
+              {series.missingVolumeNumbers && series.missingVolumeNumbers.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Need: {series.missingVolumeNumbers.slice(0, 8).map(n => `#${n}`).join(', ')}
+                  {series.missingVolumeNumbers.length > 8 && ` +${series.missingVolumeNumbers.length - 8} more`}
+                </p>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>

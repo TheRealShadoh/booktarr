@@ -232,7 +232,7 @@ export default function SeriesDetailsPage({
         {/* Progress Bar */}
         <Card>
           <CardContent className="pt-6">
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium">Collection Progress</span>
                 <span className="text-muted-foreground">
@@ -240,6 +240,11 @@ export default function SeriesDetailsPage({
                 </span>
               </div>
               <Progress value={stats.completionPercentage} className="h-3" />
+              {stats.missingVolumeNumbers && stats.missingVolumeNumbers.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Missing: {stats.missingVolumeNumbers.map((n: number) => `#${n}`).join(', ')}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

@@ -141,16 +141,26 @@ export class SeriesService {
 
         const ownedCount = { count: ownedVolumeNumbers.size };
 
-        const totalVolumes = s.series.totalVolumes || Number(volumeCount.count);
+        // Infer totalVolumes from max volume number (not count) when not set
+        const maxVolNum = seriesBookEntries.reduce((max, sb) => Math.max(max, sb.volumeNumber), 0);
+        const totalVolumes = s.series.totalVolumes || maxVolNum || Number(volumeCount.count);
         const owned = Number(ownedCount.count);
         const completionPercentage =
           totalVolumes > 0 ? Math.round((owned / totalVolumes) * 100) : 0;
+
+        // Build list of missing volume numbers
+        const knownVolumes = new Set(seriesBookEntries.map(sb => sb.volumeNumber));
+        const missingVolumeNumbers: number[] = [];
+        for (let i = 1; i <= totalVolumes; i++) {
+          if (!knownVolumes.has(i)) missingVolumeNumbers.push(i);
+        }
 
         return {
           ...s.series,
           totalVolumes,
           ownedVolumes: owned,
           completionPercentage,
+          missingVolumeNumbers,
         };
       })
     );
@@ -199,6 +209,17 @@ export class SeriesService {
         existing.seriesBookEntry = sb;
       } else {
         volumeMap.set(sb.volumeNumber, { seriesBookEntry: sb });
+      }
+    }
+
+    // Infer total from max volume number when totalVolumes is null
+    const maxVolNum = [...volumeMap.keys()].reduce((max, n) => Math.max(max, n), 0);
+    const inferredTotal = seriesData.totalVolumes || maxVolNum || volumeMap.size;
+
+    // Fill in gap volumes (e.g., if 1,2,3,5,7,8 exist, add 4,6 as empty)
+    for (let i = 1; i <= inferredTotal; i++) {
+      if (!volumeMap.has(i)) {
+        volumeMap.set(i, {}); // empty — no book linked
       }
     }
 
@@ -255,11 +276,11 @@ export class SeriesService {
       })
     );
 
-    // Use same totalVolumes logic as getSeries list endpoint:
-    // series.totalVolumes > seriesBooks count > seriesVolumes count
-    const seriesBooksCount = seriesBookEntries.length;
-    const totalVolumes = seriesData.totalVolumes || seriesBooksCount || volumeEntries.length;
+    const totalVolumes = inferredTotal;
     const ownedVolumes = volumesWithStatus.filter((v) => v.owned).length;
+    const missingVolumeNumbers = volumesWithStatus
+      .filter(v => v.status === 'missing' && !v.book)
+      .map(v => v.volumeNumber);
 
     return {
       series: seriesData,
@@ -270,6 +291,7 @@ export class SeriesService {
         missingVolumes: totalVolumes - ownedVolumes,
         completionPercentage:
           totalVolumes > 0 ? Math.round((ownedVolumes / totalVolumes) * 100) : 0,
+        missingVolumeNumbers,
       },
     };
   }
