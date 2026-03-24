@@ -43,6 +43,23 @@ services:
     networks:
       - booktarr-network
 
+  # Caddy HTTPS Reverse Proxy
+  caddy:
+    image: caddy:2-alpine
+    container_name: booktarr-caddy
+    restart: unless-stopped
+    ports:
+      - '443:443'
+      - '80:80'
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    networks:
+      - booktarr-network
+
   # MinIO S3-compatible Object Storage
   minio:
     image: minio/minio:latest
@@ -121,6 +138,10 @@ volumes:
   redis_data:
     driver: local
   minio_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
     driver: local
 
 networks:

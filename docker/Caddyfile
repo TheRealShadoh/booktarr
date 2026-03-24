@@ -1,0 +1,15 @@
+{
+	auto_https disable_redirects
+	local_certs
+}
+
+:443 {
+	tls internal {
+		on_demand
+	}
+	reverse_proxy host.docker.internal:3000
+}
+
+:80 {
+	reverse_proxy host.docker.internal:3000
+}
