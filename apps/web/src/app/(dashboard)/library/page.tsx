@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Layers } from 'lucide-react';
+import { Layers, Library } from 'lucide-react';
 import { CSVImportDialog } from '@/components/import/csv-import-dialog';
 import { AddBookDialog } from '@/components/books/add-book-dialog';
 import { AdvancedSearch, SearchFilters } from '@/components/search/advanced-search';
@@ -385,11 +385,13 @@ export default function LibraryPage() {
       )}
 
       {allBooks.length === 0 && !isLoading && !error && (
-        <div className="rounded-lg border-2 border-dashed py-12 text-center">
-          <p className="text-muted-foreground">
-            No books found. Add your first book to get started!
+        <div className="rounded-xl border border-muted py-16 text-center">
+          <Library className="mx-auto h-12 w-12 text-muted-foreground/40" />
+          <h3 className="mt-4 text-lg font-semibold">Your collection is waiting</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Add your first book to start building your library.
           </p>
-          <Button className="mt-4" onClick={() => setShowAddBookDialog(true)}>
+          <Button className="mt-6" onClick={() => setShowAddBookDialog(true)}>
             Add Book
           </Button>
         </div>

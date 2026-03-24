@@ -3,6 +3,7 @@
 import { use } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -92,12 +93,27 @@ export default function SeriesDetailsPage({
 
   const { series, volumes, stats } = data;
 
+  const firstCoverUrl = volumes[0]?.coverUrl ?? null;
+
   const statusColors: Record<string, string> = {
     ongoing: 'bg-blue-500',
     completed: 'bg-green-500',
     hiatus: 'bg-yellow-500',
     cancelled: 'bg-red-500',
   };
+
+  // Tint classes for stat cards
+  const ownedCardBg = stats.ownedVolumes > 0
+    ? 'bg-green-500/10 border-green-500/20'
+    : '';
+  const missingCardBg = stats.missingVolumes > 0
+    ? 'bg-amber-500/10 border-amber-500/20'
+    : '';
+  const progressCardBg = stats.completionPercentage >= 75
+    ? 'bg-green-500/10 border-green-500/20'
+    : stats.completionPercentage >= 40
+      ? 'bg-blue-500/10 border-blue-500/20'
+      : 'bg-muted/30';
 
   const handleAddToCollection = (volumeNumber: number) => {
     toast({
@@ -121,25 +137,55 @@ export default function SeriesDetailsPage({
         Back to Series
       </Button>
 
-      {/* Series Header */}
-      <div className="space-y-4">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <h1 className="text-3xl md:text-4xl font-bold mb-2">{series.name}</h1>
-            {series.description && (
-              <p className="text-muted-foreground mb-2">{series.description}</p>
-            )}
+      {/* Hero Section */}
+      <div className="relative rounded-xl overflow-hidden">
+        {/* Blurred ambient background */}
+        {firstCoverUrl && (
+          <div
+            className="absolute inset-0 blur-3xl opacity-20 scale-110"
+            style={{ backgroundImage: `url(${firstCoverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+            aria-hidden="true"
+          />
+        )}
+
+        {/* Hero content */}
+        <div className="relative flex flex-col sm:flex-row gap-6 p-6">
+          {/* Series cover art */}
+          {firstCoverUrl && (
+            <div className="relative h-48 w-32 shrink-0 rounded-lg overflow-hidden shadow-lg self-start">
+              <Image
+                src={firstCoverUrl}
+                alt={`${series.name} cover`}
+                fill
+                className="object-cover"
+                sizes="128px"
+                priority
+              />
+            </div>
+          )}
+
+          {/* Title and meta */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <h1 className="text-3xl md:text-4xl font-bold leading-tight">{series.name}</h1>
+              <Badge className={`${statusColors[series.status] ?? 'bg-gray-500'} shrink-0`}>
+                {series.status}
+              </Badge>
+            </div>
             {series.type && (
-              <span className="text-xs text-muted-foreground capitalize">
+              <span className="text-xs text-muted-foreground capitalize block mb-3">
                 {series.type.replace(/_/g, ' ')}
               </span>
             )}
+            {series.description && (
+              <p className="text-muted-foreground text-sm leading-relaxed">{series.description}</p>
+            )}
           </div>
-          <Badge className={statusColors[series.status] || 'bg-gray-500'}>
-            {series.status}
-          </Badge>
         </div>
+      </div>
 
+      {/* Stats + Progress */}
+      <div className="space-y-4">
         {/* Stats Cards */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <Card>
@@ -152,7 +198,7 @@ export default function SeriesDetailsPage({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className={ownedCardBg}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Owned</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -162,7 +208,7 @@ export default function SeriesDetailsPage({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className={missingCardBg}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Missing</CardTitle>
               <BookCopy className="h-4 w-4 text-muted-foreground" />
@@ -172,7 +218,7 @@ export default function SeriesDetailsPage({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className={progressCardBg}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Progress</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />

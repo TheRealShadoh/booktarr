@@ -111,19 +111,16 @@ export default function CurrentlyReadingPage() {
         )}
 
         {!isLoading && (!booksData || booksData.length === 0) && (
-          <Card>
-            <CardHeader>
-              <CardTitle>No books in progress</CardTitle>
-              <CardDescription>
-                Start reading a book from your library to track your progress here.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <a href="/library">
-                <Button variant="outline">Browse Library</Button>
-              </a>
-            </CardContent>
-          </Card>
+          <div className="rounded-xl border border-muted py-16 text-center">
+            <BookOpen className="mx-auto h-12 w-12 text-muted-foreground/40" />
+            <h3 className="mt-4 text-lg font-semibold">No books in progress</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Start reading a book from your library to track your progress here.
+            </p>
+            <a href="/library" className="inline-block mt-6">
+              <Button variant="outline">Browse Library</Button>
+            </a>
+          </div>
         )}
 
         {!isLoading && booksData && booksData.length > 0 && (

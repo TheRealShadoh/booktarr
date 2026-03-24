@@ -6,6 +6,7 @@ import { BookCard } from '@/components/books/book-card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddBookDialog } from '@/components/books/add-book-dialog';
+import { BookMarked } from 'lucide-react';
 
 export default function WishlistPage() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -53,11 +54,13 @@ export default function WishlistPage() {
       )}
 
       {data?.books?.length === 0 && !isLoading && !error && (
-        <div className="rounded-lg border-2 border-dashed py-12 text-center">
-          <p className="text-muted-foreground">
-            Your wishlist is empty. Add books you want to read!
+        <div className="rounded-xl border border-muted py-16 text-center">
+          <BookMarked className="mx-auto h-12 w-12 text-muted-foreground/40" />
+          <h3 className="mt-4 text-lg font-semibold">Save books you want to read</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your wishlist is empty. Add books you are looking forward to.
           </p>
-          <Button className="mt-4" onClick={() => setAddDialogOpen(true)}>Add Book</Button>
+          <Button className="mt-6" onClick={() => setAddDialogOpen(true)}>Add to Wishlist</Button>
         </div>
       )}
 

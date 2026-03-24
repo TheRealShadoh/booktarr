@@ -29,18 +29,18 @@ export function SeriesCard({ series }: SeriesCardProps) {
 
   return (
     <Link href={`/series/${series.id}`}>
-      <Card className="cursor-pointer transition-shadow hover:shadow-md">
+      <Card className="cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg">
         <CardHeader>
           <div className="flex gap-3">
-            {/* Small Series Cover Thumbnail */}
-            <div className="relative h-20 w-14 flex-shrink-0 overflow-hidden rounded bg-muted">
+            {/* Series Cover Thumbnail */}
+            <div className="relative h-24 w-16 flex-shrink-0 overflow-hidden rounded bg-gradient-to-b from-muted to-muted/50">
               {series.coverUrl ? (
                 <Image
                   src={series.coverUrl}
                   alt={`${series.name} cover`}
                   fill
                   className="object-cover"
-                  sizes="56px"
+                  sizes="64px"
                 />
               ) : (
                 <div className="flex h-full items-center justify-center">
@@ -51,12 +51,17 @@ export function SeriesCard({ series }: SeriesCardProps) {
 
             {/* Title and Status */}
             <div className="flex flex-1 items-start justify-between">
-              <div>
+              <div className="min-w-0">
                 <CardTitle className="line-clamp-2 text-lg">{series.name}</CardTitle>
-                {series.type && (
-                  <span className="text-xs text-muted-foreground capitalize">
-                    {series.type.replace(/_/g, ' ')}
-                  </span>
+                <span className="text-xs text-muted-foreground capitalize">
+                  {[series.type?.replace(/_/g, ' '), series.status]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
+                {series.description && (
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground/80">
+                    {series.description}
+                  </p>
                 )}
               </div>
               <Badge className={`${statusColors[series.status] || 'bg-gray-500'} capitalize ml-2 shrink-0`}>
