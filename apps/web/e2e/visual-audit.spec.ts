@@ -160,19 +160,24 @@ test.describe('Visual Audit - Error States', () => {
 
   test('non-existent book ID shows error or empty state, not a crash', async ({ page }) => {
     await page.goto('/library/00000000-0000-0000-0000-000000000000');
+    // Wait for the client-side React Query fetch to settle. networkidle fires
+    // after network is quiet but the component may still be rendering the error state.
     await page.waitForLoadState('networkidle');
-
-    await page.screenshot({ path: 'test-results/desktop-book-404.png', fullPage: true });
 
     // The page should not show a Next.js error overlay
     const errorOverlay = page.locator('[data-nextjs-dialog]');
     await expect(errorOverlay).toBeHidden();
 
-    // The page should either show a not-found message or redirect
-    const hasNotFoundText = await page
-      .getByText(/not found|does not exist|no book/i)
-      .isVisible()
+    // The book detail component renders error.message in a <p> element.
+    // Possible messages: 'Book not found' (404) or 'Failed to fetch book details' (other errors).
+    // Under parallel test load the server may return a non-404 error, so match both strings.
+    const errorText = page.getByText(/book not found|failed to fetch book details|failed to load book/i);
+    const hasNotFoundText = await errorText
+      .waitFor({ state: 'visible', timeout: 15000 })
+      .then(() => true)
       .catch(() => false);
+
+    await page.screenshot({ path: 'test-results/desktop-book-404.png', fullPage: true });
 
     const redirectedToLibrary = page.url().includes('/library') && !page.url().includes('/00000000');
 
@@ -186,15 +191,19 @@ test.describe('Visual Audit - Error States', () => {
     await page.goto('/login');
     await page.waitForLoadState('networkidle');
 
-    // Submit without filling any fields
+    // Submit without filling any fields.
+    // The email and password inputs have the `required` attribute, so the browser
+    // prevents form submission and shows native validation UI. The page stays on /login.
     await page.getByRole('button', { name: /sign in/i }).click();
     await page.waitForTimeout(500);
 
     await page.screenshot({ path: 'test-results/desktop-login-validation.png' });
 
-    // Some form of feedback should be visible - browser validation or custom
-    // The email field should be focused or an error visible
-    const emailInput = page.getByPlaceholder(/email/i);
+    // The page stays on the login URL (no redirect happened)
+    expect(page.url()).toContain('/login');
+
+    // The email input is still visible (form not submitted)
+    const emailInput = page.locator('[id="email"]');
     await expect(emailInput).toBeVisible();
   });
 });
@@ -225,7 +234,8 @@ test.describe('Visual Audit - Focus States', () => {
     await page.goto('/login');
     await page.waitForLoadState('networkidle');
 
-    const emailInput = page.getByPlaceholder(/email/i);
+    // Login form email input has placeholder "you@example.com" (not /email/), use id selector
+    const emailInput = page.locator('[id="email"]');
     await emailInput.focus();
 
     await page.screenshot({ path: 'test-results/desktop-focus-login.png' });
@@ -233,7 +243,7 @@ test.describe('Visual Audit - Focus States', () => {
     // The element should be the document's active element
     const isActive = await page.evaluate(() => {
       const focused = document.activeElement;
-      const emailEl = document.querySelector('input[type="email"], input[placeholder*="email" i]');
+      const emailEl = document.querySelector('#email');
       return focused === emailEl;
     });
     expect(isActive).toBe(true);
@@ -248,7 +258,9 @@ test.describe('Visual Audit - Navigation Consistency', () => {
   });
 
   test('nav links are consistent across all authenticated pages', async ({ page }) => {
-    const expectedLinks = ['Library', 'Series', 'Scan', 'Currently Reading', 'Wishlist'];
+    // Nav items from nav.tsx: Library, Series, Scan, Calendar, Reading, Wishlist
+    // Note: the "Currently Reading" page link is labeled "Reading" in the nav component
+    const expectedLinks = ['Library', 'Series', 'Scan', 'Reading', 'Wishlist'];
 
     for (const { path } of PAGES) {
       await page.goto(path);

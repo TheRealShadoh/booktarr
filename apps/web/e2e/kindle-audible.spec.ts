@@ -21,17 +21,17 @@ async function login(page: import('@playwright/test').Page) {
 }
 
 async function openAddBookDialog(page: import('@playwright/test').Page) {
-  const addBookButton = page.getByRole('button', { name: /add book/i });
+  // The "Add Book" button is a dropdown menu trigger - click it to open the menu
+  const addBookButton = page.getByRole('button', { name: /^add book$/i });
   if (!(await addBookButton.isVisible().catch(() => false))) {
     return false;
   }
   await addBookButton.click();
 
-  // Some implementations use a dropdown first
-  const menuItem = page.getByRole('menuitem', { name: /add book/i });
-  if (await menuItem.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await menuItem.click();
-  }
+  // Click "Add Single Book" from the dropdown menu
+  const menuItem = page.getByRole('menuitem', { name: /add single book/i });
+  await expect(menuItem).toBeVisible({ timeout: 3000 });
+  await menuItem.click();
 
   await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
   return true;
@@ -168,55 +168,56 @@ test.describe('Settings Page - Connected Services Section', () => {
   test('settings page has a "Connected Services" card', async ({ page }) => {
     await page.screenshot({ path: 'test-results/settings-connected-services.png', fullPage: true });
 
-    await expect(page.getByRole('heading', { name: /connected services/i })).toBeVisible();
+    // CardTitle renders as a <div>, not a heading element - use getByText
+    await expect(page.getByText('Connected Services').first()).toBeVisible();
   });
 
   test('Connected Services section mentions Kindle', async ({ page }) => {
-    // Scroll to Connected Services section
-    const heading = page.getByRole('heading', { name: /connected services/i });
-    await heading.scrollIntoViewIfNeeded();
+    // CardTitle renders as a <div>, not a heading element - use getByText
+    const cardTitle = page.getByText('Connected Services').first();
+    await cardTitle.scrollIntoViewIfNeeded();
 
     await expect(page.getByText(/kindle/i).first()).toBeVisible();
   });
 
   test('Connected Services section mentions Audible', async ({ page }) => {
-    const heading = page.getByRole('heading', { name: /connected services/i });
-    await heading.scrollIntoViewIfNeeded();
+    const cardTitle = page.getByText('Connected Services').first();
+    await cardTitle.scrollIntoViewIfNeeded();
 
     await expect(page.getByText(/audible/i).first()).toBeVisible();
   });
 
   test('Connected Services section has Manual ASIN Entry method', async ({ page }) => {
-    const heading = page.getByRole('heading', { name: /connected services/i });
-    await heading.scrollIntoViewIfNeeded();
+    const cardTitle = page.getByText('Connected Services').first();
+    await cardTitle.scrollIntoViewIfNeeded();
 
     await expect(page.getByText(/manual asin entry/i)).toBeVisible();
   });
 
   test('Connected Services section has Kindle CSV Export method', async ({ page }) => {
-    const heading = page.getByRole('heading', { name: /connected services/i });
-    await heading.scrollIntoViewIfNeeded();
+    const cardTitle = page.getByText('Connected Services').first();
+    await cardTitle.scrollIntoViewIfNeeded();
 
     await expect(page.getByText(/kindle csv export/i)).toBeVisible();
   });
 
   test('Connected Services section has Audible CSV Export method', async ({ page }) => {
-    const heading = page.getByRole('heading', { name: /connected services/i });
-    await heading.scrollIntoViewIfNeeded();
+    const cardTitle = page.getByText('Connected Services').first();
+    await cardTitle.scrollIntoViewIfNeeded();
 
     await expect(page.getByText(/audible csv export/i)).toBeVisible();
   });
 
   test('Connected Services section has Amazon Order History method', async ({ page }) => {
-    const heading = page.getByRole('heading', { name: /connected services/i });
-    await heading.scrollIntoViewIfNeeded();
+    const cardTitle = page.getByText('Connected Services').first();
+    await cardTitle.scrollIntoViewIfNeeded();
 
     await expect(page.getByText(/amazon order history/i)).toBeVisible();
   });
 
   test('"Open Add Book Dialog" button in Connected Services opens the dialog', async ({ page }) => {
-    const heading = page.getByRole('heading', { name: /connected services/i });
-    await heading.scrollIntoViewIfNeeded();
+    const cardTitle = page.getByText('Connected Services').first();
+    await cardTitle.scrollIntoViewIfNeeded();
 
     const openDialogButton = page.getByRole('button', { name: /open add book dialog/i });
     await expect(openDialogButton).toBeVisible();
@@ -231,8 +232,8 @@ test.describe('Settings Page - Connected Services Section', () => {
   });
 
   test('Kindle Book List Downloader link has correct Chrome Web Store URL', async ({ page }) => {
-    const heading = page.getByRole('heading', { name: /connected services/i });
-    await heading.scrollIntoViewIfNeeded();
+    const cardTitle = page.getByText('Connected Services').first();
+    await cardTitle.scrollIntoViewIfNeeded();
 
     const kindleLink = page.getByRole('link', { name: /kindle book list downloader/i });
     await expect(kindleLink).toBeVisible();
@@ -242,8 +243,8 @@ test.describe('Settings Page - Connected Services Section', () => {
   });
 
   test('Audible Library Extractor link points to GitHub', async ({ page }) => {
-    const heading = page.getByRole('heading', { name: /connected services/i });
-    await heading.scrollIntoViewIfNeeded();
+    const cardTitle = page.getByText('Connected Services').first();
+    await cardTitle.scrollIntoViewIfNeeded();
 
     const audibleLink = page.getByRole('link', { name: /audible library extractor/i });
     await expect(audibleLink).toBeVisible();
@@ -253,8 +254,8 @@ test.describe('Settings Page - Connected Services Section', () => {
   });
 
   test('external links open in a new tab (target=_blank)', async ({ page }) => {
-    const heading = page.getByRole('heading', { name: /connected services/i });
-    await heading.scrollIntoViewIfNeeded();
+    const cardTitle = page.getByText('Connected Services').first();
+    await cardTitle.scrollIntoViewIfNeeded();
 
     const externalLinks = [
       page.getByRole('link', { name: /kindle book list downloader/i }),

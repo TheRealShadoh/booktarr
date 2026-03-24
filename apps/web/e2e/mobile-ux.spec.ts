@@ -28,12 +28,13 @@ test.describe('Mobile UX', () => {
 
     await page.screenshot({ path: 'test-results/mobile-login.png', fullPage: true });
 
-    // Heading visible
-    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
+    // CardTitle renders as a <div>, not a heading - match by text content
+    await expect(page.getByText('Welcome to BookTarr')).toBeVisible();
 
     // Form fields visible and not clipped
-    const emailInput = page.getByPlaceholder(/email/i);
-    const passwordInput = page.getByPlaceholder(/password/i);
+    // Login form: email placeholder is "you@example.com", password is "••••••••"
+    const emailInput = page.locator('[id="email"]');
+    const passwordInput = page.locator('[id="password"]');
     await expect(emailInput).toBeVisible();
     await expect(passwordInput).toBeVisible();
 
@@ -69,11 +70,11 @@ test.describe('Mobile UX', () => {
 
     await page.screenshot({ path: 'test-results/mobile-nav-open.png' });
 
-    // All five nav items should now be visible in the dropdown
+    // Nav items visible in the dropdown (label in nav.tsx is "Reading", not "Currently Reading")
     await expect(page.getByRole('link', { name: 'Library' }).last()).toBeVisible();
     await expect(page.getByRole('link', { name: 'Series' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Scan' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Currently Reading' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Reading' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Wishlist' })).toBeVisible();
   });
 
@@ -93,7 +94,8 @@ test.describe('Mobile UX', () => {
     await page.screenshot({ path: 'test-results/mobile-series-page.png', fullPage: true });
 
     // Mobile menu should be closed after navigation
-    const mobileMenuDropdown = page.locator('.md\\:hidden').filter({ hasText: 'Currently Reading' });
+    // The mobile dropdown contains nav items - filter by one of the unique labels ("Reading")
+    const mobileMenuDropdown = page.locator('.md\\:hidden').filter({ hasText: 'Reading' });
     await expect(mobileMenuDropdown).toBeHidden();
   });
 
@@ -126,18 +128,18 @@ test.describe('Mobile UX', () => {
     }
     await addBookButton.click();
 
-    // If a dropdown opens, click the option that opens the dialog
-    const addManuallyOption = page.getByRole('menuitem', { name: /add book/i });
-    if (await addManuallyOption.isVisible().catch(() => false)) {
-      await addManuallyOption.click();
+    // The dropdown shows "Add Single Book" menuitem to open the add-book dialog
+    const addSingleOption = page.getByRole('menuitem', { name: /add single book/i });
+    if (await addSingleOption.isVisible().catch(() => false)) {
+      await addSingleOption.click();
     }
 
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
 
     await page.screenshot({ path: 'test-results/mobile-add-book-dialog.png', fullPage: true });
 
-    // Dialog title visible
-    await expect(page.getByRole('heading', { name: /add a book/i })).toBeVisible();
+    // DialogTitle in shadcn renders as an h2 element
+    await expect(page.getByRole('heading', { name: 'Add a Book' })).toBeVisible();
 
     // Tabs visible (4 tabs)
     await expect(page.getByRole('tab', { name: /isbn search/i })).toBeVisible();

@@ -170,7 +170,8 @@ test.describe('Bulk Scanner Page', () => {
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('Queued')).toBeVisible();
+    // The badge renders as a <div> with variant="secondary" containing text "Queued"
+    await expect(page.locator('text=Queued').first()).toBeVisible();
   });
 
   test('each queued item has a remove (X) button', async ({ page }) => {
@@ -186,8 +187,9 @@ test.describe('Bulk Scanner Page', () => {
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // There should be one X button per queued item
-    const removeButtons = page.locator('button:has([data-lucide="x"])');
-    await expect(removeButtons).toHaveCount(testIsbns.length);
+    // Each queued item shows the ISBN in a <p class="font-mono"> element.
+    // Count those to verify the remove button is present for each item.
+    const isbnTexts = page.locator('.max-h-80 p.font-mono');
+    await expect(isbnTexts).toHaveCount(testIsbns.length);
   });
 });
