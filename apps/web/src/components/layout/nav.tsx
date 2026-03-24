@@ -14,9 +14,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Menu } from 'lucide-react';
+import { Menu, Bell } from 'lucide-react';
 
 interface PendingSharesResponse {
+  count: number;
+}
+
+interface UnreadActivityResponse {
   count: number;
 }
 
@@ -27,6 +31,7 @@ const navItems = [
   { href: '/calendar', label: 'Calendar' },
   { href: '/currently-reading', label: 'Reading' },
   { href: '/wishlist', label: 'Wishlist' },
+  { href: '/wanted', label: 'Wanted' },
 ];
 
 export function Nav() {
@@ -67,7 +72,19 @@ export function Nav() {
     enabled: !!session,
   });
 
+  const { data: unreadActivityData } = useQuery<UnreadActivityResponse>({
+    queryKey: ['monitoring', 'activity', 'unread'],
+    queryFn: async () => {
+      const response = await fetch('/api/monitoring/activity?unreadOnly=true');
+      if (!response.ok) throw new Error('Failed to fetch unread activity count');
+      return response.json() as Promise<UnreadActivityResponse>;
+    },
+    refetchInterval: 60_000,
+    enabled: !!session,
+  });
+
   const pendingCount = pendingData?.count ?? 0;
+  const unreadActivityCount = unreadActivityData?.count ?? 0;
 
   const handleSignOut = () => {
     signOut({ callbackUrl: '/login' });
@@ -95,6 +112,23 @@ export function Nav() {
                 {item.label}
               </Link>
             ))}
+            {/* Activity link with unread badge */}
+            <Link
+              href="/activity"
+              className={`relative text-sm font-medium transition-colors hover:text-primary ${
+                pathname === '/activity' ? 'text-primary' : 'text-muted-foreground'
+              }`}
+            >
+              <span className="flex items-center gap-1">
+                <Bell className="h-4 w-4" />
+                Activity
+              </span>
+              {unreadActivityCount > 0 && (
+                <span className="absolute -right-3 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                  {unreadActivityCount > 99 ? '99+' : unreadActivityCount}
+                </span>
+              )}
+            </Link>
           </div>
         </div>
 
@@ -165,6 +199,26 @@ export function Nav() {
                 {item.label}
               </Link>
             ))}
+            {/* Activity link with unread badge */}
+            <Link
+              href="/activity"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground ${
+                pathname === '/activity'
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Bell className="h-4 w-4" />
+                Activity
+              </span>
+              {unreadActivityCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-primary-foreground">
+                  {unreadActivityCount > 99 ? '99+' : unreadActivityCount}
+                </span>
+              )}
+            </Link>
           </div>
         </div>
       )}

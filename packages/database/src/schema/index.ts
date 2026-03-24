@@ -14,3 +14,6 @@ export * from './series';
 
 // Reading and wishlist tables
 export * from './reading';
+
+// Monitoring and acquisition tables
+export * from './monitoring';

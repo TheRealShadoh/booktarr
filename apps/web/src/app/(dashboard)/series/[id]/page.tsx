@@ -1,7 +1,7 @@
 'use client';
 
 import { use } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { VolumeCard } from '@/components/series/volume-card';
-import { ArrowLeft, BookCopy, TrendingUp } from 'lucide-react';
+import { ArrowLeft, BookCopy, TrendingUp, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SeriesDetailsPage({
@@ -20,6 +20,7 @@ export default function SeriesDetailsPage({
 }) {
   const router = useRouter();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { id: seriesId } = use(params);
 
   // Fetch series details
@@ -34,6 +35,30 @@ export default function SeriesDetailsPage({
         throw new Error('Failed to fetch series details');
       }
       return response.json();
+    },
+  });
+
+  const monitorMutation = useMutation({
+    mutationFn: async (monitored: boolean) => {
+      const response = await fetch(`/api/series/${seriesId}/monitor`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monitored }),
+      });
+      if (!response.ok) throw new Error('Failed to update monitoring');
+      return response.json();
+    },
+    onSuccess: (_result, monitored) => {
+      toast({
+        title: monitored ? 'Series monitored' : 'Series unmonitored',
+        description: `This series will ${monitored ? 'now' : 'no longer'} be checked for missing volumes.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['series', seriesId] });
+      queryClient.invalidateQueries({ queryKey: ['series'] });
+      queryClient.invalidateQueries({ queryKey: ['monitoring', 'wanted'] });
+    },
+    onError: () => {
+      toast({ title: 'Error', description: 'Failed to update monitoring status.', variant: 'destructive' });
     },
   });
 
@@ -168,9 +193,29 @@ export default function SeriesDetailsPage({
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3 mb-2">
               <h1 className="text-3xl md:text-4xl font-bold leading-tight">{series.name}</h1>
-              <Badge className={`${statusColors[series.status] ?? 'bg-gray-500'} shrink-0`}>
-                {series.status}
-              </Badge>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant={series.monitored ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => monitorMutation.mutate(!series.monitored)}
+                  disabled={monitorMutation.isPending}
+                >
+                  {series.monitored ? (
+                    <>
+                      <Eye className="mr-1.5 h-4 w-4" />
+                      Monitored
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="mr-1.5 h-4 w-4" />
+                      Monitor
+                    </>
+                  )}
+                </Button>
+                <Badge className={`${statusColors[series.status] ?? 'bg-gray-500'} shrink-0`}>
+                  {series.status}
+                </Badge>
+              </div>
             </div>
             {series.type && (
               <span className="text-xs text-muted-foreground capitalize block mb-3">

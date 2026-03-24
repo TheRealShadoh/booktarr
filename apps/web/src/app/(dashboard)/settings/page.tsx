@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { logger } from '@/lib/logger';
 import { useSession } from 'next-auth/react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,11 +17,49 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useQueryClient } from '@tanstack/react-query';
 import { ShareManager } from '@/components/sharing/share-manager';
 import { AddBookDialog } from '@/components/books/add-book-dialog';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Server, Globe, Trash2, Plus, RefreshCw } from 'lucide-react';
+
+// ---- Download Clients types ----
+interface DownloadClient {
+  id: string;
+  name: string;
+  type: 'deluge' | 'sabnzbd';
+  host: string;
+  category?: string | null;
+  enabled: boolean;
+}
+
+interface DownloadClientsResponse {
+  clients: DownloadClient[];
+}
+
+type DownloadClientType = 'deluge' | 'sabnzbd';
+
+// ---- Indexers types ----
+interface Indexer {
+  id: string;
+  name: string;
+  type: 'torznab' | 'newznab';
+  url: string;
+  categories?: string | null;
+  enabled: boolean;
+}
+
+interface IndexersResponse {
+  indexers: Indexer[];
+}
+
+type IndexerType = 'torznab' | 'newznab';
 
 interface DuplicateBook {
   userBookId: string;
@@ -68,6 +107,238 @@ export default function SettingsPage() {
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // ---- Download Clients state ----
+  const [addClientOpen, setAddClientOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientType, setNewClientType] = useState<DownloadClientType>('deluge');
+  const [newClientHost, setNewClientHost] = useState('');
+  const [newClientApiKey, setNewClientApiKey] = useState('');
+  const [newClientPassword, setNewClientPassword] = useState('');
+  const [newClientCategory, setNewClientCategory] = useState('');
+  const [testingClientId, setTestingClientId] = useState<string | null>(null);
+
+  // ---- Indexers state ----
+  const [addIndexerOpen, setAddIndexerOpen] = useState(false);
+  const [newIndexerName, setNewIndexerName] = useState('');
+  const [newIndexerType, setNewIndexerType] = useState<IndexerType>('torznab');
+  const [newIndexerUrl, setNewIndexerUrl] = useState('');
+  const [newIndexerApiKey, setNewIndexerApiKey] = useState('');
+  const [newIndexerCategories, setNewIndexerCategories] = useState('');
+  const [testingIndexerId, setTestingIndexerId] = useState<string | null>(null);
+
+  // ---- Fetch download clients ----
+  const { data: clientsData, isLoading: clientsLoading } = useQuery<DownloadClientsResponse>({
+    queryKey: ['monitoring', 'clients'],
+    queryFn: async () => {
+      const response = await fetch('/api/monitoring/clients');
+      if (!response.ok) throw new Error('Failed to fetch download clients');
+      return response.json() as Promise<DownloadClientsResponse>;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // ---- Fetch indexers ----
+  const { data: indexersData, isLoading: indexersLoading } = useQuery<IndexersResponse>({
+    queryKey: ['monitoring', 'indexers'],
+    queryFn: async () => {
+      const response = await fetch('/api/monitoring/indexers');
+      if (!response.ok) throw new Error('Failed to fetch indexers');
+      return response.json() as Promise<IndexersResponse>;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // ---- Add download client ----
+  const addClientMutation = useMutation({
+    mutationFn: async (payload: {
+      name: string;
+      type: DownloadClientType;
+      host: string;
+      apiKey?: string;
+      password?: string;
+      category?: string;
+    }) => {
+      const response = await fetch('/api/monitoring/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to add client' }));
+        throw new Error((err as { error?: string }).error ?? 'Failed to add client');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Download client added' });
+      queryClient.invalidateQueries({ queryKey: ['monitoring', 'clients'] });
+      setAddClientOpen(false);
+      setNewClientName('');
+      setNewClientType('deluge');
+      setNewClientHost('');
+      setNewClientApiKey('');
+      setNewClientPassword('');
+      setNewClientCategory('');
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // ---- Toggle / delete download client ----
+  const toggleClientMutation = useMutation({
+    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+      const response = await fetch(`/api/monitoring/clients/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      if (!response.ok) throw new Error('Failed to update client');
+      return response.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['monitoring', 'clients'] }),
+    onError: () => toast({ title: 'Error', description: 'Failed to update client', variant: 'destructive' }),
+  });
+
+  const deleteClientMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/monitoring/clients/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to delete client');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Client removed' });
+      queryClient.invalidateQueries({ queryKey: ['monitoring', 'clients'] });
+    },
+    onError: () => toast({ title: 'Error', description: 'Failed to delete client', variant: 'destructive' }),
+  });
+
+  const handleTestClient = async (id: string) => {
+    setTestingClientId(id);
+    try {
+      const response = await fetch(`/api/monitoring/clients/${id}/test`, { method: 'POST' });
+      const result = await response.json() as { success?: boolean; message?: string };
+      if (result.success) {
+        toast({ title: 'Connection successful', description: result.message ?? 'Client is reachable.' });
+      } else {
+        toast({ title: 'Connection failed', description: result.message ?? 'Could not reach the client.', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Test failed', description: 'Unexpected error testing client.', variant: 'destructive' });
+    } finally {
+      setTestingClientId(null);
+    }
+  };
+
+  // ---- Add indexer ----
+  const addIndexerMutation = useMutation({
+    mutationFn: async (payload: {
+      name: string;
+      type: IndexerType;
+      url: string;
+      apiKey?: string;
+      categories?: string;
+    }) => {
+      const response = await fetch('/api/monitoring/indexers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to add indexer' }));
+        throw new Error((err as { error?: string }).error ?? 'Failed to add indexer');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Indexer added' });
+      queryClient.invalidateQueries({ queryKey: ['monitoring', 'indexers'] });
+      setAddIndexerOpen(false);
+      setNewIndexerName('');
+      setNewIndexerType('torznab');
+      setNewIndexerUrl('');
+      setNewIndexerApiKey('');
+      setNewIndexerCategories('');
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // ---- Toggle / delete indexer ----
+  const toggleIndexerMutation = useMutation({
+    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+      const response = await fetch(`/api/monitoring/indexers/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      if (!response.ok) throw new Error('Failed to update indexer');
+      return response.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['monitoring', 'indexers'] }),
+    onError: () => toast({ title: 'Error', description: 'Failed to update indexer', variant: 'destructive' }),
+  });
+
+  const deleteIndexerMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/monitoring/indexers/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to delete indexer');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Indexer removed' });
+      queryClient.invalidateQueries({ queryKey: ['monitoring', 'indexers'] });
+    },
+    onError: () => toast({ title: 'Error', description: 'Failed to delete indexer', variant: 'destructive' }),
+  });
+
+  const handleTestIndexer = async (id: string) => {
+    setTestingIndexerId(id);
+    try {
+      const response = await fetch(`/api/monitoring/indexers/${id}/test`, { method: 'POST' });
+      const result = await response.json() as { success?: boolean; message?: string };
+      if (result.success) {
+        toast({ title: 'Connection successful', description: result.message ?? 'Indexer is reachable.' });
+      } else {
+        toast({ title: 'Connection failed', description: result.message ?? 'Could not reach the indexer.', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Test failed', description: 'Unexpected error testing indexer.', variant: 'destructive' });
+    } finally {
+      setTestingIndexerId(null);
+    }
+  };
+
+  const handleAddClient = () => {
+    if (!newClientName.trim() || !newClientHost.trim()) {
+      toast({ title: 'Required fields missing', description: 'Name and host URL are required.', variant: 'destructive' });
+      return;
+    }
+    addClientMutation.mutate({
+      name: newClientName.trim(),
+      type: newClientType,
+      host: newClientHost.trim(),
+      ...(newClientType === 'sabnzbd' && newClientApiKey.trim() ? { apiKey: newClientApiKey.trim() } : {}),
+      ...(newClientType === 'deluge' && newClientPassword.trim() ? { password: newClientPassword.trim() } : {}),
+      ...(newClientCategory.trim() ? { category: newClientCategory.trim() } : {}),
+    });
+  };
+
+  const handleAddIndexer = () => {
+    if (!newIndexerName.trim() || !newIndexerUrl.trim()) {
+      toast({ title: 'Required fields missing', description: 'Name and URL are required.', variant: 'destructive' });
+      return;
+    }
+    addIndexerMutation.mutate({
+      name: newIndexerName.trim(),
+      type: newIndexerType,
+      url: newIndexerUrl.trim(),
+      ...(newIndexerApiKey.trim() ? { apiKey: newIndexerApiKey.trim() } : {}),
+      ...(newIndexerCategories.trim() ? { categories: newIndexerCategories.trim() } : {}),
+    });
+  };
 
   const checkEnrichmentStatus = async () => {
     try {
@@ -686,6 +957,154 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* ---- Download Clients card ---- */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Download Clients</CardTitle>
+                <CardDescription>Configure clients for automated downloading</CardDescription>
+              </div>
+              <Button size="sm" onClick={() => setAddClientOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Client
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {clientsLoading && (
+              <p className="text-sm text-muted-foreground">Loading clients...</p>
+            )}
+            {!clientsLoading && (clientsData?.clients ?? []).length === 0 && (
+              <div className="rounded-lg border-2 border-dashed py-8 text-center">
+                <Server className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
+                <p className="text-sm text-muted-foreground">
+                  No download clients configured. Add one to enable automated downloading.
+                </p>
+              </div>
+            )}
+            {(clientsData?.clients ?? []).map((client) => (
+              <div
+                key={client.id}
+                className="flex items-center gap-3 rounded-lg border p-3"
+              >
+                <Server className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{client.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {client.type.toUpperCase()} &middot; {client.host}
+                    {client.category ? ` · ${client.category}` : ''}
+                  </p>
+                </div>
+                <Badge
+                  variant={client.enabled ? 'default' : 'secondary'}
+                  className="shrink-0 cursor-pointer select-none"
+                  onClick={() =>
+                    toggleClientMutation.mutate({ id: client.id, enabled: !client.enabled })
+                  }
+                >
+                  {client.enabled ? 'Enabled' : 'Disabled'}
+                </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleTestClient(client.id)}
+                  disabled={testingClientId === client.id}
+                >
+                  {testingClientId === client.id ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    'Test'
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deleteClientMutation.mutate(client.id)}
+                  disabled={deleteClientMutation.isPending}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* ---- Indexers card ---- */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Indexers</CardTitle>
+                <CardDescription>Configure Torznab and Newznab indexers for searching</CardDescription>
+              </div>
+              <Button size="sm" onClick={() => setAddIndexerOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Indexer
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {indexersLoading && (
+              <p className="text-sm text-muted-foreground">Loading indexers...</p>
+            )}
+            {!indexersLoading && (indexersData?.indexers ?? []).length === 0 && (
+              <div className="rounded-lg border-2 border-dashed py-8 text-center">
+                <Globe className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
+                <p className="text-sm text-muted-foreground">
+                  No indexers configured. Add one to enable searching for missing volumes.
+                </p>
+              </div>
+            )}
+            {(indexersData?.indexers ?? []).map((indexer) => (
+              <div
+                key={indexer.id}
+                className="flex items-center gap-3 rounded-lg border p-3"
+              >
+                <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{indexer.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {indexer.type.toUpperCase()} &middot; {indexer.url}
+                    {indexer.categories ? ` · ${indexer.categories}` : ''}
+                  </p>
+                </div>
+                <Badge
+                  variant={indexer.enabled ? 'default' : 'secondary'}
+                  className="shrink-0 cursor-pointer select-none"
+                  onClick={() =>
+                    toggleIndexerMutation.mutate({ id: indexer.id, enabled: !indexer.enabled })
+                  }
+                >
+                  {indexer.enabled ? 'Enabled' : 'Disabled'}
+                </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleTestIndexer(indexer.id)}
+                  disabled={testingIndexerId === indexer.id}
+                >
+                  {testingIndexerId === indexer.id ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    'Test'
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deleteIndexerMutation.mutate(indexer.id)}
+                  disabled={deleteIndexerMutation.isPending}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
         <Card className="border-destructive">
           <CardHeader>
             <CardTitle>Data Management</CardTitle>
@@ -752,6 +1171,171 @@ export default function SettingsPage() {
               disabled={deleteConfirmText !== 'DELETE' || isDeleting}
             >
               {isDeleting ? 'Deleting...' : 'Delete All Books'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ---- Add Download Client Dialog ---- */}
+      <Dialog open={addClientOpen} onOpenChange={setAddClientOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Download Client</DialogTitle>
+            <DialogDescription>
+              Configure a download client to handle automated downloads.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="client-name">Name</Label>
+              <Input
+                id="client-name"
+                placeholder="e.g. My Deluge"
+                value={newClientName}
+                onChange={(e) => setNewClientName(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="client-type">Type</Label>
+              <Select
+                value={newClientType}
+                onValueChange={(v) => setNewClientType(v as DownloadClientType)}
+              >
+                <SelectTrigger id="client-type" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="deluge">Deluge</SelectItem>
+                  <SelectItem value="sabnzbd">SABnzbd</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="client-host">Host URL</Label>
+              <Input
+                id="client-host"
+                placeholder="http://localhost:8112"
+                value={newClientHost}
+                onChange={(e) => setNewClientHost(e.target.value)}
+              />
+            </div>
+            {newClientType === 'sabnzbd' && (
+              <div className="space-y-1">
+                <Label htmlFor="client-apikey">API Key</Label>
+                <Input
+                  id="client-apikey"
+                  placeholder="SABnzbd API key"
+                  value={newClientApiKey}
+                  onChange={(e) => setNewClientApiKey(e.target.value)}
+                />
+              </div>
+            )}
+            {newClientType === 'deluge' && (
+              <div className="space-y-1">
+                <Label htmlFor="client-password">Password</Label>
+                <Input
+                  id="client-password"
+                  type="password"
+                  placeholder="Deluge web password"
+                  value={newClientPassword}
+                  onChange={(e) => setNewClientPassword(e.target.value)}
+                />
+              </div>
+            )}
+            <div className="space-y-1">
+              <Label htmlFor="client-category">Category (optional)</Label>
+              <Input
+                id="client-category"
+                placeholder="e.g. books"
+                value={newClientCategory}
+                onChange={(e) => setNewClientCategory(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddClientOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddClient} disabled={addClientMutation.isPending}>
+              {addClientMutation.isPending ? 'Adding...' : 'Add Client'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ---- Add Indexer Dialog ---- */}
+      <Dialog open={addIndexerOpen} onOpenChange={setAddIndexerOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Indexer</DialogTitle>
+            <DialogDescription>
+              Configure a Torznab or Newznab indexer for searching missing volumes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="indexer-name">Name</Label>
+              <Input
+                id="indexer-name"
+                placeholder="e.g. Prowlarr"
+                value={newIndexerName}
+                onChange={(e) => setNewIndexerName(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="indexer-type">Type</Label>
+              <Select
+                value={newIndexerType}
+                onValueChange={(v) => setNewIndexerType(v as IndexerType)}
+              >
+                <SelectTrigger id="indexer-type" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="torznab">Torznab</SelectItem>
+                  <SelectItem value="newznab">Newznab</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="indexer-url">URL</Label>
+              <Input
+                id="indexer-url"
+                placeholder="http://localhost:9696/1/api"
+                value={newIndexerUrl}
+                onChange={(e) => setNewIndexerUrl(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="indexer-apikey">API Key</Label>
+              <Input
+                id="indexer-apikey"
+                placeholder="Indexer API key"
+                value={newIndexerApiKey}
+                onChange={(e) => setNewIndexerApiKey(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="indexer-categories">Categories (optional)</Label>
+              <Input
+                id="indexer-categories"
+                placeholder="e.g. 7020,7030"
+                value={newIndexerCategories}
+                onChange={(e) => setNewIndexerCategories(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Comma-separated Newznab category IDs to limit search scope.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddIndexerOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddIndexer} disabled={addIndexerMutation.isPending}>
+              {addIndexerMutation.isPending ? 'Adding...' : 'Add Indexer'}
             </Button>
           </DialogFooter>
         </DialogContent>

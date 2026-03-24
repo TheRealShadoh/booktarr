@@ -27,6 +27,9 @@ export const series = pgTable('series', {
   metadataSource: varchar('metadata_source', { length: 50 }), // anilist, google_books, manual
   metadataLastUpdated: timestamp('metadata_last_updated', { mode: 'date' }),
 
+  // Monitoring — when true the acquisition system will search for missing volumes
+  monitored: boolean('monitored').default(false),
+
   // Manual override flag - if true, don't auto-update from external sources
   manualOverride: boolean('manual_override').default(false),
 
