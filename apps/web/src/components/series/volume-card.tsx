@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Plus, Heart } from 'lucide-react';
+import { Plus, Heart, ExternalLink } from 'lucide-react';
+import { generateStoreLinks } from '@/lib/utils/store-links';
 
 interface VolumeCardProps {
   volume: {
@@ -21,11 +22,12 @@ interface VolumeCardProps {
     status: 'owned' | 'wanted' | 'missing';
   };
   seriesId: string;
+  seriesName?: string;
   onAddToCollection?: (volumeNumber: number) => void;
   onMarkAsWanted?: (volumeNumber: number) => void;
 }
 
-export function VolumeCard({ volume, seriesId, onAddToCollection, onMarkAsWanted }: VolumeCardProps) {
+export function VolumeCard({ volume, seriesId: _seriesId, seriesName, onAddToCollection, onMarkAsWanted }: VolumeCardProps) {
   const statusConfig = {
     owned: {
       badge: <Badge className="bg-green-500">Owned</Badge>,
@@ -122,6 +124,36 @@ export function VolumeCard({ volume, seriesId, onAddToCollection, onMarkAsWanted
                   Add to Wishlist
                 </Button>
               )}
+              {/* Store purchase links — only shown when we have a series name */}
+              {seriesName && (() => {
+                const storeLinks = generateStoreLinks(
+                  null,
+                  `${seriesName} Vol. ${volume.volumeNumber}`
+                );
+                if (storeLinks.length === 0) return null;
+                return (
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {storeLinks.map((link) => (
+                      <a
+                        key={link.name}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`Buy on ${link.name}`}
+                        className="inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          window.open(link.url, '_blank', 'noopener,noreferrer');
+                        }}
+                      >
+                        {link.shortName}
+                        <ExternalLink className="h-2.5 w-2.5" />
+                      </a>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </CardContent>

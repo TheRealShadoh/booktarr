@@ -319,6 +319,7 @@ export default function SeriesDetailsPage({
                 key={volume.volumeNumber}
                 volume={volume}
                 seriesId={seriesId}
+                seriesName={series.name}
                 onAddToCollection={handleAddToCollection}
                 onMarkAsWanted={handleMarkAsWanted}
               />

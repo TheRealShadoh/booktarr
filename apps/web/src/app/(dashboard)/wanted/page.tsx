@@ -28,7 +28,9 @@ import {
   Download,
   BookOpen,
   RefreshCw,
+  ExternalLink,
 } from 'lucide-react';
+import { generateStoreLinks } from '@/lib/utils/store-links';
 
 interface WantedVolume {
   seriesId: string;
@@ -321,6 +323,26 @@ export default function WantedPage() {
                           >
                             {volume.status}
                           </Badge>
+                          {/* Store purchase links */}
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {generateStoreLinks(
+                              null,
+                              `${volume.seriesName} Vol. ${volume.volumeNumber}`
+                            ).map((link) => (
+                              <a
+                                key={link.name}
+                                href={link.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={`Buy on ${link.name}`}
+                                className="inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {link.shortName}
+                                <ExternalLink className="h-2.5 w-2.5" />
+                              </a>
+                            ))}
+                          </div>
                         </div>
 
                         {/* Search button */}
