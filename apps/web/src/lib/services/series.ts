@@ -169,61 +169,85 @@ export class SeriesService {
       return null;
     }
 
-    // Get all expected volumes (separate queries to avoid joins)
+    // Get all expected volumes from seriesVolumes table
     const volumeEntries = await db
       .select()
       .from(seriesVolumes)
       .where(eq(seriesVolumes.seriesId, seriesId))
       .orderBy(seriesVolumes.volumeNumber);
 
-    // Hydrate each volume with book data
-    const volumesData = await Promise.all(
-      volumeEntries.map(async (vol) => {
-        let book = null;
-        if (vol.bookId) {
-          const [b] = await db.select().from(books).where(eq(books.id, vol.bookId)).limit(1);
-          book = b || null;
-        }
-        return { volume: vol, book };
+    // Also get seriesBooks entries (books linked to this series)
+    const seriesBookEntries = await db
+      .select({
+        bookId: seriesBooks.bookId,
+        volumeNumber: seriesBooks.volumeNumber,
+        volumeName: seriesBooks.volumeName,
       })
-    );
+      .from(seriesBooks)
+      .where(eq(seriesBooks.seriesId, seriesId));
 
-    // Get ownership status for each volume
+    // Build a combined volume list from both sources
+    const volumeMap = new Map<number, { volumeEntry?: typeof volumeEntries[0]; seriesBookEntry?: typeof seriesBookEntries[0] }>();
+
+    for (const vol of volumeEntries) {
+      volumeMap.set(vol.volumeNumber, { volumeEntry: vol });
+    }
+
+    for (const sb of seriesBookEntries) {
+      const existing = volumeMap.get(sb.volumeNumber);
+      if (existing) {
+        existing.seriesBookEntry = sb;
+      } else {
+        volumeMap.set(sb.volumeNumber, { seriesBookEntry: sb });
+      }
+    }
+
+    // Sort by volume number
+    const sortedVolumes = [...volumeMap.entries()].sort((a, b) => a[0] - b[0]);
+
+    // Hydrate each volume with book data and ownership
     const volumesWithStatus = await Promise.all(
-      volumesData.map(async (v) => {
+      sortedVolumes.map(async ([volNum, entry]) => {
+        let book = null;
         let owned = false;
         let wanted = false;
         let coverUrl: string | null = null;
 
-        // If volume has a linked book, check ownership and get cover
-        if (v.book) {
-          const editionList = await db
-            .select()
-            .from(editions)
-            .where(eq(editions.bookId, v.book.id));
+        // Get the bookId from either source
+        const bookId = entry.volumeEntry?.bookId || entry.seriesBookEntry?.bookId;
 
-          for (const ed of editionList) {
-            const [ub] = await db.select().from(userBooks)
-              .where(and(eq(userBooks.editionId, ed.id), eq(userBooks.userId, userId)))
-              .limit(1);
-            if (ub?.status === 'owned') owned = true;
-            if (ub?.status === 'wanted') wanted = true;
+        if (bookId) {
+          const [b] = await db.select().from(books).where(eq(books.id, bookId)).limit(1);
+          book = b || null;
+
+          if (book) {
+            const editionList = await db
+              .select()
+              .from(editions)
+              .where(eq(editions.bookId, book.id));
+
+            for (const ed of editionList) {
+              const [ub] = await db.select().from(userBooks)
+                .where(and(eq(userBooks.editionId, ed.id), eq(userBooks.userId, userId)))
+                .limit(1);
+              if (ub?.status === 'owned') owned = true;
+              if (ub?.status === 'wanted') wanted = true;
+            }
+
+            coverUrl = editionList.find(e => e.coverUrl)?.coverUrl || null;
           }
-
-          // Get cover from first edition with a cover
-          coverUrl = editionList.find(e => e.coverUrl)?.coverUrl || null;
         }
 
         // Fallback to volume-specific cover, then series cover
         if (!coverUrl) {
-          coverUrl = v.volume.coverUrl || seriesData.coverUrl || null;
+          coverUrl = entry.volumeEntry?.coverUrl || seriesData.coverUrl || null;
         }
 
         return {
-          volumeNumber: v.volume.volumeNumber,
-          volumeName: v.volume.title,
+          volumeNumber: volNum,
+          volumeName: entry.volumeEntry?.title || entry.seriesBookEntry?.volumeName || null,
           coverUrl,
-          book: v.book,
+          book,
           owned,
           wanted,
           status: owned ? ('owned' as const) : wanted ? ('wanted' as const) : ('missing' as const),
@@ -231,7 +255,10 @@ export class SeriesService {
       })
     );
 
-    const totalVolumes = seriesData.totalVolumes || volumesData.length;
+    // Use same totalVolumes logic as getSeries list endpoint:
+    // series.totalVolumes > seriesBooks count > seriesVolumes count
+    const seriesBooksCount = seriesBookEntries.length;
+    const totalVolumes = seriesData.totalVolumes || seriesBooksCount || volumeEntries.length;
     const ownedVolumes = volumesWithStatus.filter((v) => v.owned).length;
 
     return {

@@ -127,7 +127,12 @@ export default function SeriesDetailsPage({
           <div className="flex-1">
             <h1 className="text-3xl md:text-4xl font-bold mb-2">{series.name}</h1>
             {series.description && (
-              <p className="text-muted-foreground">{series.description}</p>
+              <p className="text-muted-foreground mb-2">{series.description}</p>
+            )}
+            {series.type && (
+              <span className="text-xs text-muted-foreground capitalize">
+                {series.type.replace(/_/g, ' ')}
+              </span>
             )}
           </div>
           <Badge className={statusColors[series.status] || 'bg-gray-500'}>

@@ -14,6 +14,8 @@ interface SeriesCardProps {
     ownedVolumes: number;
     completionPercentage: number;
     coverUrl?: string | null;
+    type?: string | null;
+    description?: string | null;
   };
 }
 
@@ -49,8 +51,15 @@ export function SeriesCard({ series }: SeriesCardProps) {
 
             {/* Title and Status */}
             <div className="flex flex-1 items-start justify-between">
-              <CardTitle className="line-clamp-2 text-lg">{series.name}</CardTitle>
-              <Badge className={`${statusColors[series.status] || 'bg-gray-500'} capitalize`}>
+              <div>
+                <CardTitle className="line-clamp-2 text-lg">{series.name}</CardTitle>
+                {series.type && (
+                  <span className="text-xs text-muted-foreground capitalize">
+                    {series.type.replace(/_/g, ' ')}
+                  </span>
+                )}
+              </div>
+              <Badge className={`${statusColors[series.status] || 'bg-gray-500'} capitalize ml-2 shrink-0`}>
                 {series.status}
               </Badge>
             </div>
