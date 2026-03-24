@@ -26,10 +26,12 @@ function validateEnvironment(): ValidationError[] {
   const errors: ValidationError[] = [];
 
   // Required environment variables
+  // NEXTAUTH_URL is auto-detected on Vercel via VERCEL_URL, so only require it
+  // when not running on Vercel
   const required = [
     'DATABASE_URL',
     'NEXTAUTH_SECRET',
-    'NEXTAUTH_URL',
+    ...(!process.env.VERCEL ? ['NEXTAUTH_URL'] : []),
   ];
 
   for (const envVar of required) {

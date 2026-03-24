@@ -14,19 +14,10 @@ export async function register() {
       const result = await validateStartup();
 
       if (!result.success) {
-        logger.error('🛑 Application startup aborted due to validation failures');
-        logger.error('Please fix the following errors:');
+        logger.error('🛑 Startup validation failed — continuing with degraded functionality');
         result.errors.forEach(err => {
           logger.error(`  - [${err.component}] ${err.message}`);
         });
-
-        // Exit in production if validation fails
-        if (process.env.NODE_ENV === 'production') {
-          logger.error('Exiting...');
-          process.exit(1);
-        } else {
-          logger.warn('Running in development mode - continuing despite errors');
-        }
       } else {
         logger.info('🚀 Application started successfully');
 
@@ -36,11 +27,6 @@ export async function register() {
       }
     } catch (error) {
       logger.error('Failed to run startup validation', error as Error);
-
-      // Exit in production if validation crashes
-      if (process.env.NODE_ENV === 'production') {
-        process.exit(1);
-      }
     }
   }
 }

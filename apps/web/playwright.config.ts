@@ -5,6 +5,7 @@ const baseURL = process.env.TEST_URL || 'https://booktarr.vercel.app';
 const isLocal = baseURL.includes('localhost');
 
 export default defineConfig({
+  globalSetup: './e2e/global-setup.ts',
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
