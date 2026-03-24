@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { BarcodeScanner } from './barcode-scanner';
+import { BarcodeScanner, playScanFeedback } from './barcode-scanner';
 import { useToast } from '@/hooks/use-toast';
 import { Camera, Upload, X, Check, Loader2, Trash2 } from 'lucide-react';
 
@@ -45,20 +45,32 @@ export function BulkScanner() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Persist queue to localStorage
+  // A Set that always reflects the current ISBNs in the queue, used inside
+  // the scan callback to avoid stale-closure false negatives.
+  const scannedISBNsRef = useRef<Set<string>>(
+    new Set(loadQueue().map((item) => item.isbn))
+  );
+
+  // Persist queue to localStorage and keep the ref in sync
   useEffect(() => {
     saveQueue(scanQueue);
+    scannedISBNsRef.current = new Set(scanQueue.map((item) => item.isbn));
   }, [scanQueue]);
 
   const handleScan = useCallback((isbn: string) => {
-    // Check for duplicates in queue
-    if (scanQueue.some(item => item.isbn === isbn)) {
+    // Duplicate prevention — check the ref so the callback never reads a
+    // stale copy of scanQueue even when called from inside the scan interval.
+    if (scannedISBNsRef.current.has(isbn)) {
       toast({
         title: 'Already scanned',
         description: `ISBN ${isbn} is already in the queue`,
       });
       return;
     }
+
+    // Update ref immediately so rapid back-to-back scans of the same barcode
+    // are caught before the next React render cycle.
+    scannedISBNsRef.current.add(isbn);
 
     setScanQueue(prev => [
       { isbn, scannedAt: new Date(), status: 'queued' },
@@ -71,7 +83,7 @@ export function BulkScanner() {
     });
 
     // Don't stop scanning - keep the camera running for bulk mode
-  }, [scanQueue, toast]);
+  }, [toast]);
 
   const removeFromQueue = (isbn: string) => {
     setScanQueue(prev => prev.filter(item => item.isbn !== isbn));

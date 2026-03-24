@@ -12,6 +12,51 @@ interface BarcodeScannerProps {
   continuous?: boolean; // Keep scanning after a successful scan (bulk mode)
 }
 
+/**
+ * Play a short confirmation beep using the Web Audio API and trigger a brief
+ * haptic vibration if the device supports it. Safe to call in any browser —
+ * silently no-ops when the APIs are unavailable.
+ */
+export function playScanFeedback(): void {
+  // Haptic feedback — ~80 ms is perceptible without being intrusive
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    navigator.vibrate(80);
+  }
+
+  // Audible beep via Web Audio API
+  try {
+    const AudioCtx =
+      window.AudioContext ??
+      (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+
+    const ctx = new AudioCtx();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+
+    // Short 880 Hz tone — high enough to sound like a scanner beep
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+
+    // Quick ramp-down envelope to avoid an abrupt click at the end
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + 0.12);
+
+    // Close the context once the note has finished to free resources
+    oscillator.onended = () => {
+      ctx.close().catch(() => undefined);
+    };
+  } catch {
+    // Web Audio API unavailable or suspended — fail silently
+  }
+}
+
 const SCAN_TIMEOUT_MS = 30_000;
 const SCAN_INTERVAL_MS = 200; // ~5fps - enough for barcode detection
 
@@ -171,6 +216,7 @@ export function BarcodeScanner({ onScan, onError, continuous = false }: BarcodeS
           }
           lastScannedRef.current = isbn;
           lastScanTimeRef.current = now;
+          playScanFeedback();
           onScan(isbn);
           // Reset timeout in continuous mode
           if (timeoutRef.current) {
@@ -184,6 +230,7 @@ export function BarcodeScanner({ onScan, onError, continuous = false }: BarcodeS
             }, SCAN_TIMEOUT_MS);
           }
         } else {
+          playScanFeedback();
           onScan(isbn);
           stopScanning();
         }
