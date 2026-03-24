@@ -1,10 +1,11 @@
 import { db } from '../db';
 import { books, editions, authors, bookAuthors, userBooks, readingProgress, seriesBooks, series } from '@booktarr/database';
-import { eq, and, or, like, ilike, desc, sql, isNull } from 'drizzle-orm';
+import { eq, and, or, like, ilike, desc, sql, isNull, inArray } from 'drizzle-orm';
 import { MetadataService } from './metadata';
 import { BookMetadata } from './google-books';
 import { SeriesParserService } from './series-parser';
 import { SeriesService } from './series';
+import { logger } from '../logger';
 
 /** Normalize partial dates (e.g. "2018" -> "2018-01-01") for PostgreSQL date column */
 function normalizeDate(dateStr?: string | null): string | undefined {
@@ -92,215 +93,200 @@ export class BookService {
       throw new Error('Could not find book metadata');
     }
 
-    // 2. Check if book already exists (by ISBN or title+author)
-    let existingBook = null;
+    // Wrap all DB operations in a transaction for atomicity
+    // (prevents orphaned records if any step fails)
+    return await db.transaction(async (tx) => {
+      // 2. Check if book already exists (by ISBN or title+author)
+      let existingBook = null;
 
-    if (metadata.isbn13 || metadata.isbn10) {
-      // Find existing edition by ISBN (simple query, no joins)
-      const conditions = [];
-      if (metadata.isbn13) conditions.push(eq(editions.isbn13, metadata.isbn13));
-      if (metadata.isbn10) conditions.push(eq(editions.isbn10, metadata.isbn10));
+      if (metadata.isbn13 || metadata.isbn10) {
+        const conditions = [];
+        if (metadata.isbn13) conditions.push(eq(editions.isbn13, metadata.isbn13));
+        if (metadata.isbn10) conditions.push(eq(editions.isbn10, metadata.isbn10));
 
-      const [existingEditionRow] = await db
-        .select()
-        .from(editions)
-        .where(or(...conditions))
-        .limit(1);
+        const [existingEditionRow] = await tx
+          .select()
+          .from(editions)
+          .where(or(...conditions))
+          .limit(1);
 
-      if (existingEditionRow) {
-        // Get the linked book
-        const [linkedBook] = await db.select().from(books).where(eq(books.id, existingEditionRow.bookId)).limit(1);
-        existingBook = linkedBook || null;
-      }
-
-      // existingBook was already set above from linkedBook
-    }
-
-    // Title-based duplicate check: if no ISBN match was found, look for a book
-    // with the same title (case-insensitive) to avoid creating near-duplicates.
-    if (!existingBook && metadata.title) {
-      const [titleMatch] = await db
-        .select()
-        .from(books)
-        .where(sql`LOWER(${books.title}) = LOWER(${metadata.title})`)
-        .limit(1);
-      if (titleMatch) {
-        existingBook = titleMatch;
-      }
-    }
-
-    // 3. Create or get book
-    let book;
-    if (existingBook) {
-      book = existingBook;
-    } else {
-      const [newBook] = await db
-        .insert(books)
-        .values({
-          title: metadata.title,
-          subtitle: metadata.subtitle,
-          description: metadata.description,
-          language: metadata.language || 'en',
-          publisher: metadata.publisher,
-          publishedDate: normalizeDate(metadata.publishedDate),
-          pageCount: metadata.pageCount,
-          categories: metadata.categories,
-          googleBooksId: metadata.googleBooksId,
-          openLibraryId: metadata.openLibraryId,
-          metadataSource: 'google_books',
-          metadataLastUpdated: new Date(),
-        })
-        .returning();
-
-      book = newBook;
-
-      // 4. Create/link authors
-      if (metadata.authors && metadata.authors.length > 0) {
-        for (let i = 0; i < metadata.authors.length; i++) {
-          const authorName = metadata.authors[i];
-
-          // Find or create author
-          // Use db.select() instead of db.query to avoid lateral joins on neon-http
-          const existingAuthors = await db
-            .select()
-            .from(authors)
-            .where(eq(authors.name, authorName))
-            .limit(1);
-          let author = existingAuthors[0] || null;
-
-          if (!author) {
-            const [newAuthor] = await db
-              .insert(authors)
-              .values({ name: authorName })
-              .returning();
-            author = newAuthor;
-          }
-
-          // Link book to author
-          await db.insert(bookAuthors).values({
-            bookId: book.id,
-            authorId: author.id,
-            displayOrder: i,
-          });
+        if (existingEditionRow) {
+          const [linkedBook] = await tx.select().from(books).where(eq(books.id, existingEditionRow.bookId)).limit(1);
+          existingBook = linkedBook || null;
         }
       }
 
-      // 5. Auto-detect and link series (only for new books)
-      try {
-        const seriesInfo = this.seriesParser.parseTitle(metadata.title);
-        if (seriesInfo) {
-          // Find or create series
-          const seriesRecord = await this.seriesService.findOrCreateSeries(
-            seriesInfo.seriesName,
-            // Detect type from categories if available
-            metadata.categories?.some((c) => c.toLowerCase().includes('manga'))
-              ? 'manga'
-              : undefined
-          );
+      if (!existingBook && metadata.title) {
+        const [titleMatch] = await tx
+          .select()
+          .from(books)
+          .where(sql`LOWER(${books.title}) = LOWER(${metadata.title})`)
+          .limit(1);
+        if (titleMatch) {
+          existingBook = titleMatch;
+        }
+      }
 
-          // Check if book is already linked to this series
-          const existingLink = await db.query.seriesBooks.findFirst({
-            where: and(
-              eq(seriesBooks.seriesId, seriesRecord.id),
-              eq(seriesBooks.bookId, book.id)
-            ),
-          });
+      // 3. Create or get book
+      let book;
+      if (existingBook) {
+        book = existingBook;
+      } else {
+        const [newBook] = await tx
+          .insert(books)
+          .values({
+            title: metadata.title,
+            subtitle: metadata.subtitle,
+            description: metadata.description,
+            language: metadata.language || 'en',
+            publisher: metadata.publisher,
+            publishedDate: normalizeDate(metadata.publishedDate),
+            pageCount: metadata.pageCount,
+            categories: metadata.categories,
+            googleBooksId: metadata.googleBooksId,
+            openLibraryId: metadata.openLibraryId,
+            metadataSource: 'google_books',
+            metadataLastUpdated: new Date(),
+          })
+          .returning();
 
-          // Link book to series if not already linked
-          if (!existingLink) {
-            await db.insert(seriesBooks).values({
-              seriesId: seriesRecord.id,
+        book = newBook;
+
+        // 4. Create/link authors
+        if (metadata.authors && metadata.authors.length > 0) {
+          for (let i = 0; i < metadata.authors.length; i++) {
+            const authorName = metadata.authors[i];
+
+            const existingAuthors = await tx
+              .select()
+              .from(authors)
+              .where(eq(authors.name, authorName))
+              .limit(1);
+            let author = existingAuthors[0] || null;
+
+            if (!author) {
+              const [newAuthor] = await tx
+                .insert(authors)
+                .values({ name: authorName })
+                .returning();
+              author = newAuthor;
+            }
+
+            await tx.insert(bookAuthors).values({
               bookId: book.id,
-              volumeNumber: seriesInfo.volumeNumber,
-              volumeName: seriesInfo.volumeName || null,
-              displayOrder: seriesInfo.volumeNumber,
+              authorId: author.id,
+              displayOrder: i,
             });
           }
         }
-      } catch (error) {
-        // Log series detection error but don't fail book creation
-        console.error('Series detection error:', error);
+
+        // 5. Auto-detect and link series (only for new books)
+        try {
+          const seriesInfo = this.seriesParser.parseTitle(metadata.title);
+          if (seriesInfo) {
+            const seriesRecord = await this.seriesService.findOrCreateSeries(
+              seriesInfo.seriesName,
+              metadata.categories?.some((c) => c.toLowerCase().includes('manga'))
+                ? 'manga'
+                : undefined
+            );
+
+            const existingLink = await tx.query.seriesBooks.findFirst({
+              where: and(
+                eq(seriesBooks.seriesId, seriesRecord.id),
+                eq(seriesBooks.bookId, book.id)
+              ),
+            });
+
+            if (!existingLink) {
+              await tx.insert(seriesBooks).values({
+                seriesId: seriesRecord.id,
+                bookId: book.id,
+                volumeNumber: seriesInfo.volumeNumber,
+                volumeName: seriesInfo.volumeName || null,
+                displayOrder: seriesInfo.volumeNumber,
+              });
+            }
+          }
+        } catch (error) {
+          logger.error('Series detection error:', error instanceof Error ? error : new Error(String(error)));
+        }
       }
-    }
 
-    // 7. Create or get edition
-    const isbn13 = metadata.isbn13 || input.edition?.isbn13;
-    const isbn10 = metadata.isbn10 || input.edition?.isbn10;
+      // 7. Create or get edition
+      const isbn13 = metadata.isbn13 || input.edition?.isbn13;
+      const isbn10 = metadata.isbn10 || input.edition?.isbn10;
 
-    // Check if this exact edition already exists
-    let edition = null;
-    if (isbn13 || isbn10) {
-      edition = await db.query.editions.findFirst({
+      let edition = null;
+      if (isbn13 || isbn10) {
+        edition = await tx.query.editions.findFirst({
+          where: and(
+            eq(editions.bookId, book.id),
+            or(
+              isbn13 ? eq(editions.isbn13, isbn13) : undefined,
+              isbn10 ? eq(editions.isbn10, isbn10) : undefined
+            )
+          ),
+        });
+      }
+
+      if (!edition) {
+        const [newEdition] = await tx
+          .insert(editions)
+          .values({
+            bookId: book.id,
+            isbn10,
+            isbn13,
+            format: input.edition?.format,
+            pages: input.edition?.pages || metadata.pageCount,
+            publisher: input.edition?.publisher || metadata.publisher,
+            publishedDate: normalizeDate(input.edition?.publishedDate || metadata.publishedDate),
+            coverUrl: input.edition?.coverUrl || metadata.coverUrl,
+            coverThumbnailUrl: metadata.thumbnailUrl,
+          })
+          .returning();
+        edition = newEdition;
+      }
+
+      // 8. Add to user's collection (or update if already exists)
+      const existingUserBook = await tx.query.userBooks.findFirst({
         where: and(
-          eq(editions.bookId, book.id),
-          or(
-            isbn13 ? eq(editions.isbn13, isbn13) : undefined,
-            isbn10 ? eq(editions.isbn10, isbn10) : undefined
-          )
+          eq(userBooks.userId, input.userId),
+          eq(userBooks.editionId, edition.id)
         ),
       });
-    }
 
-    if (!edition) {
-      // Create new edition
-      const [newEdition] = await db
-        .insert(editions)
-        .values({
-          bookId: book.id,
-          isbn10,
-          isbn13,
-          format: input.edition?.format,
-          pages: input.edition?.pages || metadata.pageCount,
-          publisher: input.edition?.publisher || metadata.publisher,
-          publishedDate: normalizeDate(input.edition?.publishedDate || metadata.publishedDate),
-          coverUrl: input.edition?.coverUrl || metadata.coverUrl,
-          coverThumbnailUrl: metadata.thumbnailUrl,
-        })
-        .returning();
-      edition = newEdition;
-    }
+      let userBook;
+      if (existingUserBook) {
+        const [updated] = await tx
+          .update(userBooks)
+          .set({
+            status: input.status || existingUserBook.status,
+          })
+          .where(eq(userBooks.id, existingUserBook.id))
+          .returning();
+        userBook = updated;
+      } else {
+        const [newUserBook] = await tx
+          .insert(userBooks)
+          .values({
+            userId: input.userId,
+            editionId: edition.id,
+            status: input.status || 'owned',
+            acquisitionDate: new Date().toISOString().split('T')[0],
+          })
+          .returning();
+        userBook = newUserBook;
+      }
 
-    // 8. Add to user's collection (or update if already exists)
-    // Check if user already owns this edition
-    const existingUserBook = await db.query.userBooks.findFirst({
-      where: and(
-        eq(userBooks.userId, input.userId),
-        eq(userBooks.editionId, edition.id)
-      ),
+      return {
+        book,
+        edition,
+        userBook,
+        isNewBook: !existingBook,
+        isNewEdition: !existingUserBook,
+      };
     });
-
-    let userBook;
-    if (existingUserBook) {
-      // Update existing ownership
-      const [updated] = await db
-        .update(userBooks)
-        .set({
-          status: input.status || existingUserBook.status,
-        })
-        .where(eq(userBooks.id, existingUserBook.id))
-        .returning();
-      userBook = updated;
-    } else {
-      // Add new ownership
-      const [newUserBook] = await db
-        .insert(userBooks)
-        .values({
-          userId: input.userId,
-          editionId: edition.id,
-          status: input.status || 'owned',
-          acquisitionDate: new Date().toISOString().split('T')[0],
-        })
-        .returning();
-      userBook = newUserBook;
-    }
-
-    return {
-      book,
-      edition,
-      userBook,
-      isNewBook: !existingBook,
-      isNewEdition: !existingUserBook,
-    };
   }
 
   async getUserBooks(userId: string, filters?: {
@@ -319,6 +305,7 @@ export class BookService {
     const limit = filters?.limit || 50;
     const offset = filters?.offset || 0;
 
+    // Build WHERE conditions applied at SQL level (no post-query JS filtering)
     const conditions = [eq(userBooks.userId, userId)];
 
     if (filters?.status) {
@@ -329,26 +316,20 @@ export class BookService {
       conditions.push(eq(editions.format, filters.format));
     }
 
-    // Add search filter if provided (case-insensitive, punctuation-flexible)
+    // Search filter (case-insensitive, punctuation-flexible)
     if (filters?.search) {
-      // Strip punctuation from search term for flexible matching
       const normalizedSearch = filters.search.replace(/[^\w\s]/g, '');
-
-      // Search using PostgreSQL's regexp_replace to strip punctuation from database values
-      // This allows "dont" to match "don't", "cant" to match "can't", etc.
       conditions.push(
         or(
-          // Regular search (exact match with punctuation)
           ilike(books.title, `%${filters.search}%`),
           ilike(books.description, `%${filters.search}%`),
-          // Punctuation-stripped search (flexible match)
           sql`regexp_replace(lower(${books.title}), '[^a-z0-9\\s]', '', 'g') LIKE ${`%${normalizedSearch.toLowerCase()}%`}`,
           sql`regexp_replace(lower(${books.description}), '[^a-z0-9\\s]', '', 'g') LIKE ${`%${normalizedSearch.toLowerCase()}%`}`
         )!
       );
     }
 
-    // Add year filters if provided
+    // Year filters
     if (filters?.yearMin || filters?.yearMax) {
       const yearConditions = [];
       if (filters.yearMin) {
@@ -362,126 +343,159 @@ export class BookService {
       }
     }
 
-    // Get user's book entries (no joins to avoid column name conflicts on Neon)
-    const userBookResults = await db
-      .select()
+    // Author filter - pushed to SQL via EXISTS subquery (was post-query JS filter)
+    if (filters?.author) {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM book_authors ba
+          JOIN authors a ON ba.author_id = a.id
+          WHERE ba.book_id = ${books.id}
+          AND LOWER(a.name) LIKE ${'%' + filters.author.toLowerCase() + '%'}
+        )`
+      );
+    }
+
+    // Reading status filter - pushed to SQL via EXISTS subquery (was post-query JS filter)
+    if (filters?.readingStatus) {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM reading_progress rp
+          WHERE rp.book_id = ${books.id}
+          AND rp.user_id = ${userId}
+          AND rp.status = ${filters.readingStatus}
+        )`
+      );
+    }
+
+    // Rating filter - pushed to SQL via EXISTS subquery (was post-query JS filter)
+    if (filters?.minRating) {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM reading_progress rp
+          WHERE rp.book_id = ${books.id}
+          AND rp.user_id = ${userId}
+          AND rp.rating >= ${filters.minRating}
+        )`
+      );
+    }
+
+    // Genre filter - pushed to SQL (was post-query JS filter)
+    if (filters?.genre) {
+      const genreLower = filters.genre.toLowerCase();
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM unnest(${books.categories}) AS cat
+          WHERE LOWER(cat) LIKE ${'%' + genreLower + '%'}
+        )`
+      );
+    }
+
+    // Single JOIN query replacing N+1 pattern (was 400+ queries, now 1)
+    const results = await db
+      .select({
+        userBook: userBooks,
+        edition: editions,
+        book: books,
+      })
       .from(userBooks)
+      .innerJoin(editions, eq(userBooks.editionId, editions.id))
+      .innerJoin(books, eq(editions.bookId, books.id))
       .where(and(...conditions))
       .orderBy(desc(userBooks.createdAt))
       .limit(limit)
       .offset(offset);
 
-    // Hydrate each user book with edition, book, authors, etc.
-    let booksWithAuthors = await Promise.all(
-      userBookResults.map(async (userBook) => {
-        // Get edition
-        const edition = await db.query.editions.findFirst({
-          where: eq(editions.id, userBook.editionId),
-        });
+    if (results.length === 0) {
+      // Still need the total count for pagination
+      const [countResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(userBooks)
+        .innerJoin(editions, eq(userBooks.editionId, editions.id))
+        .innerJoin(books, eq(editions.bookId, books.id))
+        .where(and(...conditions));
+      return { books: [], total: Number(countResult?.count || 0) };
+    }
 
-        if (!edition) return null;
+    // Batch fetch related data (3 queries instead of N*M)
+    const bookIds = [...new Set(results.map(r => r.book.id))];
 
-        // Get book
-        const book = await db.query.books.findFirst({
-          where: eq(books.id, edition.bookId),
-        });
-
-        if (!book) return null;
-
-        // Get authors (separate queries to avoid lateral joins on neon-http)
-        const bookAuthorLinks = await db
-          .select()
-          .from(bookAuthors)
-          .where(eq(bookAuthors.bookId, book.id))
-          .orderBy(bookAuthors.displayOrder);
-
-        const bookAuthorsData = await Promise.all(
-          bookAuthorLinks.map(async (link) => {
-            const author = await db.select().from(authors).where(eq(authors.id, link.authorId)).limit(1);
-            return { author: author[0] || null, role: link.role };
-          })
-        );
-
-        // Get reading progress
-        const progress = await db.query.readingProgress.findFirst({
-          where: and(
-            eq(readingProgress.userId, userId),
-            eq(readingProgress.bookId, book.id)
-          ),
-        });
-
-        // Get series information
-        const seriesBookEntry = await db.query.seriesBooks.findFirst({
-          where: eq(seriesBooks.bookId, book.id),
-        });
-
-        let seriesInfo = null;
-        if (seriesBookEntry) {
-          const seriesRecord = await db.query.series.findFirst({
-            where: eq(series.id, seriesBookEntry.seriesId),
-          });
-          if (seriesRecord) {
-            seriesInfo = {
-              id: seriesRecord.id,
-              name: seriesRecord.name,
-              volumeNumber: seriesBookEntry.volumeNumber,
-            };
-          }
-        }
-
-        return {
-          userBook,
-          edition,
-          book,
-          authors: bookAuthorsData.map((ba) => ba.author),
-          readingProgress: progress || null,
-          series: seriesInfo,
-        };
+    // Batch fetch all authors for all books in one query
+    const allAuthorLinks = await db
+      .select({
+        bookId: bookAuthors.bookId,
+        authorId: authors.id,
+        authorName: authors.name,
+        authorBio: authors.bio,
+        authorImageUrl: authors.imageUrl,
+        displayOrder: bookAuthors.displayOrder,
       })
-    );
+      .from(bookAuthors)
+      .innerJoin(authors, eq(bookAuthors.authorId, authors.id))
+      .where(inArray(bookAuthors.bookId, bookIds))
+      .orderBy(bookAuthors.displayOrder);
 
-    // Filter out nulls (broken references)
-    booksWithAuthors = booksWithAuthors.filter(Boolean) as typeof booksWithAuthors;
-
-    // Apply post-query filters
-    if (filters?.author) {
-      booksWithAuthors = booksWithAuthors.filter((book) =>
-        book?.authors.some((a) =>
-          a.name.toLowerCase().includes(filters.author!.toLowerCase())
-        )
-      );
+    const authorsByBookId = new Map<string, Array<{ id: string; name: string; bio: string | null; imageUrl: string | null }>>();
+    for (const link of allAuthorLinks) {
+      if (!authorsByBookId.has(link.bookId)) {
+        authorsByBookId.set(link.bookId, []);
+      }
+      authorsByBookId.get(link.bookId)!.push({
+        id: link.authorId,
+        name: link.authorName,
+        bio: link.authorBio,
+        imageUrl: link.authorImageUrl,
+      });
     }
 
-    if (filters?.readingStatus) {
-      booksWithAuthors = booksWithAuthors.filter(
-        (book) => book?.readingProgress?.status === filters.readingStatus
-      );
-    }
+    // Batch fetch reading progress for all books in one query
+    const allProgress = await db
+      .select()
+      .from(readingProgress)
+      .where(and(
+        eq(readingProgress.userId, userId),
+        inArray(readingProgress.bookId, bookIds)
+      ));
+    const progressByBookId = new Map(allProgress.map(p => [p.bookId, p]));
 
-    if (filters?.minRating) {
-      booksWithAuthors = booksWithAuthors.filter(
-        (book) => book?.readingProgress?.rating && book.readingProgress.rating >= filters.minRating!
-      );
-    }
+    // Batch fetch series info for all books in one query
+    const allSeriesBooks = await db
+      .select({
+        bookId: seriesBooks.bookId,
+        seriesId: seriesBooks.seriesId,
+        volumeNumber: seriesBooks.volumeNumber,
+        seriesName: series.name,
+      })
+      .from(seriesBooks)
+      .innerJoin(series, eq(seriesBooks.seriesId, series.id))
+      .where(inArray(seriesBooks.bookId, bookIds));
 
-    if (filters?.genre) {
-      const genreLower = filters.genre.toLowerCase();
-      booksWithAuthors = booksWithAuthors.filter((book) =>
-        book?.book.categories?.some((cat: string) => cat.toLowerCase().includes(genreLower))
-      );
-    }
+    const seriesByBookId = new Map(allSeriesBooks.map(sb => [sb.bookId, {
+      id: sb.seriesId,
+      name: sb.seriesName,
+      volumeNumber: sb.volumeNumber,
+    }]));
 
-    // Get total count
-    const countQuery = await db
+    // Assemble results (pure mapping, no DB calls)
+    const booksWithAuthors = results.map(({ userBook, edition, book }) => ({
+      userBook,
+      edition,
+      book,
+      authors: authorsByBookId.get(book.id) || [],
+      readingProgress: progressByBookId.get(book.id) || null,
+      series: seriesByBookId.get(book.id) || null,
+    }));
+
+    // Get total count with same filters (for accurate pagination)
+    const [countResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(userBooks)
-      .where(eq(userBooks.userId, userId));
-
-    const totalCount = Number(countQuery[0]?.count || 0);
+      .innerJoin(editions, eq(userBooks.editionId, editions.id))
+      .innerJoin(books, eq(editions.bookId, books.id))
+      .where(and(...conditions));
 
     return {
       books: booksWithAuthors,
-      total: totalCount,
+      total: Number(countResult?.count || 0),
     };
   }
 
@@ -494,45 +508,50 @@ export class BookService {
       return null;
     }
 
-    // Get authors (separate queries to avoid lateral joins on neon-http)
-    const bookAuthorLinks = await db
-      .select()
+    // Batch fetch authors in one JOIN query (was N+1)
+    const authorLinks = await db
+      .select({
+        authorId: authors.id,
+        authorName: authors.name,
+        authorBio: authors.bio,
+        authorImageUrl: authors.imageUrl,
+      })
       .from(bookAuthors)
+      .innerJoin(authors, eq(bookAuthors.authorId, authors.id))
       .where(eq(bookAuthors.bookId, book.id))
       .orderBy(bookAuthors.displayOrder);
 
-    const bookAuthorsData = await Promise.all(
-      bookAuthorLinks.map(async (link) => {
-        const author = await db.select().from(authors).where(eq(authors.id, link.authorId)).limit(1);
-        return { author: author[0] || null, role: link.role };
+    const bookAuthorsData = authorLinks.map(a => ({
+      id: a.authorId,
+      name: a.authorName,
+      bio: a.authorBio,
+      imageUrl: a.authorImageUrl,
+    }));
+
+    // Get editions with user status in one JOIN query (was N+1)
+    const bookEditions = await db
+      .select({
+        edition: editions,
+        userStatus: userBooks.status,
       })
-    );
+      .from(editions)
+      .leftJoin(
+        userBooks,
+        and(
+          eq(userBooks.editionId, editions.id),
+          eq(userBooks.userId, userId)
+        )
+      )
+      .where(eq(editions.bookId, book.id));
 
-    // Get editions
-    const bookEditions = await db.query.editions.findMany({
-      where: eq(editions.bookId, book.id),
-    });
-
-    // Get user's ownership status for each edition
-    const editionsWithStatus = await Promise.all(
-      bookEditions.map(async (edition) => {
-        const userBook = await db.query.userBooks.findFirst({
-          where: and(
-            eq(userBooks.editionId, edition.id),
-            eq(userBooks.userId, userId)
-          ),
-        });
-
-        return {
-          ...edition,
-          userStatus: userBook?.status || null,
-        };
-      })
-    );
+    const editionsWithStatus = bookEditions.map(({ edition, userStatus }) => ({
+      ...edition,
+      userStatus: userStatus || null,
+    }));
 
     return {
       book,
-      authors: bookAuthorsData.map((ba) => ba.author),
+      authors: bookAuthorsData,
       editions: editionsWithStatus,
     };
   }
@@ -631,7 +650,7 @@ export class BookService {
       });
 
       if (!edition || (!edition.isbn13 && !edition.isbn10)) {
-        console.log(`[Enrichment] No ISBN found for book ${bookId}`);
+        logger.info(`[Enrichment] No ISBN found for book ${bookId}`);
         return false;
       }
 
@@ -641,7 +660,7 @@ export class BookService {
       const metadata = await this.metadataService.enrichByISBN(isbn);
 
       if (!metadata) {
-        console.log(`[Enrichment] No metadata found for ISBN ${isbn}`);
+        logger.info(`[Enrichment] No metadata found for ISBN ${isbn}`);
         return false;
       }
 
@@ -669,10 +688,10 @@ export class BookService {
           .where(eq(editions.id, edition.id));
       }
 
-      console.log(`[Enrichment] Successfully enriched book ${bookId} (${book.title})`);
+      logger.info(`[Enrichment] Successfully enriched book ${bookId} (${book.title})`);
       return true;
     } catch (error) {
-      console.error(`[Enrichment] Error enriching book ${bookId}:`, error);
+      logger.error(`[Enrichment] Error enriching book ${bookId}`, error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }

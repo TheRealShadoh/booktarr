@@ -366,7 +366,7 @@ export default function SettingsPage() {
               </div>
             </div>
             <form onSubmit={handleChangeName} className="space-y-2 pt-2">
-              <Label htmlFor="change-name">Change Display Name</Label>
+              <Label htmlFor="change-name" className="text-muted-foreground">Change Display Name</Label>
               <div className="flex gap-2">
                 <Input
                   id="change-name"
@@ -374,11 +374,13 @@ export default function SettingsPage() {
                   value={changeName}
                   onChange={(e) => setChangeName(e.target.value)}
                   className="max-w-sm"
+                  disabled
                 />
-                <Button type="submit" variant="outline" disabled={!changeName.trim()}>
+                <Button type="submit" variant="outline" disabled>
                   Save
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground">Profile name changes coming soon.</p>
             </form>
           </CardContent>
         </Card>

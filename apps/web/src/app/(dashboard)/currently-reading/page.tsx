@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { BookCard } from '@/components/books/book-card';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BookOpen, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +16,7 @@ export default function CurrentlyReadingPage() {
       if (!response.ok) throw new Error('Failed to fetch currently reading books');
       return response.json() as Promise<BookWithRelations[]>;
     },
+    staleTime: 2 * 60 * 1000,
   });
 
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -24,6 +26,7 @@ export default function CurrentlyReadingPage() {
       if (!response.ok) throw new Error('Failed to fetch reading stats');
       return response.json() as Promise<ReadingStats>;
     },
+    staleTime: 2 * 60 * 1000,
   });
 
   const isLoading = booksLoading || statsLoading;
@@ -112,9 +115,14 @@ export default function CurrentlyReadingPage() {
             <CardHeader>
               <CardTitle>No books in progress</CardTitle>
               <CardDescription>
-                No books in progress. Start reading a book from your library!
+                Start reading a book from your library to track your progress here.
               </CardDescription>
             </CardHeader>
+            <CardContent>
+              <a href="/library">
+                <Button variant="outline">Browse Library</Button>
+              </a>
+            </CardContent>
           </Card>
         )}
 

@@ -50,7 +50,7 @@ export function SeriesCard({ series }: SeriesCardProps) {
             {/* Title and Status */}
             <div className="flex flex-1 items-start justify-between">
               <CardTitle className="line-clamp-2 text-lg">{series.name}</CardTitle>
-              <Badge className={statusColors[series.status] || 'bg-gray-500'}>
+              <Badge className={`${statusColors[series.status] || 'bg-gray-500'} capitalize`}>
                 {series.status}
               </Badge>
             </div>

@@ -10,7 +10,7 @@ import { AddBookDialog } from '@/components/books/add-book-dialog';
 export default function WishlistPage() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['books', { status: 'wanted' }],
     queryFn: async () => {
       const response = await fetch('/api/books?status=wanted');
@@ -44,12 +44,15 @@ export default function WishlistPage() {
       )}
 
       {error && (
-        <div className="rounded-md bg-destructive/10 p-4 text-destructive">
-          Failed to load wishlist. Please try again.
+        <div className="flex items-center justify-between rounded-md bg-destructive/10 p-4 text-destructive">
+          <span>Failed to load wishlist. Please try again.</span>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            Retry
+          </Button>
         </div>
       )}
 
-      {data?.books?.length === 0 && !isLoading && (
+      {data?.books?.length === 0 && !isLoading && !error && (
         <div className="rounded-lg border-2 border-dashed py-12 text-center">
           <p className="text-muted-foreground">
             Your wishlist is empty. Add books you want to read!

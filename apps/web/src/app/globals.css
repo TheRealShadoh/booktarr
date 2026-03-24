@@ -95,7 +95,7 @@
   --muted-foreground: #a8a9ad; /* Medium light grey */
   --accent: #ed9d72; /* Orange accent */
   --accent-foreground: #0f0f10;
-  --destructive: #ef4444;
+  --destructive: #f87171; /* Lightened from #ef4444 for WCAG AA contrast on dark backgrounds */
   --border: #4a4b4f; /* Dark border */
   --input: #2d2e32; /* Dark input */
   --ring: #e6956f; /* Orange focus ring */

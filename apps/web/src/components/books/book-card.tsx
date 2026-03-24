@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -46,7 +46,7 @@ interface BookCardProps {
   onClick?: () => void;
 }
 
-export function BookCard({ book, onClick }: BookCardProps) {
+export const BookCard = memo(function BookCard({ book, onClick }: BookCardProps) {
   const [showProgressDialog, setShowProgressDialog] = useState(false);
   const [imgError, setImgError] = useState(false);
 
@@ -85,19 +85,20 @@ export function BookCard({ book, onClick }: BookCardProps) {
               loading="lazy"
             />
             <div className="absolute right-2 top-2 flex gap-2">
-              <Badge className={statusColors[book.userBook.status] || 'bg-gray-500'}>
+              <Badge className={`${statusColors[book.userBook.status] || 'bg-gray-500'} capitalize`}>
                 {book.userBook.status}
               </Badge>
             </div>
 
-            {/* Reading progress button overlay */}
-            <div className="absolute bottom-2 right-2 opacity-0 transition-opacity group-hover:opacity-100">
+            {/* Reading progress button overlay - visible on hover (desktop) and always on touch */}
+            <div className="absolute bottom-2 right-2 opacity-100 md:opacity-0 transition-opacity md:group-hover:opacity-100">
               <Button
                 size="sm"
                 variant="secondary"
                 onClick={handleProgressClick}
-                className="h-8 w-8 rounded-full p-0"
+                className="h-8 w-8 rounded-full p-0 shadow-md"
                 title="Update reading progress"
+                aria-label={`Update reading progress for ${book.book.title}`}
               >
                 <BookOpen className="h-4 w-4" />
               </Button>
@@ -187,4 +188,4 @@ export function BookCard({ book, onClick }: BookCardProps) {
       />
     </>
   );
-}
+});

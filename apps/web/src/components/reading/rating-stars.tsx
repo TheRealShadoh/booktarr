@@ -31,7 +31,7 @@ export function RatingStars({
   };
 
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-center gap-0.5" role="group" aria-label={`Rating: ${rating} out of ${maxRating} stars`}>
       {Array.from({ length: maxRating }, (_, i) => i + 1).map((value) => {
         const filled = value <= rating;
         return (
@@ -40,6 +40,7 @@ export function RatingStars({
             type="button"
             onClick={() => handleClick(value)}
             disabled={!interactive}
+            aria-label={interactive ? `Rate ${value} star${value !== 1 ? 's' : ''}` : `${value} star${value !== 1 ? 's' : ''}`}
             className={cn(
               'transition-colors',
               interactive && 'cursor-pointer hover:scale-110',

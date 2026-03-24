@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { BookCard } from '@/components/books/book-card';
+import { VirtualizedBookGrid } from '@/components/books/virtualized-book-grid';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -208,7 +209,7 @@ export default function LibraryPage() {
     localStorage.setItem(GROUP_BY_SERIES_KEY, String(groupBySeries));
   }, [groupBySeries]);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['books', filters],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -230,6 +231,7 @@ export default function LibraryPage() {
       if (!response.ok) throw new Error('Failed to fetch books');
       return response.json() as Promise<BooksApiResponse>;
     },
+    staleTime: 2 * 60 * 1000, // 2 minutes - avoids refetch on dialog open/close
   });
 
   // Fetch accepted incoming shares when toggle is on
@@ -299,7 +301,7 @@ export default function LibraryPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold">My Library</h1>
           <p className="text-muted-foreground">
@@ -335,10 +337,10 @@ export default function LibraryPage() {
       <AddBookDialog open={showAddBookDialog} onOpenChange={setShowAddBookDialog} />
       <CSVImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} />
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <AdvancedSearch onSearch={setFilters} initialFilters={filters} />
         <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-          <SelectTrigger className="w-[160px] shrink-0">
+          <SelectTrigger className="w-[140px] shrink-0">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -374,12 +376,15 @@ export default function LibraryPage() {
       )}
 
       {error && (
-        <div className="rounded-md bg-destructive/10 p-4 text-destructive">
-          Failed to load books. Please try again.
+        <div className="flex items-center justify-between rounded-md bg-destructive/10 p-4 text-destructive">
+          <span>Failed to load books. Please try again.</span>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            Retry
+          </Button>
         </div>
       )}
 
-      {allBooks.length === 0 && !isLoading && (
+      {allBooks.length === 0 && !isLoading && !error && (
         <div className="rounded-lg border-2 border-dashed py-12 text-center">
           <p className="text-muted-foreground">
             No books found. Add your first book to get started!
@@ -390,7 +395,23 @@ export default function LibraryPage() {
         </div>
       )}
 
-      {allBooks.length > 0 && !groupBySeries && (
+      {allBooks.length > 0 && !groupBySeries && allBooks.length > 50 && (
+        <VirtualizedBookGrid
+          books={allBooks}
+          onBookClick={(bookId) => router.push(`/library/${bookId}`)}
+          renderOverlay={(book: AnnotatedBook) =>
+            book._sharedFrom ? (
+              <div className="absolute right-2 top-2 z-10">
+                <Badge className="bg-purple-600 text-white text-xs">
+                  From {book._sharedFrom}
+                </Badge>
+              </div>
+            ) : null
+          }
+        />
+      )}
+
+      {allBooks.length > 0 && !groupBySeries && allBooks.length <= 50 && (
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {allBooks.map((book: AnnotatedBook) => (
             <div key={`${book._sharedFrom ?? 'own'}-${book.userBook.id}`} className="relative">

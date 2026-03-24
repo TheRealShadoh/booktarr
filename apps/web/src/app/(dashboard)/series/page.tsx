@@ -37,7 +37,7 @@ export default function SeriesPage() {
   const [newSeriesName, setNewSeriesName] = useState('');
   const [newSeriesType, setNewSeriesType] = useState<SeriesType>('book');
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['series', { search }],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -47,6 +47,7 @@ export default function SeriesPage() {
       if (!response.ok) throw new Error('Failed to fetch series');
       return response.json();
     },
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
   const reconcileMutation = useMutation({
@@ -198,8 +199,11 @@ export default function SeriesPage() {
       )}
 
       {error && (
-        <div className="rounded-md bg-destructive/10 p-4 text-destructive">
-          Failed to load series. Please try again.
+        <div className="flex items-center justify-between rounded-md bg-destructive/10 p-4 text-destructive">
+          <span>Failed to load series. Please try again.</span>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            Retry
+          </Button>
         </div>
       )}
 
@@ -213,7 +217,7 @@ export default function SeriesPage() {
             return true;
           });
 
-        if (filteredSeries.length === 0 && !isLoading) {
+        if (filteredSeries.length === 0 && !isLoading && !error) {
           return (
             <div className="rounded-lg border-2 border-dashed py-12 text-center">
               <p className="text-muted-foreground">
@@ -251,6 +255,7 @@ export default function SeriesPage() {
                 value={newSeriesName}
                 onChange={(e) => setNewSeriesName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleCreateSeries(); }}
+                autoFocus
               />
             </div>
             <div className="space-y-1">
