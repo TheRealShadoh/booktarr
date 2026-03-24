@@ -1,9 +1,18 @@
-import { drizzle } from 'drizzle-orm/neon-http';
+import { drizzle as drizzleNeon } from 'drizzle-orm/neon-http';
+import { drizzle as drizzlePostgres } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 import * as schema from '@booktarr/database';
 
-type DbInstance = ReturnType<typeof drizzle<typeof schema>>;
+// Use the Neon type as the canonical DB interface — both drivers are
+// API-compatible at runtime, and this avoids union-type overload issues.
+type DbInstance = ReturnType<typeof drizzleNeon<typeof schema>>;
 
 let dbInstance: DbInstance | null = null;
+
+/** Neon URLs use their pooler hostname */
+function isNeonUrl(url: string): boolean {
+  return url.includes('neon.tech') || url.includes('neon.database');
+}
 
 function getDb(): DbInstance {
   if (dbInstance) return dbInstance;
@@ -12,8 +21,17 @@ function getDb(): DbInstance {
     throw new Error('DATABASE_URL environment variable is not set');
   }
 
-  // Pass connection string directly - drizzle internally calls neon()
-  dbInstance = drizzle(process.env.DATABASE_URL, { schema });
+  const url = process.env.DATABASE_URL;
+
+  if (isNeonUrl(url)) {
+    // Neon serverless HTTP driver (used on Vercel)
+    dbInstance = drizzleNeon(url, { schema });
+  } else {
+    // Standard postgres-js driver (local Docker, self-hosted)
+    const client = postgres(url, { max: 10, idle_timeout: 20 });
+    dbInstance = drizzlePostgres(client, { schema }) as unknown as DbInstance;
+  }
+
   return dbInstance;
 }
 

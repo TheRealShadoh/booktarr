@@ -29,6 +29,9 @@ async function globalSetup() {
       console.log(`[global-setup] Test user registered: ${TEST_USER.email}`);
     } else if (status === 409) {
       console.log(`[global-setup] Test user already exists: ${TEST_USER.email}`);
+    } else if (status === 429) {
+      // Rate limited — user likely already exists from a previous run
+      console.log(`[global-setup] Rate limited on register — assuming test user exists`);
     } else {
       const body = await res.text();
       throw new Error(
