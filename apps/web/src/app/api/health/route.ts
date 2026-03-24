@@ -49,6 +49,12 @@ async function checkDatabase(): Promise<HealthCheckResult> {
       status: 'unhealthy',
       message: (error as Error).message,
       latency: Date.now() - startTime,
+      details: {
+        hasDbUrl: !!process.env.DATABASE_URL,
+        dbUrlPrefix: process.env.DATABASE_URL?.substring(0, 20) + '...',
+        errorName: (error as Error).name,
+        errorStack: (error as Error).stack?.split('\n').slice(0, 3).join(' | '),
+      },
     };
   }
 }
