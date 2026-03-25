@@ -9,6 +9,7 @@ import {
   downloadClients,
   indexers,
   monitoringConfig,
+  qualityProfiles,
 } from '@booktarr/database';
 import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 
@@ -44,6 +45,25 @@ export interface ActivityEntry {
   details: Record<string, unknown> | null;
   read: boolean;
   createdAt: Date;
+}
+
+/**
+ * The ordered set of book formats a user prefers for acquisition.
+ * Order is significant — first entry is most preferred.
+ */
+export type BookFormat = 'hardcover' | 'paperback' | 'ebook' | 'audiobook' | 'manga';
+
+/**
+ * A single quality profile row returned to callers.
+ */
+export interface QualityProfile {
+  id: string;
+  userId: string;
+  name: string;
+  formatPreferences: BookFormat[];
+  isDefault: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 /**
@@ -533,8 +553,128 @@ export class MonitoringService {
   }
 
   // ---------------------------------------------------------------------------
+  // Quality Profile helpers (used by API routes)
+  // ---------------------------------------------------------------------------
+
+  async listQualityProfiles(userId: string): Promise<QualityProfile[]> {
+    const rows = await db
+      .select()
+      .from(qualityProfiles)
+      .where(eq(qualityProfiles.userId, userId))
+      .orderBy(desc(qualityProfiles.isDefault), qualityProfiles.name);
+
+    return rows.map(this._mapProfile);
+  }
+
+  async createQualityProfile(
+    userId: string,
+    input: {
+      name: string;
+      formatPreferences: BookFormat[];
+      isDefault?: boolean;
+    }
+  ): Promise<QualityProfile> {
+    // If the new profile is marked as default, clear the flag on all existing ones first.
+    if (input.isDefault) {
+      await db
+        .update(qualityProfiles)
+        .set({ isDefault: false, updatedAt: new Date() })
+        .where(eq(qualityProfiles.userId, userId));
+    }
+
+    const [created] = await db
+      .insert(qualityProfiles)
+      .values({
+        userId,
+        name: input.name,
+        formatPreferences: input.formatPreferences,
+        isDefault: input.isDefault ?? false,
+      })
+      .returning();
+
+    return this._mapProfile(created);
+  }
+
+  async updateQualityProfile(
+    profileId: string,
+    userId: string,
+    updates: Partial<{
+      name: string;
+      formatPreferences: BookFormat[];
+      isDefault: boolean;
+    }>
+  ): Promise<QualityProfile | null> {
+    // If promoting this profile to default, first demote any existing default.
+    if (updates.isDefault) {
+      await db
+        .update(qualityProfiles)
+        .set({ isDefault: false, updatedAt: new Date() })
+        .where(
+          and(
+            eq(qualityProfiles.userId, userId),
+            eq(qualityProfiles.isDefault, true)
+          )
+        );
+    }
+
+    const [updated] = await db
+      .update(qualityProfiles)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(
+        and(
+          eq(qualityProfiles.id, profileId),
+          eq(qualityProfiles.userId, userId)
+        )
+      )
+      .returning();
+
+    return updated ? this._mapProfile(updated) : null;
+  }
+
+  async deleteQualityProfile(profileId: string, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(qualityProfiles)
+      .where(
+        and(
+          eq(qualityProfiles.id, profileId),
+          eq(qualityProfiles.userId, userId)
+        )
+      )
+      .returning({ id: qualityProfiles.id });
+
+    return result.length > 0;
+  }
+
+  async getDefaultProfile(userId: string): Promise<QualityProfile | null> {
+    const [profile] = await db
+      .select()
+      .from(qualityProfiles)
+      .where(
+        and(
+          eq(qualityProfiles.userId, userId),
+          eq(qualityProfiles.isDefault, true)
+        )
+      )
+      .limit(1);
+
+    return profile ? this._mapProfile(profile) : null;
+  }
+
+  // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  private _mapProfile(row: typeof qualityProfiles.$inferSelect): QualityProfile {
+    return {
+      id: row.id,
+      userId: row.userId,
+      name: row.name,
+      formatPreferences: (row.formatPreferences as BookFormat[]) ?? [],
+      isDefault: row.isDefault ?? false,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
 
   private _mapConfig(row: typeof monitoringConfig.$inferSelect): MonitoringConfig {
     return {

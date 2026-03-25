@@ -353,7 +353,7 @@ export class SeriesService {
 
   async updateSeries(
     seriesId: string,
-    updates: Partial<CreateSeriesInput>
+    updates: Partial<CreateSeriesInput> & { qualityProfileId?: string | null }
   ) {
     const [updated] = await db
       .update(series)

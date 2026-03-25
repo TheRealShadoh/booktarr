@@ -29,8 +29,13 @@ export const createSeriesSchema = z.object({
 
 /**
  * Update Series Schema
+ * Extends the create schema with fields that can only be set on update,
+ * such as the quality profile assignment.
  */
-export const updateSeriesSchema = createSeriesSchema.partial();
+export const updateSeriesSchema = createSeriesSchema.partial().extend({
+  // UUID FK to quality_profiles, or null to clear the assignment.
+  qualityProfileId: z.string().uuid('Invalid quality profile ID').nullable().optional(),
+});
 
 /**
  * Add Book to Series Schema

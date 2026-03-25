@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { AniListClient } from '@/lib/services/anilist';
 import { MonitoringService } from '@/lib/services/monitoring';
+import { ImportListService } from '@/lib/services/import-lists';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -243,9 +244,29 @@ export async function GET(req: Request) {
 
     logger.info('[Monitor] Discovery run complete', summary);
 
+    // -----------------------------------------------------------------------
+    // Import list sync — run after series discovery so newly-added series
+    // are already in the DB when monitoring flags are applied.
+    // -----------------------------------------------------------------------
+    const importSummary = { synced: 0, errors: 0 };
+    try {
+      const importListService = new ImportListService();
+      const syncResult = await importListService.syncAllDueImportLists();
+      importSummary.synced = syncResult.synced;
+      importSummary.errors = syncResult.errors;
+      logger.info('[Monitor] Import list sync complete', importSummary);
+    } catch (importErr) {
+      importSummary.errors++;
+      logger.error(
+        '[Monitor] Import list sync failed',
+        importErr instanceof Error ? importErr : new Error(String(importErr))
+      );
+    }
+
     return NextResponse.json({
       success: true,
       ...summary,
+      importLists: importSummary,
       timestamp: new Date().toISOString(),
     });
 

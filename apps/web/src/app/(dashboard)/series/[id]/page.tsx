@@ -12,6 +12,20 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { VolumeCard } from '@/components/series/volume-card';
 import { ArrowLeft, BookCopy, TrendingUp, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+interface QualityProfile {
+  id: string;
+  name: string;
+  formatPreferences: string[];
+  isDefault: boolean;
+}
 
 export default function SeriesDetailsPage({
   params,
@@ -59,6 +73,35 @@ export default function SeriesDetailsPage({
     },
     onError: () => {
       toast({ title: 'Error', description: 'Failed to update monitoring status.', variant: 'destructive' });
+    },
+  });
+
+  // Fetch all quality profiles so the user can assign one to this series.
+  const { data: profilesData } = useQuery<{ profiles: QualityProfile[] }>({
+    queryKey: ['monitoring', 'profiles'],
+    queryFn: async () => {
+      const response = await fetch('/api/monitoring/profiles');
+      if (!response.ok) throw new Error('Failed to fetch profiles');
+      return response.json() as Promise<{ profiles: QualityProfile[] }>;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const assignProfileMutation = useMutation({
+    mutationFn: async (qualityProfileId: string | null) => {
+      const response = await fetch(`/api/series/${seriesId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qualityProfileId }),
+      });
+      if (!response.ok) throw new Error('Failed to update quality profile');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['series', seriesId] });
+    },
+    onError: () => {
+      toast({ title: 'Error', description: 'Failed to update quality profile.', variant: 'destructive' });
     },
   });
 
@@ -193,7 +236,29 @@ export default function SeriesDetailsPage({
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3 mb-2">
               <h1 className="text-3xl md:text-4xl font-bold leading-tight">{series.name}</h1>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                {(profilesData?.profiles ?? []).length > 0 && (
+                  <Select
+                    value={series.qualityProfileId ?? 'none'}
+                    onValueChange={(value) =>
+                      assignProfileMutation.mutate(value === 'none' ? null : value)
+                    }
+                    disabled={assignProfileMutation.isPending}
+                  >
+                    <SelectTrigger className="h-8 w-[160px] text-xs">
+                      <SelectValue placeholder="Quality profile" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No profile</SelectItem>
+                      {(profilesData?.profiles ?? []).map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                          {p.isDefault ? ' (default)' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Button
                   variant={series.monitored ? 'default' : 'outline'}
                   size="sm"

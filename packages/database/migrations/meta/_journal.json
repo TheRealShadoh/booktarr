@@ -22,6 +22,13 @@
       "when": 1774391101152,
       "tag": "0002_yellow_exodus",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1774401054001,
+      "tag": "0003_cynical_invaders",
+      "breakpoints": true
     }
   ]
 }

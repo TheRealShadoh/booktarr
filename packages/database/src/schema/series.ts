@@ -1,6 +1,7 @@
 import { pgTable, text, timestamp, uuid, varchar, integer, boolean, index } from 'drizzle-orm/pg-core';
 import { books } from './books';
 
+
 /**
  * Series table - Book series metadata
  * Tracks series information with proper volume counting
@@ -29,6 +30,12 @@ export const series = pgTable('series', {
 
   // Monitoring — when true the acquisition system will search for missing volumes
   monitored: boolean('monitored').default(false),
+
+  // Quality profile for this series — nullable FK to quality_profiles.
+  // Declared as plain uuid here to avoid a circular import with monitoring.ts
+  // (which already imports series). The SQL-level FK constraint is generated
+  // by Drizzle via the qualityProfilesRelations defined in monitoring.ts.
+  qualityProfileId: uuid('quality_profile_id'),
 
   // Manual override flag - if true, don't auto-update from external sources
   manualOverride: boolean('manual_override').default(false),

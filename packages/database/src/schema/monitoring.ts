@@ -4,6 +4,35 @@ import { users } from './users';
 import { series } from './series';
 
 /**
+ * Quality Profiles - User-defined format preference orderings
+ * Each profile stores an ordered list of book formats that the user
+ * prefers for acquisition (e.g. hardcover > paperback > ebook).
+ * A profile can be attached to individual series to override the default.
+ */
+export const qualityProfiles = pgTable('quality_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+
+  // Human-readable label shown in UI (e.g. "Physical Preferred", "Ebook Only")
+  name: text('name').notNull(),
+
+  // Ordered array of format identifiers — first entry is most preferred.
+  // Valid values: 'hardcover', 'paperback', 'ebook', 'audiobook', 'manga'
+  formatPreferences: jsonb('format_preferences').notNull().$type<string[]>(),
+
+  // When true this profile is applied to series that have no explicit profile set.
+  isDefault: boolean('is_default').default(false),
+
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+}, (table) => ({
+  userIdx: index('quality_profiles_user_idx').on(table.userId),
+  userDefaultIdx: index('quality_profiles_user_default_idx').on(table.userId, table.isDefault),
+}));
+
+/**
  * Activity Log - Event journal for monitoring system actions
  * Records all significant system and user events for the activity feed
  */
@@ -179,6 +208,43 @@ export const monitoringConfig = pgTable('monitoring_config', {
 }));
 
 /**
+ * Import Lists - External reading-list sources that auto-import series
+ * Supports AniList reading/planning lists and manual (user-curated) lists
+ */
+export const importLists = pgTable('import_lists', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+
+  name: text('name').notNull(),
+
+  // Source type: 'anilist_reading' | 'anilist_planning' | 'manual'
+  source: text('source').notNull(),
+
+  // Source-specific configuration (e.g. { anilistUsername: 'xxx' })
+  sourceConfig: jsonb('source_config'),
+
+  // When true, any series imported from this list will be auto-monitored
+  autoMonitor: boolean('auto_monitor').default(true),
+
+  // Last time this list was successfully synced
+  lastSynced: timestamp('last_synced', { mode: 'date' }),
+
+  // Hours between automatic syncs (used by the cron job)
+  syncInterval: integer('sync_interval').default(24),
+
+  enabled: boolean('enabled').default(true),
+
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+}, (table) => ({
+  userIdx: index('import_lists_user_idx').on(table.userId),
+  enabledIdx: index('import_lists_enabled_idx').on(table.userId, table.enabled),
+  lastSyncedIdx: index('import_lists_last_synced_idx').on(table.lastSynced),
+}));
+
+/**
  * Drizzle ORM Relations
  * Required for db.query API to work properly
  */
@@ -229,5 +295,36 @@ export const monitoringConfigRelations = relations(monitoringConfig, ({ one }) =
   user: one(users, {
     fields: [monitoringConfig.userId],
     references: [users.id],
+  }),
+}));
+
+// Import Lists relations
+export const importListsRelations = relations(importLists, ({ one }) => ({
+  user: one(users, {
+    fields: [importLists.userId],
+    references: [users.id],
+  }),
+}));
+
+// Quality Profiles relations
+export const qualityProfilesRelations = relations(qualityProfiles, ({ one, many }) => ({
+  user: one(users, {
+    fields: [qualityProfiles.userId],
+    references: [users.id],
+  }),
+  // Reverse side — series rows that reference this profile
+  series: many(series),
+}));
+
+/**
+ * Series → qualityProfile relation.
+ * Defined here (rather than series.ts) to avoid a circular import:
+ * monitoring.ts already imports `series`, so series.ts cannot safely
+ * import from monitoring.ts.
+ */
+export const seriesQualityProfileRelations = relations(series, ({ one }) => ({
+  qualityProfile: one(qualityProfiles, {
+    fields: [series.qualityProfileId],
+    references: [qualityProfiles.id],
   }),
 }));
