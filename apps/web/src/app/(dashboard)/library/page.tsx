@@ -1,16 +1,14 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useState, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import Link from 'next/link';
 import { BookCard } from '@/components/books/book-card';
-import { VirtualizedBookGrid } from '@/components/books/virtualized-book-grid';
+import { CoverImage } from '@/components/books/cover-image';
+import { BookGridSkeleton, BOOK_GRID_CLASS } from '@/components/books/book-grid-skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,10 +22,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Layers, Library } from 'lucide-react';
+import { Layers, Library, Plus, FileUp, Users, ChevronDown, Loader2, SearchX } from 'lucide-react';
 import { CSVImportDialog } from '@/components/import/csv-import-dialog';
 import { AddBookDialog } from '@/components/books/add-book-dialog';
 import { AdvancedSearch, SearchFilters } from '@/components/search/advanced-search';
+import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/layout/empty-state';
 import type { BooksApiResponse, BookWithRelations } from '@/types/api';
 
 interface ShareEntry {
@@ -49,11 +49,12 @@ type SortOption = 'recently-added' | 'title-az' | 'title-za' | 'author-az';
 
 const SORT_LABELS: Record<SortOption, string> = {
   'recently-added': 'Recently Added',
-  'title-az': 'Title A-Z',
-  'title-za': 'Title Z-A',
-  'author-az': 'Author A-Z',
+  'title-az': 'Title A–Z',
+  'title-za': 'Title Z–A',
+  'author-az': 'Author A–Z',
 };
 
+const PAGE_SIZE = 100;
 const GROUP_BY_SERIES_KEY = 'booktarr:library:groupBySeries';
 
 type AnnotatedBook = BookWithRelations & { _sharedFrom?: string };
@@ -62,27 +63,81 @@ interface SeriesGroup {
   seriesId: string;
   seriesName: string;
   coverUrl: string | null;
-  ownedVolumes: number;
-  totalVolumes: number;
-}
-
-interface SeriesGroupWithBooks extends SeriesGroup {
   books: AnnotatedBook[];
 }
 
-function SeriesGroupCard({ group, onBookClick, onSeriesClick }: { group: SeriesGroupWithBooks; onBookClick: (bookId: string) => void; onSeriesClick: (seriesId: string) => void }) {
-  const [expanded, setExpanded] = useState(false);
-  const [imgError, setImgError] = useState(false);
-  const cover = imgError || !group.coverUrl ? '/placeholder-book.svg' : group.coverUrl;
+function buildBookParams(filters: SearchFilters, offset: number): URLSearchParams {
+  const params = new URLSearchParams();
+  if (filters.query) params.append('search', filters.query);
+  if (filters.status && filters.status !== 'all') params.append('status', filters.status);
+  if (filters.author) params.append('author', filters.author);
+  if (filters.readingStatus && filters.readingStatus !== 'all') {
+    params.append('readingStatus', filters.readingStatus);
+  }
+  if (filters.format && filters.format !== 'all') params.append('format', filters.format);
+  if (filters.rating?.min) params.append('minRating', filters.rating.min.toString());
+  if (filters.year?.min) params.append('yearMin', filters.year.min.toString());
+  if (filters.year?.max) params.append('yearMax', filters.year.max.toString());
+  if (filters.genres && filters.genres.length > 0) params.append('genre', filters.genres[0]);
+  params.append('limit', String(PAGE_SIZE));
+  params.append('offset', String(offset));
+  return params;
+}
 
-  // Sort books by volume number
+// Persisted "group by series" preference, read via useSyncExternalStore so the
+// server render (false) and client render agree without a setState-in-effect.
+const groupByListeners = new Set<() => void>();
+function subscribeGroupBy(cb: () => void) {
+  groupByListeners.add(cb);
+  window.addEventListener('storage', cb);
+  return () => {
+    groupByListeners.delete(cb);
+    window.removeEventListener('storage', cb);
+  };
+}
+function readGroupBy(): boolean {
+  try {
+    return localStorage.getItem(GROUP_BY_SERIES_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+function writeGroupBy(value: boolean) {
+  try {
+    localStorage.setItem(GROUP_BY_SERIES_KEY, String(value));
+  } catch {
+    /* ignore */
+  }
+  groupByListeners.forEach((cb) => cb());
+}
+
+function SharedFromBadge({ name }: { name?: string }) {
+  if (!name) return null;
+  return (
+    <div className="absolute right-2 top-2 z-10">
+      <Badge className="bg-purple-600 text-white shadow-sm">From {name}</Badge>
+    </div>
+  );
+}
+
+function SeriesGroupCard({
+  group,
+  onBookClick,
+  onSeriesClick,
+}: {
+  group: SeriesGroup;
+  onBookClick: (bookId: string) => void;
+  onSeriesClick: (seriesId: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
   const sortedBooks = [...group.books].sort(
     (a, b) => (a.series?.volumeNumber ?? 0) - (b.series?.volumeNumber ?? 0)
   );
 
-  // Figure out missing volumes (gaps in the sequence)
-  const ownedVolNums = new Set(sortedBooks.map(b => b.series?.volumeNumber ?? 0));
-  const maxVol = group.totalVolumes > 0 ? group.totalVolumes : Math.max(...ownedVolNums, 0);
+  // Gaps in the owned sequence (we only know volumes we own from this query)
+  const ownedVolNums = new Set(sortedBooks.map((b) => b.series?.volumeNumber ?? 0));
+  const maxVol = Math.max(...ownedVolNums, 0);
   const missingVols: number[] = [];
   for (let i = 1; i <= maxVol; i++) {
     if (!ownedVolNums.has(i)) missingVols.push(i);
@@ -91,36 +146,48 @@ function SeriesGroupCard({ group, onBookClick, onSeriesClick }: { group: SeriesG
   if (!expanded) {
     return (
       <Card
-        className="group cursor-pointer overflow-hidden transition-shadow hover:shadow-lg"
-        onClick={() => onSeriesClick(group.seriesId)}
+        className="group cursor-pointer gap-0 overflow-hidden py-0 transition-all hover:-translate-y-0.5 hover:shadow-lg"
+        onClick={() => setExpanded(true)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setExpanded(true);
+          }
+        }}
+        aria-label={`Expand ${group.seriesName}`}
       >
         <CardContent className="p-0">
           <div className="relative aspect-[2/3] bg-muted">
-            <Image
-              src={cover}
-              alt={group.seriesName}
-              fill
-              className="object-cover transition-transform group-hover:scale-105"
-              sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-              onError={() => setImgError(true)}
-              loading="lazy"
-            />
-            <div className="absolute right-2 top-2">
-              <Badge className="bg-indigo-600 text-white text-xs">Series</Badge>
+            {/* Stacked-cover effect to signal "this is a group" */}
+            <div className="absolute inset-x-3 -top-1 h-full rounded-md bg-muted-foreground/20" aria-hidden="true" />
+            <div className="absolute inset-x-1.5 top-0.5 h-full rounded-md bg-muted-foreground/30" aria-hidden="true" />
+            <div className="absolute inset-0 top-2 overflow-hidden rounded-md">
+              <CoverImage
+                src={group.coverUrl}
+                alt={group.seriesName}
+                fill
+                className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 16vw"
+                loading="lazy"
+              />
+            </div>
+            <div className="absolute left-2 top-4">
+              <Badge className="bg-primary text-primary-foreground shadow-sm">
+                <Layers className="h-3 w-3" aria-hidden="true" />
+                {group.books.length} vol{group.books.length === 1 ? '' : 's'}
+              </Badge>
             </div>
           </div>
-          <div className="p-4 space-y-1">
-            <h3 className="line-clamp-2 font-semibold text-sm">{group.seriesName}</h3>
-            <p className="text-xs text-muted-foreground">
-              {group.ownedVolumes} of {maxVol > 0 ? maxVol : '?'} volumes
-            </p>
-            {missingVols.length > 0 && (
-              <p className="text-xs text-blue-500">
-                {missingVols.length} missing
+          <div className="space-y-1 p-3">
+            <h3 className="line-clamp-2 text-sm font-semibold">{group.seriesName}</h3>
+            {missingVols.length > 0 ? (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                {missingVols.length} gap{missingVols.length === 1 ? '' : 's'} in sequence
               </p>
-            )}
-            {missingVols.length === 0 && maxVol > 0 && (
-              <p className="text-xs text-green-500">Complete</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">Volumes 1–{maxVol || '?'}</p>
             )}
           </div>
         </CardContent>
@@ -128,66 +195,64 @@ function SeriesGroupCard({ group, onBookClick, onSeriesClick }: { group: SeriesG
     );
   }
 
-  // Expanded view - shows all volumes
   return (
-    <Card className="col-span-full overflow-hidden">
+    <Card className="col-span-full gap-0 overflow-hidden py-0">
       <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="font-semibold text-lg">{group.seriesName}</h3>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="truncate text-lg font-semibold">{group.seriesName}</h3>
             <p className="text-sm text-muted-foreground">
-              {group.ownedVolumes} of {maxVol > 0 ? maxVol : '?'} volumes
-              {missingVols.length > 0 && ` · ${missingVols.length} missing`}
+              {group.books.length} owned
+              {missingVols.length > 0 && ` · ${missingVols.length} missing below #${maxVol}`}
             </p>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setExpanded(false)}>
-            Collapse
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => onSeriesClick(group.seriesId)}>
+              Series page
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setExpanded(false)}>
+              Collapse
+            </Button>
+          </div>
         </div>
 
-        {/* Owned volumes */}
-        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
+        <div className="grid grid-cols-4 gap-3 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10">
           {Array.from({ length: maxVol }, (_, i) => i + 1).map((volNum) => {
-            const book = sortedBooks.find(b => b.series?.volumeNumber === volNum);
-            const isOwned = !!book;
-
-            return (
-              <div
-                key={volNum}
-                className={`relative aspect-[2/3] rounded overflow-hidden cursor-pointer transition-all ${
-                  isOwned
-                    ? 'bg-muted hover:ring-2 hover:ring-primary'
-                    : 'bg-muted/30 border-2 border-dashed border-muted-foreground/20'
-                }`}
-                onClick={() => book && onBookClick(book.book.id)}
-              >
-                {isOwned && book ? (
-                  <Image
-                    src={book.edition.coverUrl || book.edition.coverThumbnailUrl || '/placeholder-book.svg'}
-                    alt={`Vol. ${volNum}`}
-                    fill
-                    className="object-cover"
-                    sizes="80px"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center">
-                    <span className="text-xs text-muted-foreground/50 font-bold">#{volNum}</span>
-                  </div>
-                )}
-                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-center py-0.5">
-                  <span className="text-[10px] text-white font-medium">Vol. {volNum}</span>
+            const book = sortedBooks.find((b) => b.series?.volumeNumber === volNum);
+            if (!book) {
+              return (
+                <div
+                  key={volNum}
+                  className="relative flex aspect-[2/3] items-center justify-center rounded-md border-2 border-dashed border-muted-foreground/20 bg-muted/30"
+                  aria-label={`Volume ${volNum} missing`}
+                >
+                  <span className="text-xs font-bold text-muted-foreground/50">#{volNum}</span>
                 </div>
-              </div>
+              );
+            }
+            return (
+              <button
+                key={volNum}
+                type="button"
+                className="relative aspect-[2/3] overflow-hidden rounded-md bg-muted transition-all hover:ring-2 hover:ring-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => onBookClick(book.book.id)}
+                aria-label={`${group.seriesName} volume ${volNum}`}
+              >
+                <CoverImage
+                  src={book.edition.coverUrl || book.edition.coverThumbnailUrl}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes="96px"
+                  loading="lazy"
+                />
+                <div className="absolute inset-x-0 bottom-0 bg-black/60 py-0.5 text-center">
+                  <span className="text-[10px] font-medium text-white">Vol. {volNum}</span>
+                </div>
+              </button>
             );
           })}
         </div>
-
-        {missingVols.length > 0 && (
-          <p className="mt-3 text-xs text-muted-foreground">
-            Missing: {missingVols.map(v => `#${v}`).join(', ')}
-          </p>
-        )}
       </CardContent>
     </Card>
   );
@@ -200,41 +265,52 @@ export default function LibraryPage() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showAddBookDialog, setShowAddBookDialog] = useState(false);
   const [showShared, setShowShared] = useState(false);
-  const [groupBySeries, setGroupBySeries] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem(GROUP_BY_SERIES_KEY) === 'true';
-  });
+  const groupBySeries = useSyncExternalStore(subscribeGroupBy, readGroupBy, () => false);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    localStorage.setItem(GROUP_BY_SERIES_KEY, String(groupBySeries));
-  }, [groupBySeries]);
+  const toggleGroupBySeries = () => writeGroupBy(!groupBySeries);
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const {
+    data,
+    isLoading,
+    error,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['books', filters],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (filters.query) params.append('search', filters.query);
-      if (filters.status && filters.status !== 'all') params.append('status', filters.status);
-      if (filters.author) params.append('author', filters.author);
-      if (filters.readingStatus && filters.readingStatus !== 'all') {
-        params.append('readingStatus', filters.readingStatus);
-      }
-      if (filters.format && filters.format !== 'all') params.append('format', filters.format);
-      if (filters.rating?.min) params.append('minRating', filters.rating.min.toString());
-      if (filters.year?.min) params.append('yearMin', filters.year.min.toString());
-      if (filters.year?.max) params.append('yearMax', filters.year.max.toString());
-      if (filters.genres && filters.genres.length > 0) params.append('genre', filters.genres[0]);
-
-      params.append('limit', '100');
-
-      const response = await fetch(`/api/books?${params.toString()}`);
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const response = await fetch(`/api/books?${buildBookParams(filters, pageParam).toString()}`);
       if (!response.ok) throw new Error('Failed to fetch books');
       return response.json() as Promise<BooksApiResponse>;
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes - avoids refetch on dialog open/close
+    getNextPageParam: (lastPage) => {
+      const { offset, limit, total } = lastPage.pagination;
+      const next = offset + limit;
+      return next < total ? next : undefined;
+    },
+    staleTime: 2 * 60 * 1000,
   });
 
-  // Fetch accepted incoming shares when toggle is on
+  // Auto-load the next page when the sentinel scrolls into view
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el || !hasNextPage) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: '600px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Shared libraries (only fetched when the toggle is on)
   const { data: sharesData } = useQuery({
     queryKey: ['shares'],
     queryFn: async () => {
@@ -245,23 +321,29 @@ export default function LibraryPage() {
     enabled: showShared,
   });
 
-  // Fetch books for each accepted incoming share
-  const acceptedShares = sharesData?.received.filter((s) => s.status === 'accepted') ?? [];
+  const acceptedShares = useMemo(
+    () => sharesData?.received.filter((s) => s.status === 'accepted') ?? [],
+    [sharesData]
+  );
 
   const { data: sharedBooksData } = useQuery<SharedBooksEntry[]>({
     queryKey: ['shared-books', acceptedShares.map((s) => s.ownerId ?? s.ownerEmail).join(',')],
     queryFn: async () => {
       const results = await Promise.all(
         acceptedShares.map(async (share) => {
-          const ownerId = (share as unknown as { user?: { id: string } }).user?.id ?? share.ownerId ?? '';
+          const ownerId =
+            (share as unknown as { user?: { id: string } }).user?.id ?? share.ownerId ?? '';
           if (!ownerId) return null;
           const response = await fetch(`/api/shares/books/${encodeURIComponent(ownerId)}`);
           if (!response.ok) return null;
-          const data = await response.json() as { books: BookWithRelations[]; sharedFrom?: { name?: string; email?: string } };
+          const payload = (await response.json()) as {
+            books: BookWithRelations[];
+            sharedFrom?: { name?: string; email?: string };
+          };
           return {
             ownerId,
-            ownerName: data.sharedFrom?.name ?? data.sharedFrom?.email ?? 'Unknown',
-            books: data.books,
+            ownerName: payload.sharedFrom?.name ?? payload.sharedFrom?.email ?? 'Unknown',
+            books: payload.books,
           };
         })
       );
@@ -270,236 +352,244 @@ export default function LibraryPage() {
     enabled: showShared && acceptedShares.length > 0,
   });
 
-  // Build merged book list with owner annotation
-  const ownBooks: AnnotatedBook[] = data?.books ?? [];
-  const sharedBooks: AnnotatedBook[] = showShared
-    ? (sharedBooksData ?? []).flatMap((entry) =>
-        entry.books.map((book) => ({ ...book, _sharedFrom: entry.ownerName }))
-      )
-    : [];
+  const ownBooks: AnnotatedBook[] = useMemo(
+    () => data?.pages.flatMap((page) => page.books) ?? [],
+    [data]
+  );
+  const sharedBooks: AnnotatedBook[] = useMemo(
+    () =>
+      showShared
+        ? (sharedBooksData ?? []).flatMap((entry) =>
+            entry.books.map((book) => ({ ...book, _sharedFrom: entry.ownerName }))
+          )
+        : [],
+    [showShared, sharedBooksData]
+  );
 
-  const unsortedBooks: AnnotatedBook[] = [...ownBooks, ...sharedBooks];
-
-  const allBooks: AnnotatedBook[] = [...unsortedBooks].sort((a, b) => {
-    switch (sortBy) {
-      case 'title-az':
-        return a.book.title.localeCompare(b.book.title);
-      case 'title-za':
-        return b.book.title.localeCompare(a.book.title);
-      case 'author-az': {
-        const authorA = a.authors?.[0]?.name ?? '';
-        const authorB = b.authors?.[0]?.name ?? '';
-        return authorA.localeCompare(authorB);
+  const allBooks: AnnotatedBook[] = useMemo(() => {
+    const merged = [...ownBooks, ...sharedBooks];
+    if (sortBy === 'recently-added') return merged; // server already orders by createdAt desc
+    return merged.sort((a, b) => {
+      switch (sortBy) {
+        case 'title-az':
+          return a.book.title.localeCompare(b.book.title);
+        case 'title-za':
+          return b.book.title.localeCompare(a.book.title);
+        case 'author-az':
+          return (a.authors?.[0]?.name ?? '').localeCompare(b.authors?.[0]?.name ?? '');
+        default:
+          return 0;
       }
-      case 'recently-added':
-      default:
-        return 0; // server already returns desc by createdAt
-    }
-  });
+    });
+  }, [ownBooks, sharedBooks, sortBy]);
 
-  const totalCount = (data?.pagination?.total ?? 0) + sharedBooks.length;
+  const seriesGroups = useMemo(() => {
+    const map = new Map<string, SeriesGroup>();
+    const ungrouped: AnnotatedBook[] = [];
+    for (const book of allBooks) {
+      if (book.series?.id) {
+        let group = map.get(book.series.id);
+        if (!group) {
+          group = {
+            seriesId: book.series.id,
+            seriesName: book.series.name,
+            coverUrl: null,
+            books: [],
+          };
+          map.set(book.series.id, group);
+        }
+        group.books.push(book);
+        if (!group.coverUrl) group.coverUrl = book.edition.coverUrl ?? null;
+      } else {
+        ungrouped.push(book);
+      }
+    }
+    return { groups: Array.from(map.values()), ungrouped };
+  }, [allBooks]);
+
+  const ownTotal = data?.pages[0]?.pagination.total ?? 0;
+  const totalCount = ownTotal + sharedBooks.length;
+  const hasActiveFilters = Object.values(filters).some((v) => v !== undefined && v !== '' && v !== 'all');
+  const isEmpty = !isLoading && !error && allBooks.length === 0;
+
+  const bookKey = (book: AnnotatedBook) => `${book._sharedFrom ?? 'own'}-${book.userBook.id}`;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">My Library</h1>
-          <p className="text-muted-foreground">
-            {totalCount} books in your collection
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant={showShared ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setShowShared((prev) => !prev)}
-          >
-            Show Shared
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button>Add Book</Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onSelect={() => setShowAddBookDialog(true)}>
-                Add Single Book
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setShowImportDialog(true)}>
-                Import from CSV
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+      <PageHeader
+        title="Library"
+        description={
+          isLoading
+            ? 'Loading your collection…'
+            : `${totalCount.toLocaleString()} ${totalCount === 1 ? 'book' : 'books'}${
+                hasActiveFilters ? ' match your filters' : ' in your collection'
+              }`
+        }
+        actions={
+          <>
+            <Button
+              variant={showShared ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={() => setShowShared((prev) => !prev)}
+              aria-pressed={showShared}
+            >
+              <Users className="h-4 w-4" aria-hidden="true" />
+              Shared
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm">
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Add Book
+                  <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => setShowAddBookDialog(true)}>
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Add a single book
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setShowImportDialog(true)}>
+                  <FileUp className="h-4 w-4" aria-hidden="true" />
+                  Import from CSV
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        }
+      />
 
       <AddBookDialog open={showAddBookDialog} onOpenChange={setShowAddBookDialog} />
       <CSVImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <AdvancedSearch onSearch={setFilters} initialFilters={filters} />
-        <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-          <SelectTrigger className="w-[140px] shrink-0">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
-              <SelectItem key={key} value={key}>
-                {SORT_LABELS[key]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          variant={groupBySeries ? 'default' : 'outline'}
-          size="sm"
-          className="shrink-0 gap-1"
-          onClick={() => setGroupBySeries((prev) => !prev)}
-          title="Group by Series"
-        >
-          <Layers className="h-4 w-4" />
-          <span className="hidden sm:inline">Group by Series</span>
-        </Button>
+      {/* Toolbar */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-start">
+        <div className="min-w-0 flex-1">
+          <AdvancedSearch onSearch={setFilters} initialFilters={filters} />
+        </div>
+        <div className="flex items-center gap-2">
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+            <SelectTrigger className="w-[165px] shrink-0" aria-label="Sort books">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
+                <SelectItem key={key} value={key}>
+                  {SORT_LABELS[key]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant={groupBySeries ? 'secondary' : 'outline'}
+            className="shrink-0"
+            onClick={toggleGroupBySeries}
+            aria-pressed={groupBySeries}
+            title="Group by series"
+          >
+            <Layers className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">Group by series</span>
+          </Button>
+        </div>
       </div>
 
-      {isLoading && (
-        <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="space-y-3">
-              <Skeleton className="aspect-[2/3] w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-3 w-2/3" />
-            </div>
-          ))}
-        </div>
-      )}
+      {isLoading && <BookGridSkeleton />}
 
       {error && (
-        <div className="flex items-center justify-between rounded-md bg-destructive/10 p-4 text-destructive">
-          <span>Failed to load books. Please try again.</span>
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
+        >
+          <span>Couldn&apos;t load your books.</span>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             Retry
           </Button>
         </div>
       )}
 
-      {allBooks.length === 0 && !isLoading && !error && (
-        <div className="rounded-xl border border-muted py-16 text-center">
-          <Library className="mx-auto h-12 w-12 text-muted-foreground/40" />
-          <h3 className="mt-4 text-lg font-semibold">Your collection is waiting</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Add your first book to start building your library.
-          </p>
-          <Button className="mt-6" onClick={() => setShowAddBookDialog(true)}>
-            Add Book
-          </Button>
-        </div>
-      )}
-
-      {allBooks.length > 0 && !groupBySeries && allBooks.length > 50 && (
-        <VirtualizedBookGrid
-          books={allBooks}
-          onBookClick={(bookId) => router.push(`/library/${bookId}`)}
-          renderOverlay={(book: AnnotatedBook) =>
-            book._sharedFrom ? (
-              <div className="absolute right-2 top-2 z-10">
-                <Badge className="bg-purple-600 text-white text-xs">
-                  From {book._sharedFrom}
-                </Badge>
-              </div>
-            ) : null
+      {isEmpty && hasActiveFilters && (
+        <EmptyState
+          icon={SearchX}
+          title="No books match"
+          description="Try a different search or clear some filters."
+          action={
+            <Button variant="outline" onClick={() => setFilters({})}>
+              Clear filters
+            </Button>
           }
         />
       )}
 
-      {allBooks.length > 0 && !groupBySeries && allBooks.length <= 50 && (
-        <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {allBooks.map((book: AnnotatedBook) => (
-            <div key={`${book._sharedFrom ?? 'own'}-${book.userBook.id}`} className="relative">
-              {book._sharedFrom && (
-                <div className="absolute right-2 top-2 z-10">
-                  <Badge className="bg-purple-600 text-white text-xs">
-                    From {book._sharedFrom}
-                  </Badge>
-                </div>
-              )}
-              <BookCard
-                book={book}
-                onClick={() => router.push(`/library/${book.book.id}`)}
-              />
+      {isEmpty && !hasActiveFilters && (
+        <EmptyState
+          icon={Library}
+          title="Your collection is waiting"
+          description="Add your first book by ISBN, barcode scan, or title search — or import a CSV from another app."
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button onClick={() => setShowAddBookDialog(true)}>
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Add a book
+              </Button>
+              <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+                <FileUp className="h-4 w-4" aria-hidden="true" />
+                Import CSV
+              </Button>
+            </div>
+          }
+        />
+      )}
+
+      {allBooks.length > 0 && !groupBySeries && (
+        <div className={BOOK_GRID_CLASS}>
+          {allBooks.map((book) => (
+            <div key={bookKey(book)} className="relative">
+              <SharedFromBadge name={book._sharedFrom} />
+              <BookCard book={book} onClick={() => router.push(`/library/${book.book.id}`)} />
             </div>
           ))}
         </div>
       )}
 
-      {allBooks.length > 0 && groupBySeries && (() => {
-        // Group books with a series together; ungrouped books render individually
-        const seriesMap = new Map<string, { group: SeriesGroup; books: AnnotatedBook[] }>();
-        const ungroupedBooks: AnnotatedBook[] = [];
+      {allBooks.length > 0 && groupBySeries && (
+        <div className={BOOK_GRID_CLASS}>
+          {seriesGroups.groups.map((group) => (
+            <SeriesGroupCard
+              key={group.seriesId}
+              group={group}
+              onBookClick={(bookId) => router.push(`/library/${bookId}`)}
+              onSeriesClick={(seriesId) => router.push(`/series/${seriesId}`)}
+            />
+          ))}
+          {seriesGroups.ungrouped.map((book) => (
+            <div key={bookKey(book)} className="relative">
+              <SharedFromBadge name={book._sharedFrom} />
+              <BookCard book={book} onClick={() => router.push(`/library/${book.book.id}`)} />
+            </div>
+          ))}
+        </div>
+      )}
 
-        for (const book of allBooks) {
-          if (book.series?.id) {
-            const sid = book.series.id;
-            if (!seriesMap.has(sid)) {
-              seriesMap.set(sid, {
-                group: {
-                  seriesId: sid,
-                  seriesName: book.series.name,
-                  coverUrl: book.edition.coverUrl ?? null,
-                  ownedVolumes: 0,
-                  totalVolumes: 0,
-                },
-                books: [],
-              });
-            }
-            const entry = seriesMap.get(sid)!;
-            entry.books.push(book);
-            entry.group.ownedVolumes = entry.books.length;
-            // Use first book's cover if not yet set
-            if (!entry.group.coverUrl) {
-              entry.group.coverUrl = book.edition.coverUrl ?? null;
-            }
-          } else {
-            ungroupedBooks.push(book);
-          }
-        }
-
-        // Set totalVolumes to ownedVolumes as a floor (we don't have total from this query)
-        seriesMap.forEach((entry) => {
-          entry.group.totalVolumes = entry.group.ownedVolumes;
-        });
-
-        const seriesGroups = Array.from(seriesMap.values());
-
-        return (
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {seriesGroups.map(({ group, books: groupBooks }) => (
-              <SeriesGroupCard
-                key={group.seriesId}
-                group={{ ...group, books: groupBooks }}
-                onBookClick={(bookId) => router.push(`/library/${bookId}`)}
-                onSeriesClick={(seriesId) => router.push(`/series/${seriesId}`)}
-              />
-            ))}
-            {ungroupedBooks.map((book: AnnotatedBook) => (
-              <div key={`${book._sharedFrom ?? 'own'}-${book.userBook.id}`} className="relative">
-                {book._sharedFrom && (
-                  <div className="absolute right-2 top-2 z-10">
-                    <Badge className="bg-purple-600 text-white text-xs">
-                      From {book._sharedFrom}
-                    </Badge>
-                  </div>
-                )}
-                <BookCard
-                  book={book}
-                  onClick={() => router.push(`/library/${book.book.id}`)}
-                />
-              </div>
-            ))}
-          </div>
-        );
-      })()}
+      {/* Pagination sentinel + manual fallback */}
+      {hasNextPage && (
+        <div ref={loadMoreRef} className="flex flex-col items-center gap-2 py-4">
+          <Button variant="outline" onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
+            {isFetchingNextPage ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Loading…
+              </>
+            ) : (
+              `Load more (${(ownTotal - ownBooks.length).toLocaleString()} remaining)`
+            )}
+          </Button>
+        </div>
+      )}
+      {!hasNextPage && ownBooks.length > PAGE_SIZE && (
+        <p className="py-2 text-center text-xs text-muted-foreground">
+          Showing all {ownBooks.length.toLocaleString()} books
+        </p>
+      )}
     </div>
   );
 }

@@ -1,14 +1,20 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { BookCard } from '@/components/books/book-card';
+import { BookGridSkeleton, BOOK_GRID_CLASS } from '@/components/books/book-grid-skeleton';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BookOpen, TrendingUp } from 'lucide-react';
+import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/layout/empty-state';
+import { BookOpen, TrendingUp, Library, Star } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { BookWithRelations, ReadingStats } from '@/types/api';
 
 export default function CurrentlyReadingPage() {
+  const router = useRouter();
   const { data: booksData, isLoading: booksLoading } = useQuery({
     queryKey: ['currently-reading'],
     queryFn: async () => {
@@ -29,23 +35,24 @@ export default function CurrentlyReadingPage() {
     staleTime: 2 * 60 * 1000,
   });
 
-  const isLoading = booksLoading || statsLoading;
-
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <BookOpen className="h-8 w-8" />
-          Currently Reading
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Track your reading progress and keep up with your goals
-        </p>
-      </div>
+      <PageHeader
+        icon={BookOpen}
+        title="Reading"
+        description="Track your reading progress and keep up with your goals"
+      />
 
       {/* Reading Stats Cards */}
+      {statsLoading && (
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4" aria-busy="true">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-xl" />
+          ))}
+        </div>
+      )}
       {stats && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Currently Reading</CardTitle>
@@ -84,7 +91,7 @@ export default function CurrentlyReadingPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <Star className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.averageRating.toFixed(1)}</div>
@@ -98,37 +105,31 @@ export default function CurrentlyReadingPage() {
       <div>
         <h2 className="text-xl font-semibold mb-4">Your Active Reads</h2>
 
-        {isLoading && (
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="space-y-3">
-                <Skeleton className="aspect-[2/3] w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-3 w-2/3" />
-              </div>
-            ))}
-          </div>
+        {booksLoading && <BookGridSkeleton count={6} />}
+
+        {!booksLoading && (!booksData || booksData.length === 0) && (
+          <EmptyState
+            icon={BookOpen}
+            title="No books in progress"
+            description="Open any book in your library and use “Update Reading Progress” to start tracking it here."
+            action={
+              <Button variant="outline" asChild>
+                <Link href="/library">
+                  <Library className="h-4 w-4" aria-hidden="true" />
+                  Browse Library
+                </Link>
+              </Button>
+            }
+          />
         )}
 
-        {!isLoading && (!booksData || booksData.length === 0) && (
-          <div className="rounded-xl border border-muted py-16 text-center">
-            <BookOpen className="mx-auto h-12 w-12 text-muted-foreground/40" />
-            <h3 className="mt-4 text-lg font-semibold">No books in progress</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Start reading a book from your library to track your progress here.
-            </p>
-            <a href="/library" className="inline-block mt-6">
-              <Button variant="outline">Browse Library</Button>
-            </a>
-          </div>
-        )}
-
-        {!isLoading && booksData && booksData.length > 0 && (
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        {!booksLoading && booksData && booksData.length > 0 && (
+          <div className={BOOK_GRID_CLASS}>
             {booksData.map((book: BookWithRelations) => (
               <BookCard
                 key={book.readingProgress?.id ?? book.userBook.id}
                 book={book}
+                onClick={() => router.push(`/library/${book.book.id}`)}
               />
             ))}
           </div>

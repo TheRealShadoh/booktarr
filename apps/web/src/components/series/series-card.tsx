@@ -1,12 +1,15 @@
+'use client';
+
 import Link from 'next/link';
-import Image from 'next/image';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import { CoverImage } from '@/components/books/cover-image';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Eye, EyeOff } from 'lucide-react';
+import { BookOpen, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface SeriesCardProps {
   series: {
@@ -23,6 +26,13 @@ interface SeriesCardProps {
     monitored?: boolean;
   };
 }
+
+const statusStyles: Record<string, string> = {
+  ongoing: 'border-blue-500/40 text-blue-600 dark:text-blue-400',
+  completed: 'border-green-500/40 text-green-600 dark:text-green-400',
+  hiatus: 'border-yellow-500/40 text-yellow-700 dark:text-yellow-400',
+  cancelled: 'border-red-500/40 text-red-600 dark:text-red-400',
+};
 
 export function SeriesCard({ series }: SeriesCardProps) {
   const { toast } = useToast();
@@ -50,21 +60,21 @@ export function SeriesCard({ series }: SeriesCardProps) {
       toast({ title: 'Error', description: 'Failed to update monitoring status.', variant: 'destructive' });
     },
   });
-  const statusColors: Record<string, string> = {
-    ongoing: 'bg-blue-500',
-    completed: 'bg-green-500',
-    hiatus: 'bg-yellow-500',
-    cancelled: 'bg-red-500',
-  };
+
+  const missing = Math.max(series.totalVolumes - series.ownedVolumes, 0);
+  const complete = series.completionPercentage >= 100;
+  const typeLabel = series.type?.replace(/_/g, ' ');
 
   return (
-    <div className="relative">
-      {/* Monitor toggle — positioned above the link so it captures its own clicks */}
+    <Card className="relative h-full gap-0 py-0 transition-all hover:-translate-y-0.5 hover:shadow-lg focus-within:ring-2 focus-within:ring-ring/50">
+      {/* Monitor toggle — a sibling of the link so it captures its own clicks */}
       <Button
         variant="ghost"
         size="icon"
-        className="absolute right-2 top-2 z-10 h-7 w-7 rounded-full opacity-70 hover:opacity-100"
-        aria-label={series.monitored ? 'Unmonitor series' : 'Monitor series'}
+        className="absolute right-2 top-2 z-10 h-8 w-8 rounded-full"
+        aria-label={series.monitored ? `Stop monitoring ${series.name}` : `Monitor ${series.name}`}
+        aria-pressed={!!series.monitored}
+        title={series.monitored ? 'Monitored — click to stop' : 'Not monitored — click to monitor'}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -79,85 +89,86 @@ export function SeriesCard({ series }: SeriesCardProps) {
         )}
       </Button>
 
-    <Link href={`/series/${series.id}`}>
-      <Card className="cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg">
-        <CardHeader>
-          <div className="flex gap-3">
-            {/* Series Cover Thumbnail */}
-            <div className="relative h-24 w-16 flex-shrink-0 overflow-hidden rounded bg-gradient-to-b from-muted to-muted/50">
+      <Link
+        href={`/series/${series.id}`}
+        className="block h-full rounded-xl focus-visible:outline-none"
+        aria-label={`Open ${series.name}`}
+      >
+        <CardContent className="flex h-full flex-col gap-4 p-4">
+          <div className="flex gap-4 pr-8">
+            <div className="relative h-28 w-[4.75rem] shrink-0 overflow-hidden rounded-md bg-muted shadow-sm">
               {series.coverUrl ? (
-                <Image
-                  src={series.coverUrl}
-                  alt={`${series.name} cover`}
-                  fill
-                  className="object-cover"
-                  sizes="64px"
-                />
+                <CoverImage src={series.coverUrl} alt="" fill className="object-cover" sizes="76px" />
               ) : (
                 <div className="flex h-full items-center justify-center">
-                  <BookOpen className="h-6 w-6 text-muted-foreground/30" />
+                  <BookOpen className="h-6 w-6 text-muted-foreground/30" aria-hidden="true" />
                 </div>
               )}
             </div>
 
-            {/* Title and Status */}
-            <div className="flex flex-1 items-start justify-between">
-              <div className="min-w-0">
-                <CardTitle className="line-clamp-2 text-lg">{series.name}</CardTitle>
-                <span className="text-xs text-muted-foreground capitalize">
-                  {[series.type?.replace(/_/g, ' '), series.status]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </span>
-                {series.description && (
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground/80">
-                    {series.description}
-                  </p>
+            <div className="min-w-0 flex-1">
+              <h3 className="line-clamp-2 text-base font-semibold leading-snug">{series.name}</h3>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                {typeLabel && (
+                  <span className="text-xs capitalize text-muted-foreground">{typeLabel}</span>
+                )}
+                {series.status && (
+                  <Badge
+                    variant="outline"
+                    className={cn('h-5 capitalize', statusStyles[series.status] ?? '')}
+                  >
+                    {series.status}
+                  </Badge>
                 )}
               </div>
-              <Badge className={`${statusColors[series.status] || 'bg-gray-500'} capitalize ml-2 shrink-0`}>
-                {series.status}
-              </Badge>
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Progress</span>
-              <span className="font-medium">
-                {series.ownedVolumes} / {series.totalVolumes} volumes
-              </span>
-            </div>
-
-            <Progress value={series.completionPercentage} className="h-2" />
-
-            <p className="text-center text-xs text-muted-foreground">
-              {series.completionPercentage}% complete
-            </p>
-          </div>
-
-          {series.completionPercentage === 100 && (
-            <p className="mt-1 text-xs text-green-500">&#10003; Complete</p>
-          )}
-
-          {series.completionPercentage < 100 && series.totalVolumes - series.ownedVolumes > 0 && (
-            <div className="mt-1 space-y-0.5">
-              <p className="text-xs text-blue-500">
-                {series.totalVolumes - series.ownedVolumes} volumes missing
-              </p>
-              {series.missingVolumeNumbers && series.missingVolumeNumbers.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Need: {series.missingVolumeNumbers.slice(0, 8).map(n => `#${n}`).join(', ')}
-                  {series.missingVolumeNumbers.length > 8 && ` +${series.missingVolumeNumbers.length - 8} more`}
-                </p>
+              {series.description && (
+                <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{series.description}</p>
               )}
             </div>
-          )}
+          </div>
+
+          <div className="mt-auto space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">
+                {series.ownedVolumes} / {series.totalVolumes || '?'} volumes
+              </span>
+              <span
+                className={cn(
+                  'text-xs',
+                  complete ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'
+                )}
+              >
+                {complete ? (
+                  <span className="inline-flex items-center gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    Complete
+                  </span>
+                ) : (
+                  `${series.completionPercentage}%`
+                )}
+              </span>
+            </div>
+            <Progress
+              value={Math.min(series.completionPercentage, 100)}
+              className="h-2"
+              aria-label={`${series.completionPercentage}% complete`}
+            />
+            {!complete && missing > 0 && (
+              <p className="truncate text-xs text-muted-foreground">
+                {missing} missing
+                {series.missingVolumeNumbers && series.missingVolumeNumbers.length > 0 && (
+                  <>
+                    {' · '}
+                    {series.missingVolumeNumbers.slice(0, 6).map((n) => `#${n}`).join(', ')}
+                    {series.missingVolumeNumbers.length > 6 &&
+                      ` +${series.missingVolumeNumbers.length - 6} more`}
+                  </>
+                )}
+              </p>
+            )}
+          </div>
         </CardContent>
-      </Card>
-    </Link>
-    </div>
+      </Link>
+    </Card>
   );
 }

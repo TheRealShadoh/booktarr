@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import Image from 'next/image';
+import { CoverImage } from '@/components/books/cover-image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -31,6 +31,9 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { generateStoreLinks } from '@/lib/utils/store-links';
+import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/layout/empty-state';
+import Link from 'next/link';
 
 interface WantedVolume {
   seriesId: string;
@@ -180,50 +183,37 @@ export default function WantedPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Wanted</h1>
-          <p className="text-muted-foreground">
-            {filteredVolumes.length} missing{' '}
-            {filteredVolumes.length === 1 ? 'volume' : 'volumes'} across{' '}
-            {seriesNames.length} {seriesNames.length === 1 ? 'series' : 'series'}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Monitor filter toggle */}
-          <Button
-            variant={monitorFilter === 'monitored' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() =>
-              setMonitorFilter(monitorFilter === 'monitored' ? 'all' : 'monitored')
-            }
-          >
-            {monitorFilter === 'monitored' ? (
-              <>
-                <Eye className="mr-2 h-4 w-4" />
-                Monitored Only
-              </>
-            ) : (
-              <>
-                <EyeOff className="mr-2 h-4 w-4" />
-                All Series
-              </>
-            )}
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Wanted"
+        description={
+          isLoading
+            ? 'Loading…'
+            : `${filteredVolumes.length} missing ${filteredVolumes.length === 1 ? 'volume' : 'volumes'} across ${seriesNames.length} series`
+        }
+        actions={
+          <>
+            <Button
+              variant={monitorFilter === 'monitored' ? 'secondary' : 'outline'}
+              size="sm"
+              aria-pressed={monitorFilter === 'monitored'}
+              onClick={() =>
+                setMonitorFilter(monitorFilter === 'monitored' ? 'all' : 'monitored')
+              }
+            >
+              {monitorFilter === 'monitored' ? (
+                <Eye className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <EyeOff className="h-4 w-4" aria-hidden="true" />
+              )}
+              {monitorFilter === 'monitored' ? 'Monitored only' : 'All series'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
+              Refresh
+            </Button>
+          </>
+        }
+      />
 
       {/* Loading skeletons */}
       {isLoading && (
@@ -253,19 +243,30 @@ export default function WantedPage() {
 
       {/* Empty state */}
       {!isLoading && !error && filteredVolumes.length === 0 && (
-        <div className="rounded-lg border-2 border-dashed py-16 text-center">
-          <Search className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
-          <p className="text-lg font-medium text-muted-foreground">
-            {monitorFilter === 'monitored'
-              ? 'No missing volumes in monitored series'
-              : 'No missing volumes found'}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {monitorFilter === 'monitored'
-              ? 'Toggle to "All Series" to see unmonitored missing volumes, or your collection is complete.'
-              : 'Your collection is complete or no series have been added yet.'}
-          </p>
-        </div>
+        <EmptyState
+          icon={Search}
+          title={
+            monitorFilter === 'monitored'
+              ? 'Nothing missing in monitored series'
+              : 'No missing volumes'
+          }
+          description={
+            monitorFilter === 'monitored' && (data?.items.length ?? 0) > 0
+              ? `${data?.items.length} missing volumes exist in series you aren't monitoring. Switch to "All series" to see them, or monitor a series from its page.`
+              : 'Your collection is complete, or no series have been added yet.'
+          }
+          action={
+            monitorFilter === 'monitored' && (data?.items.length ?? 0) > 0 ? (
+              <Button variant="outline" onClick={() => setMonitorFilter('all')}>
+                Show all series
+              </Button>
+            ) : (
+              <Button variant="outline" asChild>
+                <Link href="/series">View series</Link>
+              </Button>
+            )
+          }
+        />
       )}
 
       {/* Volumes grouped by series */}
@@ -276,8 +277,13 @@ export default function WantedPage() {
             if (!volumes) return null;
             return (
               <div key={seriesName} className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-semibold">{seriesName}</h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    href={`/series/${volumes[0]?.seriesId}`}
+                    className="text-lg font-semibold hover:text-primary hover:underline underline-offset-4"
+                  >
+                    {seriesName}
+                  </Link>
                   <Badge variant="secondary">{volumes.length} missing</Badge>
                   {volumes[0]?.monitored && (
                     <Badge variant="outline" className="text-xs">
@@ -293,12 +299,12 @@ export default function WantedPage() {
                     .map((volume) => (
                       <div
                         key={`${volume.seriesId}-${volume.volumeNumber}`}
-                        className="flex items-center gap-3 rounded-lg border p-3"
+                        className="flex items-center gap-3 rounded-xl border bg-card p-3"
                       >
                         {/* Cover thumbnail */}
                         <div className="relative h-16 w-11 shrink-0 overflow-hidden rounded bg-muted">
                           {volume.coverUrl ? (
-                            <Image
+                            <CoverImage
                               src={volume.coverUrl}
                               alt={`${volume.seriesName} Vol. ${volume.volumeNumber}`}
                               fill
@@ -351,8 +357,10 @@ export default function WantedPage() {
                           variant="outline"
                           onClick={() => handleSearch(volume)}
                           className="shrink-0"
+                          aria-label={`Search indexers for ${volume.seriesName} volume ${volume.volumeNumber}`}
+                          title="Search indexers"
                         >
-                          <Search className="h-3.5 w-3.5" />
+                          <Search className="h-3.5 w-3.5" aria-hidden="true" />
                         </Button>
                       </div>
                     ))}

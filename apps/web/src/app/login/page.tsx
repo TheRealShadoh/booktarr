@@ -6,7 +6,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { AuthShell, AuthError } from '@/components/auth/auth-shell';
 
 function LoginForm() {
   const router = useRouter();
@@ -57,7 +58,7 @@ function LoginForm() {
       } else {
         setError('Sign in failed. Please check your credentials.');
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -70,24 +71,12 @@ function LoginForm() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Welcome to BookTarr</CardTitle>
-          <CardDescription>Sign in to your account to continue</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
+    <AuthShell title="Welcome back" description="Sign in to your account to continue">
+          <AuthError message={error} />
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
-                Email
-              </label>
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -97,13 +86,12 @@ function LoginForm() {
                 required
                 disabled={loading}
                 autoComplete="email"
+                autoFocus
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                Password
-              </label>
+              <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -171,23 +159,19 @@ function LoginForm() {
               Sign up
             </Link>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+    </AuthShell>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold">Loading...</CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <AuthShell title="Welcome back" description="Sign in to your account to continue">
+          <div className="h-40 animate-pulse rounded-md bg-muted" />
+        </AuthShell>
+      }
+    >
       <LoginForm />
     </Suspense>
   );

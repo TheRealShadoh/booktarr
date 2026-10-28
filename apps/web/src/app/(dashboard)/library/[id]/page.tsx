@@ -20,7 +20,7 @@ import { BookDetailHeader } from '@/components/books/book-detail-header';
 import { BookMetadataCard } from '@/components/books/book-metadata-card';
 import { BookEditionsManager } from '@/components/books/book-editions-manager';
 import { BookRecommendations } from '@/components/books/book-recommendations';
-import { ArrowLeft, BookOpen } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function BookDetailPage({
@@ -146,7 +146,7 @@ export default function BookDetailPage({
     return null;
   }
 
-  const { book, authors, editions } = data;
+  const { book, authors, editions, series } = data;
 
   // Find primary edition (first owned, or first overall)
   const primaryEdition =
@@ -160,9 +160,9 @@ export default function BookDetailPage({
   return (
     <div className="space-y-6">
       {/* Back Button */}
-      <Button variant="ghost" onClick={() => router.push('/library')}>
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to Library
+      <Button variant="ghost" size="sm" className="-ml-2" onClick={() => router.back()}>
+        <ArrowLeft className="h-4 w-4" />
+        Back
       </Button>
 
       {/* Book Header */}
@@ -171,6 +171,7 @@ export default function BookDetailPage({
         authors={authors}
         coverUrl={primaryEdition?.coverUrl || primaryEdition?.coverThumbnailUrl}
         primaryEdition={primaryEdition}
+        series={series ?? null}
         userStatus={userStatus}
         readingProgress={readingProgress}
         onDelete={() => setShowDeleteDialog(true)}
@@ -197,21 +198,6 @@ export default function BookDetailPage({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Description */}
-      {book.description && (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 mb-3">
-              <BookOpen className="h-5 w-5" />
-              <h2 className="text-xl font-semibold">Description</h2>
-            </div>
-            <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
-              {book.description}
-            </p>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Metadata */}
       <BookMetadataCard book={book} edition={primaryEdition} />

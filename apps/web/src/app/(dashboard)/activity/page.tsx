@@ -13,6 +13,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/layout/empty-state';
 import {
   Bell,
   Download,
@@ -177,57 +179,48 @@ export default function ActivityPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold">Activity</h1>
+      <PageHeader
+        icon={Bell}
+        title="Activity"
+        description={
+          <>
+            {data?.items.length ?? 0} {(data?.items.length ?? 0) === 1 ? 'event' : 'events'}
             {unreadCount > 0 && (
-              <Badge className="h-5 min-w-5 px-1.5 text-xs">{unreadCount}</Badge>
+              <Badge className="ml-2 h-5 px-1.5 align-middle text-xs">{unreadCount} unread</Badge>
             )}
-          </div>
-          <p className="text-muted-foreground">
-            {data?.items.length ?? 0} total{' '}
-            {(data?.items.length ?? 0) === 1 ? 'event' : 'events'}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-
-          {unreadCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => markAllReadMutation.mutate()}
-              disabled={markAllReadMutation.isPending}
-            >
-              <CheckCheck className="mr-2 h-4 w-4" />
-              {markAllReadMutation.isPending ? 'Marking...' : 'Mark All Read'}
+          </>
+        }
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
+              Refresh
             </Button>
-          )}
-
-          {(data?.items.length ?? 0) > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => clearAllMutation.mutate()}
-              disabled={clearAllMutation.isPending}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              {clearAllMutation.isPending ? 'Clearing...' : 'Clear All'}
-            </Button>
-          )}
-        </div>
-      </div>
+            {unreadCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => markAllReadMutation.mutate()}
+                disabled={markAllReadMutation.isPending}
+              >
+                <CheckCheck className="h-4 w-4" aria-hidden="true" />
+                {markAllReadMutation.isPending ? 'Marking…' : 'Mark all read'}
+              </Button>
+            )}
+            {(data?.items.length ?? 0) > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => clearAllMutation.mutate()}
+                disabled={clearAllMutation.isPending}
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                {clearAllMutation.isPending ? 'Clearing…' : 'Clear all'}
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {/* Filters */}
       <div className="flex items-center gap-3">
@@ -278,19 +271,22 @@ export default function ActivityPage() {
 
       {/* Empty state */}
       {!isLoading && !error && filteredEntries.length === 0 && (
-        <div className="rounded-lg border-2 border-dashed py-16 text-center">
-          <Bell className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
-          <p className="text-lg font-medium text-muted-foreground">
-            {typeFilter !== ALL_EVENT_TYPES
-              ? 'No events match this filter'
-              : 'No activity yet'}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {typeFilter !== ALL_EVENT_TYPES
+        <EmptyState
+          icon={Bell}
+          title={typeFilter !== ALL_EVENT_TYPES ? 'No events match this filter' : 'No activity yet'}
+          description={
+            typeFilter !== ALL_EVENT_TYPES
               ? 'Try selecting a different event type.'
-              : 'Activity will appear here as your monitoring system works.'}
-          </p>
-        </div>
+              : 'Monitoring events — new volumes found, searches, downloads — will appear here.'
+          }
+          action={
+            typeFilter !== ALL_EVENT_TYPES ? (
+              <Button variant="outline" onClick={() => setTypeFilter(ALL_EVENT_TYPES)}>
+                Show all events
+              </Button>
+            ) : undefined
+          }
+        />
       )}
 
       {/* Activity timeline */}

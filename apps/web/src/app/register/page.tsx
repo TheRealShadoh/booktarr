@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { AuthShell, AuthError } from '@/components/auth/auth-shell';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -39,8 +40,8 @@ export default function RegisterPage() {
       return;
     }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+    if (password.length < 8 || !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+      setError('Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number.');
       return;
     }
 
@@ -91,7 +92,7 @@ export default function RegisterPage() {
         router.push('/library');
         router.refresh();
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -104,24 +105,12 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
-          <CardDescription>Enter your details to get started with BookTarr</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
+    <AuthShell title="Create an account" description="Enter your details to get started with BookTarr">
+          <AuthError message={error} />
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="name" className="text-sm font-medium">
-                Name (optional)
-              </label>
+              <Label htmlFor="name">Name (optional)</Label>
               <Input
                 id="name"
                 type="text"
@@ -130,13 +119,12 @@ export default function RegisterPage() {
                 onChange={(e) => setName(e.target.value)}
                 disabled={loading}
                 autoComplete="name"
+                autoFocus
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
-                Email
-              </label>
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -150,9 +138,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                Password
-              </label>
+              <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -165,14 +151,12 @@ export default function RegisterPage() {
                 autoComplete="new-password"
               />
               <p className="text-xs text-muted-foreground">
-                Must be at least 8 characters
+                At least 8 characters, with an uppercase letter, a lowercase letter, and a number.
               </p>
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="confirmPassword" className="text-sm font-medium">
-                Confirm Password
-              </label>
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -240,8 +224,6 @@ export default function RegisterPage() {
               Sign in
             </Link>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+    </AuthShell>
   );
 }

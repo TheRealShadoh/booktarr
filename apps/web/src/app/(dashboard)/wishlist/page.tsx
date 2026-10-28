@@ -2,74 +2,81 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { BookCard } from '@/components/books/book-card';
+import { BookGridSkeleton, BOOK_GRID_CLASS } from '@/components/books/book-grid-skeleton';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { AddBookDialog } from '@/components/books/add-book-dialog';
-import { BookMarked } from 'lucide-react';
+import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/layout/empty-state';
+import { Heart, Plus } from 'lucide-react';
+import type { BooksApiResponse } from '@/types/api';
 
 export default function WishlistPage() {
+  const router = useRouter();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['books', { status: 'wanted' }],
     queryFn: async () => {
-      const response = await fetch('/api/books?status=wanted');
+      const response = await fetch('/api/books?status=wanted&limit=100');
       if (!response.ok) throw new Error('Failed to fetch wishlist');
-      return response.json();
+      return response.json() as Promise<BooksApiResponse>;
     },
   });
 
+  const books = data?.books ?? [];
+  const total = data?.pagination?.total ?? books.length;
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Wishlist</h1>
-          <p className="text-muted-foreground">
-            {data?.books?.length || 0} books you want to read
-          </p>
-        </div>
-        <Button onClick={() => setAddDialogOpen(true)}>Add to Wishlist</Button>
-      </div>
+      <PageHeader
+        icon={Heart}
+        title="Wishlist"
+        description={isLoading ? 'Loading…' : `${total} ${total === 1 ? 'book' : 'books'} you want`}
+        actions={
+          <Button size="sm" onClick={() => setAddDialogOpen(true)}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Add to Wishlist
+          </Button>
+        }
+      />
 
-      {isLoading && (
-        <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="space-y-3">
-              <Skeleton className="aspect-[2/3] w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-3 w-2/3" />
-            </div>
-          ))}
-        </div>
-      )}
+      {isLoading && <BookGridSkeleton />}
 
       {error && (
-        <div className="flex items-center justify-between rounded-md bg-destructive/10 p-4 text-destructive">
-          <span>Failed to load wishlist. Please try again.</span>
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
+        >
+          <span>Couldn&apos;t load your wishlist.</span>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             Retry
           </Button>
         </div>
       )}
 
-      {data?.books?.length === 0 && !isLoading && !error && (
-        <div className="rounded-xl border border-muted py-16 text-center">
-          <BookMarked className="mx-auto h-12 w-12 text-muted-foreground/40" />
-          <h3 className="mt-4 text-lg font-semibold">Save books you want to read</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Your wishlist is empty. Add books you are looking forward to.
-          </p>
-          <Button className="mt-6" onClick={() => setAddDialogOpen(true)}>Add to Wishlist</Button>
-        </div>
+      {books.length === 0 && !isLoading && !error && (
+        <EmptyState
+          icon={Heart}
+          title="Save books you want"
+          description="Your wishlist is empty. Add the books you're looking forward to and they'll show up here with a Wanted badge."
+          action={
+            <Button onClick={() => setAddDialogOpen(true)}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Add to Wishlist
+            </Button>
+          }
+        />
       )}
 
-      {data?.books && data.books.length > 0 && (
-        <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {data.books.map((book: unknown) => (
+      {books.length > 0 && (
+        <div className={BOOK_GRID_CLASS}>
+          {books.map((book) => (
             <BookCard
-              key={(book as { userBook: { id: string } }).userBook.id}
-              book={book as Parameters<typeof BookCard>[0]['book']}
+              key={book.userBook.id}
+              book={book}
+              onClick={() => router.push(`/library/${book.book.id}`)}
             />
           ))}
         </div>

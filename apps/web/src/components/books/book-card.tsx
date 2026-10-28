@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, memo } from 'react';
-import Image from 'next/image';
+import { CoverImage } from '@/components/books/cover-image';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -48,19 +48,15 @@ interface BookCardProps {
 
 export const BookCard = memo(function BookCard({ book, onClick }: BookCardProps) {
   const [showProgressDialog, setShowProgressDialog] = useState(false);
-  const [imgError, setImgError] = useState(false);
+  const coverUrl = book.edition.coverUrl || book.edition.coverThumbnailUrl;
 
-  const coverUrl = imgError
-    ? '/placeholder-book.svg'
-    : book.edition.coverUrl ||
-      book.edition.coverThumbnailUrl ||
-      '/placeholder-book.svg';
-
-  const statusColors: Record<string, string> = {
-    owned: 'bg-green-500',
-    wanted: 'bg-blue-500',
-    missing: 'bg-gray-500',
+  // "Owned" is the default state in the library, so only call out the exceptions.
+  const statusBadge: Record<string, { label: string; className: string }> = {
+    wanted: { label: 'Wanted', className: 'bg-blue-600 text-white' },
+    missing: { label: 'Missing', className: 'bg-zinc-700 text-white' },
+    loaned: { label: 'Loaned', className: 'bg-amber-600 text-white' },
   };
+  const badge = statusBadge[book.userBook.status];
 
   const handleProgressClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -70,28 +66,37 @@ export const BookCard = memo(function BookCard({ book, onClick }: BookCardProps)
   return (
     <>
       <Card
-        className="group cursor-pointer overflow-hidden transition-shadow hover:shadow-lg"
+        className={`group overflow-hidden py-0 gap-0 transition-all ${
+          onClick ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-lg' : ''
+        } focus-within:ring-2 focus-within:ring-ring/50`}
         onClick={onClick}
+        role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        onKeyDown={(e) => {
+          if (onClick && (e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
+            e.preventDefault();
+            onClick();
+          }
+        }}
       >
         <CardContent className="p-0">
           <div className="relative aspect-[2/3] bg-muted">
-            <Image
+            <CoverImage
               src={coverUrl}
               alt={book.book.title}
               fill
-              className="object-cover transition-transform group-hover:scale-105"
-              sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-              onError={() => setImgError(true)}
+              className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 16vw"
               loading="lazy"
             />
-            <div className="absolute right-2 top-2 flex gap-2">
-              <Badge className={`${statusColors[book.userBook.status] || 'bg-gray-500'} capitalize`}>
-                {book.userBook.status}
-              </Badge>
-            </div>
+            {badge && (
+              <div className="absolute left-2 top-2">
+                <Badge className={`${badge.className} shadow-sm`}>{badge.label}</Badge>
+              </div>
+            )}
 
             {/* Reading progress button overlay - visible on hover (desktop) and always on touch */}
-            <div className="absolute bottom-2 right-2 opacity-100 md:opacity-0 transition-opacity md:group-hover:opacity-100">
+            <div className="absolute bottom-2 right-2 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
               <Button
                 size="sm"
                 variant="secondary"
@@ -105,7 +110,7 @@ export const BookCard = memo(function BookCard({ book, onClick }: BookCardProps)
             </div>
           </div>
 
-          <div className="p-4 space-y-3">
+          <div className="space-y-3 p-3">
             <div>
               <h3 className="line-clamp-2 font-semibold text-sm">
                 {book.book.title}
@@ -153,9 +158,13 @@ export const BookCard = memo(function BookCard({ book, onClick }: BookCardProps)
                 <Link
                   href={`/series/${book.series.id}`}
                   onClick={(e) => e.stopPropagation()}
-                  className="mt-2 inline-block"
+                  className="mt-2 block max-w-full"
+                  title={`${book.series.name} #${book.series.volumeNumber}`}
                 >
-                  <Badge variant="secondary" className="max-w-[150px] truncate text-xs hover:bg-secondary/80">
+                  <Badge
+                    variant="secondary"
+                    className="block max-w-full truncate text-left text-xs hover:bg-secondary/80"
+                  >
                     {book.series.name} #{book.series.volumeNumber}
                   </Badge>
                 </Link>

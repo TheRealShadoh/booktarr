@@ -1,5 +1,44 @@
 'use client';
 
+import { PageHeader } from '@/components/layout/page-header';
+
+const SETTINGS_SECTIONS: Array<{ id: string; label: string }> = [
+  { id: 'account', label: 'Account' },
+  { id: 'metadata-sources', label: 'Metadata Sources' },
+  { id: 'connected-services', label: 'Connected Services' },
+  { id: 'import-export', label: 'Import & Export' },
+  { id: 'enrichment', label: 'Enrichment' },
+  { id: 'duplicates', label: 'Duplicates' },
+  { id: 'sharing', label: 'Library Sharing' },
+  { id: 'download-clients', label: 'Download Clients' },
+  { id: 'indexers', label: 'Indexers' },
+  { id: 'import-lists', label: 'Import Lists' },
+  { id: 'quality-profiles', label: 'Quality Profiles' },
+  { id: 'data', label: 'Data Management' },
+];
+
+/** Sticky "on this page" navigation for the long settings page (desktop only). */
+function SettingsSectionNav() {
+  return (
+    <nav aria-label="Settings sections" className="hidden lg:block">
+      <ul className="sticky top-20 space-y-0.5 text-sm">
+        {SETTINGS_SECTIONS.map((section) => (
+          <li key={section.id}>
+            <a
+              href={`#${section.id}`}
+              className={`block rounded-md px-3 py-1.5 transition-colors hover:bg-muted hover:text-foreground ${
+                section.id === 'data' ? 'text-destructive/80' : 'text-muted-foreground'
+              }`}
+            >
+              {section.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
 import { useState, useEffect } from 'react';
 import { logger } from '@/lib/logger';
 import { useSession } from 'next-auth/react';
@@ -884,15 +923,15 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6 overflow-x-hidden">
-      <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your BookTarr preferences and account settings
-        </p>
-      </div>
+      <PageHeader
+        title="Settings"
+        description="Manage your BookTarr preferences, integrations and data"
+      />
 
-      <div className="grid gap-6">
-        <Card>
+      <div className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-8">
+      <SettingsSectionNav />
+      <div className="grid min-w-0 gap-6">
+        <Card id="account" className="scroll-mt-20">
           <CardHeader>
             <CardTitle>Account</CardTitle>
             <CardDescription>Manage your account settings</CardDescription>
@@ -932,7 +971,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="metadata-sources" className="scroll-mt-20">
           <CardHeader>
             <CardTitle>Metadata Sources</CardTitle>
             <CardDescription>Where book and series metadata is fetched from</CardDescription>
@@ -964,7 +1003,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="connected-services" className="scroll-mt-20">
           <CardHeader>
             <CardTitle>Connected Services</CardTitle>
             <CardDescription>Connect your Amazon reading libraries to track eBooks and audiobooks</CardDescription>
@@ -1047,7 +1086,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="import-export" className="scroll-mt-20">
           <CardHeader>
             <CardTitle>Import &amp; Export</CardTitle>
             <CardDescription>Manage your library data</CardDescription>
@@ -1080,7 +1119,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="enrichment" className="scroll-mt-20">
           <CardHeader>
             <CardTitle>Metadata Enrichment</CardTitle>
             <CardDescription>Automatically fetch missing book metadata</CardDescription>
@@ -1123,7 +1162,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="duplicates" className="scroll-mt-20">
           <CardHeader>
             <CardTitle>Duplicate Detection</CardTitle>
             <CardDescription>Find and remove duplicate books in your library</CardDescription>
@@ -1223,7 +1262,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="sharing" className="scroll-mt-20">
           <CardHeader>
             <CardTitle>Library Sharing</CardTitle>
             <CardDescription>Share your library with other BookTarr users</CardDescription>
@@ -1234,7 +1273,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* ---- Download Clients card ---- */}
-        <Card>
+        <Card id="download-clients" className="scroll-mt-20">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -1308,7 +1347,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* ---- Indexers card ---- */}
-        <Card>
+        <Card id="indexers" className="scroll-mt-20">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -1382,7 +1421,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* ---- Import Lists card ---- */}
-        <Card>
+        <Card id="import-lists" className="scroll-mt-20">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -1467,7 +1506,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* ---- Quality Profiles card ---- */}
-        <Card>
+        <Card id="quality-profiles" className="scroll-mt-20">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -1538,7 +1577,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-destructive">
+        <Card id="data" className="scroll-mt-20 border-destructive">
           <CardHeader>
             <CardTitle>Data Management</CardTitle>
             <CardDescription>Manage your library data</CardDescription>
@@ -1558,6 +1597,7 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+      </div>
       </div>
 
       <AddBookDialog

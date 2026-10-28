@@ -1,15 +1,17 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
+import { CoverImage } from '@/components/books/cover-image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { VolumeCard } from '@/components/series/volume-card';
+import { AddBookDialog } from '@/components/books/add-book-dialog';
+import { EmptyState } from '@/components/layout/empty-state';
 import { ArrowLeft, BookCopy, TrendingUp, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -36,6 +38,9 @@ export default function SeriesDetailsPage({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { id: seriesId } = use(params);
+
+  // "Add volume" dialog, pre-filled with the series name + volume number
+  const [addVolume, setAddVolume] = useState<{ volumeNumber: number; status: 'owned' | 'wanted' } | null>(null);
 
   // Fetch series details
   const { data, isLoading, error } = useQuery({
@@ -184,26 +189,32 @@ export default function SeriesDetailsPage({
       : 'bg-muted/30';
 
   const handleAddToCollection = (volumeNumber: number) => {
-    toast({
-      title: 'Add to Collection',
-      description: `Feature coming soon: Add volume ${volumeNumber} to your collection`,
-    });
+    setAddVolume({ volumeNumber, status: 'owned' });
   };
 
   const handleMarkAsWanted = (volumeNumber: number) => {
-    toast({
-      title: 'Add to Wishlist',
-      description: `Feature coming soon: Mark volume ${volumeNumber} as wanted`,
-    });
+    setAddVolume({ volumeNumber, status: 'wanted' });
   };
 
   return (
     <div className="space-y-6">
       {/* Back Button */}
-      <Button variant="ghost" onClick={() => router.push('/series')}>
-        <ArrowLeft className="mr-2 h-4 w-4" />
+      <Button variant="ghost" size="sm" className="-ml-2" onClick={() => router.push('/series')}>
+        <ArrowLeft className="h-4 w-4" />
         Back to Series
       </Button>
+
+      {addVolume && (
+        <AddBookDialog
+          key={`${addVolume.status}-${addVolume.volumeNumber}`}
+          open
+          onOpenChange={(open) => {
+            if (!open) setAddVolume(null);
+          }}
+          defaultStatus={addVolume.status}
+          initialTitle={`${series.name} Vol. ${addVolume.volumeNumber}`}
+        />
+      )}
 
       {/* Hero Section */}
       <div className="relative rounded-xl overflow-hidden">
@@ -221,7 +232,7 @@ export default function SeriesDetailsPage({
           {/* Series cover art */}
           {firstCoverUrl && (
             <div className="relative h-48 w-32 shrink-0 rounded-lg overflow-hidden shadow-lg self-start">
-              <Image
+              <CoverImage
                 src={firstCoverUrl}
                 alt={`${series.name} cover`}
                 fill
@@ -365,20 +376,15 @@ export default function SeriesDetailsPage({
         <h2 className="text-2xl font-semibold mb-4">Volumes</h2>
 
         {volumes.length === 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>No volumes found</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                This series doesn&apos;t have any volumes linked yet.
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={BookCopy}
+            title="No volumes linked yet"
+            description="Add books to your library with this series name, or run Reconcile from the Series page to link existing books."
+          />
         )}
 
         {volumes.length > 0 && (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          <div className="grid grid-cols-2 items-start gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {volumes.map((volume: Parameters<typeof VolumeCard>[0]['volume']) => (
               <VolumeCard
                 key={volume.volumeNumber}

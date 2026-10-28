@@ -1,25 +1,22 @@
 'use client';
 
 import { BulkScanner } from '@/components/books/bulk-scanner';
-import { Smartphone } from 'lucide-react';
+import { ScanBarcode } from 'lucide-react';
+import { PageHeader } from '@/components/layout/page-header';
 
 export default function ScanPage() {
   return (
     <div className="space-y-6 max-w-lg mx-auto">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Smartphone className="h-8 w-8" />
-          Bulk Scan
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Scan multiple book barcodes in a row. Books are queued locally and synced when ready.
-        </p>
-      </div>
+      <PageHeader
+        icon={ScanBarcode}
+        title="Bulk Scan"
+        description="Scan several barcodes in a row. Books queue locally and sync when you're ready."
+      />
 
       <BulkScanner />
 
-      <div className="rounded-lg border p-4 text-sm text-muted-foreground space-y-2">
-        <p className="font-medium text-foreground">How it works:</p>
+      <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground space-y-2">
+        <p className="font-medium text-foreground">How it works</p>
         <ol className="list-decimal list-inside space-y-1">
           <li>Tap &quot;Start Bulk Scanning&quot; to open your camera</li>
           <li>Point at book barcodes - each scan adds to the queue</li>
