@@ -30,10 +30,16 @@ const BarcodeScanner = lazy(() =>
   import('./barcode-scanner').then((mod) => ({ default: mod.BarcodeScanner }))
 );
 
+type AddBookTab = 'isbn' | 'scan' | 'title' | 'asin';
+
 interface AddBookDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultStatus?: 'owned' | 'wanted' | 'missing';
+  /** Pre-fill the Title Search field (e.g. "Series Name Vol. 3"). Pass a `key` to re-prefill. */
+  initialTitle?: string;
+  /** Which tab to open on. Defaults to 'title' when initialTitle is set, otherwise 'isbn'. */
+  initialTab?: AddBookTab;
 }
 
 interface SearchResult {
@@ -50,9 +56,16 @@ interface SearchResult {
   description?: string;
 }
 
-export function AddBookDialog({ open, onOpenChange, defaultStatus = 'owned' }: AddBookDialogProps) {
+export function AddBookDialog({
+  open,
+  onOpenChange,
+  defaultStatus = 'owned',
+  initialTitle = '',
+  initialTab,
+}: AddBookDialogProps) {
+  const defaultTab: AddBookTab = initialTab ?? (initialTitle ? 'title' : 'isbn');
   const [isbn, setIsbn] = useState('');
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(initialTitle);
   const [author, setAuthor] = useState('');
   const [status, setStatus] = useState<'owned' | 'wanted' | 'missing'>(defaultStatus);
   const [format, setFormat] = useState('');
@@ -147,9 +160,9 @@ export function AddBookDialog({ open, onOpenChange, defaultStatus = 'owned' }: A
 
   const handleClose = () => {
     setIsbn('');
-    setTitle('');
+    setTitle(initialTitle);
     setAuthor('');
-    setStatus('owned');
+    setStatus(defaultStatus);
     setFormat('');
     setAsin('');
     setAsinFormat('ebook');
@@ -346,7 +359,7 @@ export function AddBookDialog({ open, onOpenChange, defaultStatus = 'owned' }: A
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="isbn" className="w-full">
+        <Tabs defaultValue={defaultTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="isbn">ISBN Search</TabsTrigger>
             <TabsTrigger value="scan">

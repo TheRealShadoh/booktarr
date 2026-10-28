@@ -1,13 +1,23 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SeriesCard } from '@/components/series/series-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Plus, Search, Wrench, Sparkles, Layers, SearchX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/layout/empty-state';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -27,6 +37,7 @@ import {
 type SeriesType = 'manga' | 'light_novel' | 'book' | 'comic' | 'other';
 
 export default function SeriesPage() {
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [completionFilter, setCompletionFilter] = useState<'all' | 'in-progress' | 'complete'>('all');
   const { toast } = useToast();
@@ -36,6 +47,12 @@ export default function SeriesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newSeriesName, setNewSeriesName] = useState('');
   const [newSeriesType, setNewSeriesType] = useState<SeriesType>('book');
+
+  // Debounce the search box so we don't refetch on every keystroke
+  useEffect(() => {
+    const id = setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => clearTimeout(id);
+  }, [searchInput]);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['series', { search }],
@@ -131,69 +148,99 @@ export default function SeriesPage() {
     createSeriesMutation.mutate({ name: newSeriesName.trim(), seriesType: newSeriesType });
   };
 
+  const seriesCount: number = data?.series?.length ?? 0;
+  const toolsPending = enrichMutation.isPending || reconcileMutation.isPending;
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Series</h1>
-          <p className="text-muted-foreground">
-            {data?.series?.length ?? 0} series in your collection
-          </p>
-        </div>
+      <PageHeader
+        title="Series"
+        description={
+          isLoading
+            ? 'Loading…'
+            : `${seriesCount} ${seriesCount === 1 ? 'series' : 'series'} in your collection`
+        }
+        actions={
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={toolsPending}>
+                  {toolsPending ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Wrench className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  {enrichMutation.isPending
+                    ? 'Enriching…'
+                    : reconcileMutation.isPending
+                      ? 'Reconciling…'
+                      : 'Tools'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel>Maintenance</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => enrichMutation.mutate()}>
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                  <div className="flex flex-col">
+                    <span>Enrich metadata</span>
+                    <span className="text-xs text-muted-foreground">
+                      Fetch descriptions, covers and volume counts
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => reconcileMutation.mutate()}>
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                  <div className="flex flex-col">
+                    <span>Reconcile volumes</span>
+                    <span className="text-xs text-muted-foreground">
+                      Re-link library books to their series
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Create Series
+            </Button>
+          </>
+        }
+      />
 
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            onClick={() => enrichMutation.mutate()}
-            disabled={enrichMutation.isPending}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${enrichMutation.isPending ? 'animate-spin' : ''}`}
-            />
-            {enrichMutation.isPending ? 'Enriching...' : 'Enrich Metadata'}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => reconcileMutation.mutate()}
-            disabled={reconcileMutation.isPending}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${reconcileMutation.isPending ? 'animate-spin' : ''}`}
-            />
-            {reconcileMutation.isPending ? 'Reconciling...' : 'Reconcile'}
-          </Button>
-          <Button onClick={() => setCreateOpen(true)}>Create Series</Button>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1 sm:max-w-md">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            placeholder="Search series…"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="pl-9"
+            aria-label="Search series"
+          />
         </div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <Input
-          placeholder="Search series..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-md"
-        />
         <Select
           value={completionFilter}
           onValueChange={(v) => setCompletionFilter(v as 'all' | 'in-progress' | 'complete')}
         >
-          <SelectTrigger className="w-[150px] shrink-0">
+          <SelectTrigger className="w-[150px] shrink-0" aria-label="Filter by completion">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="in-progress">In Progress</SelectItem>
+            <SelectItem value="all">All series</SelectItem>
+            <SelectItem value="in-progress">In progress</SelectItem>
             <SelectItem value="complete">Complete</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       {isLoading && (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="space-y-3">
-              <Skeleton className="h-48 w-full" />
-            </div>
+            <Skeleton key={i} className="h-52 w-full rounded-xl" />
           ))}
         </div>
       )}
@@ -218,22 +265,41 @@ export default function SeriesPage() {
           });
 
         if (filteredSeries.length === 0 && !isLoading && !error) {
-          return (
-            <div className="rounded-lg border-2 border-dashed py-12 text-center">
-              <p className="text-muted-foreground">
-                {data?.series?.length === 0
-                  ? 'No series found. Create your first series to get started!'
-                  : 'No series match the selected filter.'}
-              </p>
-              {data?.series?.length === 0 && (
-                <Button className="mt-4" onClick={() => setCreateOpen(true)}>Create Series</Button>
-              )}
-            </div>
+          const nothingAtAll = seriesCount === 0 && !search;
+          return nothingAtAll ? (
+            <EmptyState
+              icon={Layers}
+              title="No series yet"
+              description="Series are created automatically when you add books that belong to one, or you can create one by hand."
+              action={
+                <Button onClick={() => setCreateOpen(true)}>
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Create Series
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              icon={SearchX}
+              title="No series match"
+              description="Try a different search or filter."
+              action={
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchInput('');
+                    setCompletionFilter('all');
+                  }}
+                >
+                  Clear search &amp; filters
+                </Button>
+              }
+            />
           );
         }
 
         return (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredSeries.map((series) => (
               <SeriesCard key={series.id} series={series} />
             ))}

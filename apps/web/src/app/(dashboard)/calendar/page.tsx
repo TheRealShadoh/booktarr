@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CalendarDays, BookOpen, Eye, EyeOff, ExternalLink } from 'lucide-react';
 import { generateStoreLinks } from '@/lib/utils/store-links';
+import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/layout/empty-state';
 
 interface SeriesEntry {
   id: string;
@@ -98,46 +100,39 @@ export default function CalendarPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <CalendarDays className="h-8 w-8" />
-            Release Calendar
-          </h1>
-          <p className="text-muted-foreground">
-            What to buy next &mdash; {totalNeeded} volume{totalNeeded !== 1 ? 's' : ''} needed
-            {monitorFilter === 'monitored' ? ' in monitored series' : ' across your tracked series'}
-          </p>
-        </div>
-
-        {/* Monitored filter toggle */}
-        <Button
-          variant={monitorFilter === 'monitored' ? 'default' : 'outline'}
-          size="sm"
-          className="self-start"
-          onClick={() =>
-            setMonitorFilter(monitorFilter === 'monitored' ? 'all' : 'monitored')
-          }
-        >
-          {monitorFilter === 'monitored' ? (
-            <>
-              <Eye className="mr-2 h-4 w-4" />
-              Monitored Only
-              {monitoredCount > 0 && (
-                <Badge variant="secondary" className="ml-2 px-1.5 py-0 text-xs">
-                  {monitoredCount}
-                </Badge>
-              )}
-            </>
-          ) : (
-            <>
-              <EyeOff className="mr-2 h-4 w-4" />
-              All Series
-            </>
-          )}
-        </Button>
-      </div>
+      <PageHeader
+        icon={CalendarDays}
+        title="Up Next"
+        description={
+          isLoading
+            ? 'Loading…'
+            : `What to buy next — ${totalNeeded} volume${totalNeeded !== 1 ? 's' : ''} needed${
+                monitorFilter === 'monitored' ? ' in monitored series' : ' across all series'
+              }`
+        }
+        actions={
+          <Button
+            variant={monitorFilter === 'monitored' ? 'secondary' : 'outline'}
+            size="sm"
+            aria-pressed={monitorFilter === 'monitored'}
+            onClick={() =>
+              setMonitorFilter(monitorFilter === 'monitored' ? 'all' : 'monitored')
+            }
+          >
+            {monitorFilter === 'monitored' ? (
+              <Eye className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <EyeOff className="h-4 w-4" aria-hidden="true" />
+            )}
+            {monitorFilter === 'monitored' ? 'Monitored only' : 'All series'}
+            {monitorFilter === 'monitored' && monitoredCount > 0 && (
+              <Badge variant="outline" className="ml-1 h-5 px-1.5">
+                {monitoredCount}
+              </Badge>
+            )}
+          </Button>
+        }
+      />
 
       {/* Loading skeletons */}
       {isLoading && (
@@ -164,29 +159,34 @@ export default function CalendarPage() {
 
       {/* Empty state */}
       {!isLoading && totalNeeded === 0 && !error && (
-        <div className="rounded-lg border-2 border-dashed py-16 text-center">
-          <CalendarDays className="mx-auto h-12 w-12 text-muted-foreground/30 mb-4" />
-          <p className="text-lg font-medium text-muted-foreground">
-            {monitorFilter === 'monitored' && monitoredCount === 0 && nextVolumes.length > 0
-              ? 'No monitored series with missing volumes'
+        <EmptyState
+          icon={CalendarDays}
+          title={
+            monitorFilter === 'monitored' && monitoredCount === 0 && nextVolumes.length > 0
+              ? 'No monitored series need volumes'
               : (data?.series ?? []).length === 0
                 ? 'No series tracked yet'
-                : 'All tracked series are complete'}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {monitorFilter === 'monitored' && nextVolumes.length > 0
-              ? 'Toggle to "All Series" to see all missing volumes, or monitor a series to track it here.'
+                : 'All series are complete'
+          }
+          description={
+            monitorFilter === 'monitored' && nextVolumes.length > 0
+              ? `${nextVolumes.length} series you aren't monitoring still need volumes. Switch to "All series" or monitor a series to track it here.`
               : (data?.series ?? []).length === 0
                 ? 'Add books to your library to see what to buy next.'
-                : "Nothing left to buy — your collection is up to date!"}
-          </p>
-          <Link
-            href="/series"
-            className="mt-4 inline-block text-sm text-primary underline-offset-4 hover:underline"
-          >
-            View all series
-          </Link>
-        </div>
+                : 'Nothing left to buy — your collection is up to date!'
+          }
+          action={
+            monitorFilter === 'monitored' && nextVolumes.length > 0 ? (
+              <Button variant="outline" onClick={() => setMonitorFilter('all')}>
+                Show all series
+              </Button>
+            ) : (
+              <Button variant="outline" asChild>
+                <Link href="/series">View series</Link>
+              </Button>
+            )
+          }
+        />
       )}
 
       {/* Calendar entries grouped by month */}

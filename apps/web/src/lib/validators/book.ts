@@ -83,7 +83,10 @@ export const bookSearchParamsSchema = z.object({
   author: z.string().max(200).optional(),
   status: z.enum(['owned', 'wanted', 'missing', 'loaned']).optional(),
   format: z.enum(['hardcover', 'paperback', 'ebook', 'audiobook', 'manga', 'other']).optional(),
-  readingStatus: z.enum(['not_started', 'reading', 'completed', 'on_hold']).optional(),
+  // Must match ReadingStatus in lib/services/reading-progress.ts (the values stored in reading_progress.status)
+  readingStatus: z
+    .enum(['want_to_read', 'currently_reading', 'finished', 'dnf', 'on_hold'])
+    .optional(),
   minRating: z.number().min(0).max(5).optional(),
   yearMin: z.number().int().min(1000).max(new Date().getFullYear() + 10).optional(),
   yearMax: z.number().int().min(1000).max(new Date().getFullYear() + 10).optional(),

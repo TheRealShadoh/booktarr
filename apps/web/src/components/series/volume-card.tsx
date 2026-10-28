@@ -1,12 +1,13 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
+import { CoverImage } from '@/components/books/cover-image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Plus, Heart, ExternalLink } from 'lucide-react';
 import { generateStoreLinks } from '@/lib/utils/store-links';
+import { cn } from '@/lib/utils';
 
 interface VolumeCardProps {
   volume: {
@@ -27,137 +28,111 @@ interface VolumeCardProps {
   onMarkAsWanted?: (volumeNumber: number) => void;
 }
 
-export function VolumeCard({ volume, seriesId: _seriesId, seriesName, onAddToCollection, onMarkAsWanted }: VolumeCardProps) {
-  const statusConfig = {
-    owned: {
-      badge: <Badge className="bg-green-500">Owned</Badge>,
-      bgColor: 'bg-green-500/5',
-      borderColor: 'border-green-500/20',
-    },
-    wanted: {
-      badge: <Badge className="bg-blue-500">Wanted</Badge>,
-      bgColor: 'bg-blue-500/5',
-      borderColor: 'border-blue-500/20',
-    },
-    missing: {
-      badge: <Badge variant="outline" className="text-muted-foreground">Missing</Badge>,
-      bgColor: 'bg-muted/30',
-      borderColor: 'border-muted',
-    },
-  };
+const statusConfig = {
+  owned: {
+    badge: <Badge className="bg-green-600 text-white">Owned</Badge>,
+    card: 'border-green-500/30',
+  },
+  wanted: {
+    badge: <Badge className="bg-blue-600 text-white">Wanted</Badge>,
+    card: 'border-blue-500/30',
+  },
+  missing: {
+    badge: (
+      <Badge variant="outline" className="text-muted-foreground">
+        Missing
+      </Badge>
+    ),
+    card: 'border-dashed',
+  },
+} as const;
 
+export function VolumeCard({
+  volume,
+  seriesName,
+  onAddToCollection,
+  onMarkAsWanted,
+}: VolumeCardProps) {
   const config = statusConfig[volume.status];
+  const linkToBook = volume.owned && volume.book ? `/library/${volume.book.id}` : null;
 
-  const CardWrapper = volume.owned && volume.book ? Link : 'div';
-  const cardProps = volume.owned && volume.book
-    ? { href: `/library/${volume.book.id}` }
-    : {};
+  const cover = (
+    <div className="relative aspect-[2/3] overflow-hidden rounded-md bg-muted">
+      <CoverImage
+        src={volume.coverUrl}
+        alt={volume.volumeName ? `${volume.volumeName} cover` : `Volume ${volume.volumeNumber} cover`}
+        fill
+        className={cn('object-cover', !volume.owned && 'opacity-80 grayscale-[30%]')}
+        sizes="(max-width: 640px) 50vw, 200px"
+      />
+      <div className="absolute left-1.5 top-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-xs font-bold text-white">
+        #{volume.volumeNumber}
+      </div>
+      <div className="absolute right-1.5 top-1.5">{config.badge}</div>
+    </div>
+  );
+
+  const storeLinks =
+    !volume.owned && seriesName
+      ? generateStoreLinks(null, `${seriesName} Vol. ${volume.volumeNumber}`)
+      : [];
 
   return (
-    <CardWrapper {...(cardProps as any)}>
-      <Card className={`${config.bgColor} ${config.borderColor} border-2 transition-all ${
-        volume.owned && volume.book ? 'cursor-pointer hover:shadow-md' : ''
-      }`}>
-        <CardContent className="p-4">
-          {/* Volume Number Badge */}
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-foreground">#{volume.volumeNumber}</span>
-            </div>
-            {config.badge}
-          </div>
+    <Card className={cn('h-full gap-0 py-0 transition-all', config.card, linkToBook && 'hover:-translate-y-0.5 hover:shadow-md')}>
+      <CardContent className="flex h-full flex-col gap-3 p-3">
+        {linkToBook ? (
+          <Link href={linkToBook} className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open ${volume.book?.title ?? `volume ${volume.volumeNumber}`}`}>
+            {cover}
+          </Link>
+        ) : (
+          cover
+        )}
 
-          {/* Cover Image */}
-          <div className="relative aspect-[2/3] bg-muted rounded-md overflow-hidden mb-3">
-            <Image
-              src={volume.coverUrl || "/placeholder-book.svg"}
-              alt={`Volume ${volume.volumeNumber}`}
-              fill
-              className="object-cover"
-              sizes="200px"
-            />
-          </div>
+        <div>
+          <p className="line-clamp-2 text-sm font-medium">
+            {volume.volumeName || volume.book?.title || `Volume ${volume.volumeNumber}`}
+          </p>
+        </div>
 
-          {/* Volume Title */}
-          <div className="min-h-[3rem] mb-3">
-            {volume.volumeName && (
-              <p className="text-sm font-medium line-clamp-2 mb-1">{volume.volumeName}</p>
+        {!volume.owned && (
+          <div className="mt-auto flex flex-col gap-2">
+            {onAddToCollection && (
+              <Button size="sm" className="w-full" onClick={() => onAddToCollection(volume.volumeNumber)}>
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Add to Collection
+              </Button>
             )}
-            {volume.owned && volume.book && (
-              <p className="text-xs text-muted-foreground line-clamp-2">{volume.book.title}</p>
+            {!volume.wanted && onMarkAsWanted && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={() => onMarkAsWanted(volume.volumeNumber)}
+              >
+                <Heart className="h-4 w-4" aria-hidden="true" />
+                Add to Wishlist
+              </Button>
             )}
-            {!volume.owned && !volume.volumeName && (
-              <p className="text-xs text-muted-foreground italic">Volume {volume.volumeNumber}</p>
+            {storeLinks.length > 0 && (
+              <div className="flex flex-wrap gap-1 pt-1">
+                {storeLinks.map((link) => (
+                  <a
+                    key={link.name}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`Buy on ${link.name}`}
+                    className="inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
+                  >
+                    {link.shortName}
+                    <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
+                  </a>
+                ))}
+              </div>
             )}
           </div>
-
-          {/* Action Buttons */}
-          {!volume.owned && (
-            <div className="flex flex-col gap-2">
-              {onAddToCollection && (
-                <Button
-                  size="sm"
-                  variant="default"
-                  className="w-full"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onAddToCollection(volume.volumeNumber);
-                  }}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add to Collection
-                </Button>
-              )}
-              {!volume.wanted && onMarkAsWanted && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onMarkAsWanted(volume.volumeNumber);
-                  }}
-                >
-                  <Heart className="h-4 w-4 mr-1" />
-                  Add to Wishlist
-                </Button>
-              )}
-              {/* Store purchase links — only shown when we have a series name */}
-              {seriesName && (() => {
-                const storeLinks = generateStoreLinks(
-                  null,
-                  `${seriesName} Vol. ${volume.volumeNumber}`
-                );
-                if (storeLinks.length === 0) return null;
-                return (
-                  <div className="flex flex-wrap gap-1 pt-1">
-                    {storeLinks.map((link) => (
-                      <a
-                        key={link.name}
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title={`Buy on ${link.name}`}
-                        className="inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          window.open(link.url, '_blank', 'noopener,noreferrer');
-                        }}
-                      >
-                        {link.shortName}
-                        <ExternalLink className="h-2.5 w-2.5" />
-                      </a>
-                    ))}
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </CardWrapper>
+        )}
+      </CardContent>
+    </Card>
   );
 }

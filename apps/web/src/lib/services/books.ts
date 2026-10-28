@@ -549,10 +549,24 @@ export class BookService {
       userStatus: userStatus || null,
     }));
 
+    // Series membership (if any) so the detail page can link back to the series
+    const [seriesLink] = await db
+      .select({
+        id: series.id,
+        name: series.name,
+        volumeNumber: seriesBooks.volumeNumber,
+        volumeName: seriesBooks.volumeName,
+      })
+      .from(seriesBooks)
+      .innerJoin(series, eq(seriesBooks.seriesId, series.id))
+      .where(eq(seriesBooks.bookId, book.id))
+      .limit(1);
+
     return {
       book,
       authors: bookAuthorsData,
       editions: editionsWithStatus,
+      series: seriesLink ?? null,
     };
   }
 

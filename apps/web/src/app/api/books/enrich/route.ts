@@ -48,15 +48,16 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       count: booksNeedingEnrichment.length,
-      books: booksNeedingEnrichment.map(({ book, edition }) => ({
-        id: book.id,
-        title: book.title,
-        isbn: edition.isbn13 || edition.isbn10,
+      // getBooksNeedingEnrichment returns flat rows (bookId, title, coverUrl, …), not nested book/edition objects
+      books: booksNeedingEnrichment.map((row) => ({
+        id: row.bookId,
+        title: row.title,
+        isbn: row.isbn13 || row.isbn10,
         missingFields: {
-          description: !book.description,
-          cover: !edition.coverUrl,
-          pageCount: !book.pageCount,
-          publisher: !book.publisher,
+          description: !row.description,
+          cover: !row.coverUrl,
+          pageCount: !row.pageCount,
+          publisher: !row.bookPublisher,
         },
       })),
     });

@@ -1,30 +1,27 @@
-<svg width="400" height="600" viewBox="0 0 400 600" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background -->
-  <rect width="400" height="600" fill="#25262a"/>
+<svg width="400" height="600" viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Theme-neutral placeholder: mid-grey background works on both light and dark cards -->
+  <rect width="400" height="600" fill="#6b6c72"/>
+  <rect width="400" height="600" fill="url(#g)"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.18"/>
+    </linearGradient>
+  </defs>
 
   <!-- Book icon -->
   <g transform="translate(100, 200)">
-    <!-- Book pages -->
-    <rect x="20" y="0" width="160" height="200" fill="#404147" rx="4"/>
-    <rect x="15" y="5" width="160" height="200" fill="#4a4b4f" rx="4"/>
-    <rect x="10" y="10" width="160" height="200" fill="#f2f2f3" rx="4"/>
-
-    <!-- Book spine -->
+    <rect x="20" y="0" width="160" height="200" fill="#000000" fill-opacity="0.25" rx="4"/>
+    <rect x="15" y="5" width="160" height="200" fill="#000000" fill-opacity="0.18" rx="4"/>
+    <rect x="10" y="10" width="160" height="200" fill="#f4f1ec" rx="4"/>
     <rect x="10" y="10" width="30" height="200" fill="#e6956f" rx="4"/>
-
-    <!-- Vertical lines on spine -->
     <line x1="20" y1="20" x2="20" y2="200" stroke="#ed9d72" stroke-width="2"/>
     <line x1="30" y1="20" x2="30" y2="200" stroke="#d97757" stroke-width="2"/>
-
-    <!-- Pages detail -->
-    <line x1="40" y1="30" x2="160" y2="30" stroke="#a8a9ad" stroke-width="1" opacity="0.5"/>
-    <line x1="40" y1="50" x2="140" y2="50" stroke="#a8a9ad" stroke-width="1" opacity="0.5"/>
-    <line x1="40" y1="70" x2="150" y2="70" stroke="#a8a9ad" stroke-width="1" opacity="0.5"/>
-    <line x1="40" y1="90" x2="145" y2="90" stroke="#a8a9ad" stroke-width="1" opacity="0.5"/>
+    <line x1="52" y1="40" x2="150" y2="40" stroke="#9a9ba0" stroke-width="2" opacity="0.6"/>
+    <line x1="52" y1="60" x2="130" y2="60" stroke="#9a9ba0" stroke-width="2" opacity="0.6"/>
+    <line x1="52" y1="80" x2="140" y2="80" stroke="#9a9ba0" stroke-width="2" opacity="0.6"/>
+    <line x1="52" y1="100" x2="125" y2="100" stroke="#9a9ba0" stroke-width="2" opacity="0.6"/>
   </g>
 
-  <!-- Text -->
-  <text x="200" y="450" font-family="Arial, sans-serif" font-size="18" fill="#a8a9ad" text-anchor="middle">
-    No Cover Available
-  </text>
+  <text x="200" y="455" font-family="system-ui, -apple-system, Segoe UI, Arial, sans-serif" font-size="18" fill="#f4f1ec" fill-opacity="0.8" text-anchor="middle">No cover</text>
 </svg>
